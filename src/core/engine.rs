@@ -16,11 +16,11 @@
 #[derive(Debug)]
 pub struct Engine {
     mode: Mode,
-    answer_buffer: String,    // the real, hidden answer
-    visible_buffer: String,   // what the audience sees being "typed"
-    decoy: Vec<char>,         // the incantation, char-indexed (UTF-8 safe)
-    decoy_cursor: usize,      // how many decoy chars revealed so far
-    revealed: Option<String>, // Some(answer) after Enter
+    answer_buffer: String,      // the real, hidden answer
+    visible_buffer: String,     // what the audience sees being "typed"
+    decoy_char_list: Vec<char>, // the incantation, char-indexed (UTF-8 safe)
+    decoy_cursor: usize,        // how many decoy chars revealed so far
+    revealed: Option<String>,   // Some(answer) after Enter
 }
 
 #[derive(Debug, Default, PartialEq, Clone, Copy)]
@@ -50,7 +50,7 @@ impl Engine {
             mode: Mode::default(),
             answer_buffer: String::new(),
             visible_buffer: String::new(),
-            decoy: decoy_str.chars().collect(),
+            decoy_char_list: decoy_str.chars().collect(),
             decoy_cursor: 0,
             revealed: None,
         }
@@ -105,15 +105,17 @@ impl Engine {
     }
 
     fn consume_decoy_buffer(&mut self, ch: char) {
-        let decoy_char_to_be_consumed = self.decoy[self.decoy_cursor];
-
-        self.write_to_visible_buffer(decoy_char_to_be_consumed);
+        if let Some(valid_decoy_ch) = self.decoy_char_list.get(self.decoy_cursor) {
+            self.write_to_visible_buffer(*valid_decoy_ch);
+        }
         self.advance_decoy(ch);
     }
 
     fn advance_decoy(&mut self, ch: char) {
         self.write_to_answer_buffer(ch);
-        self.decoy_cursor += 1;
+        if self.decoy_cursor < self.decoy_char_list.len() {
+            self.decoy_cursor += 1;
+        }
     }
 }
 
