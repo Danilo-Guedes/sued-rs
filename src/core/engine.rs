@@ -35,7 +35,7 @@ pub enum Key {
     Backspace,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StateChange {
     None,
     EnteredHidden,
@@ -79,6 +79,16 @@ mod tests {
 
     use super::*;
 
+    fn build_test_engine() -> Engine {
+        Engine::new(DECOY_STRING)
+    }
+
+    fn simulate_typing(engine: &mut Engine, typed: &str) -> () {
+        for ch in typed.chars() {
+            engine.handle_key(Key::Char(ch));
+        }
+    }
+
     #[test]
     fn new_engine_starts_in_normal_mode() {
         let engine = build_test_engine();
@@ -104,13 +114,47 @@ mod tests {
         assert_eq!(engine.visible_buffer, typed)
     }
 
-    fn build_test_engine() -> Engine {
-        Engine::new(DECOY_STRING)
+    #[test]
+    fn semicolon_toggles_normal_to_hidden() {
+        let mut engine = build_test_engine();
+
+        // ';' is the secret switch, NOT text — it must flip the mode and
+        // must not land in any buffer.
+        let change = engine.handle_key(Key::Char(';'));
+
+        assert_eq!(
+            engine.mode,
+            Mode::Hidden,
+            "';' in Normal mode should switch to Hidden"
+        );
+        assert_eq!(
+            change,
+            StateChange::EnteredHidden,
+            "toggling into Hidden should report EnteredHidden"
+        );
+        assert!(
+            engine.visible_buffer.is_empty(),
+            "';' must not be typed into visible_buffer, got={:?}",
+            engine.visible_buffer
+        );
     }
 
-    fn simulate_typing(engine: &mut Engine, typed: &str) -> () {
-        for ch in typed.chars() {
-            engine.handle_key(Key::Char(ch));
-        }
+    #[test]
+    fn semicolon_toggles_hidden_back_to_normal() {
+        let mut engine = build_test_engine();
+
+        engine.handle_key(Key::Char(';')); // Normal -> Hidden
+        let change = engine.handle_key(Key::Char(';')); // Hidden -> Normal
+
+        assert_eq!(
+            engine.mode,
+            Mode::Normal,
+            "a second ';' should switch back to Normal"
+        );
+        assert_eq!(
+            change,
+            StateChange::ExitedHidden,
+            "toggling out of Hidden should report ExitedHidden"
+        );
     }
 }
