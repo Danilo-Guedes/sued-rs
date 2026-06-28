@@ -56,42 +56,79 @@ impl Engine {
         }
     }
     pub fn handle_key(&mut self, key: Key) -> StateChange {
-        match key {
-            Key::Char(typed_char) => match typed_char {
-                ';' => {
-                    let next_mode = match self.mode {
-                        Mode::Hidden => Mode::Normal,
-                        Mode::Normal => Mode::Hidden,
-                    };
-                    self.switch_mode(&next_mode);
+        match self.mode {
+            Mode::Normal => {
+                match key {
+                    Key::Char(typed_char) => match typed_char {
+                        ';' => {
+                            self.switch_mode(Mode::Hidden);
 
-                    return match next_mode {
-                        Mode::Hidden => StateChange::EnteredHidden,
-                        Mode::Normal => StateChange::ExitedHidden,
-                    };
-                }
-                normal_char => {
-                    self.visible_buffer.push(normal_char);
-                }
-            },
-            Key::Enter => {
-                todo!()
+                            return StateChange::EnteredHidden;
+                        }
+                        normal_char => {
+                            self.write_to_visible_buffer(normal_char);
+                        }
+                    },
+                    Key::Enter => {
+                        todo!()
+                    }
+                    Key::Backspace => {
+                        todo!()
+                    }
+                };
             }
-            Key::Backspace => {
-                todo!()
+            Mode::Hidden => {
+                match key {
+                    Key::Char(typed_char) => match typed_char {
+                        ';' => {
+                            self.switch_mode(Mode::Normal);
+
+                            return StateChange::ExitedHidden;
+                        }
+                        normal_char => self.consume_decoy_buffer(normal_char),
+                    },
+                    Key::Enter => {
+                        todo!()
+                    }
+                    Key::Backspace => {
+                        todo!()
+                    }
+                };
             }
-        };
+        }
 
         StateChange::None
     }
 
-    fn switch_mode(&mut self, new_mode: &Mode) {
-        self.mode = *new_mode
+    fn switch_mode(&mut self, new_mode: Mode) {
+        self.mode = new_mode
+    }
+
+    fn write_to_visible_buffer(&mut self, ch: char) {
+        self.visible_buffer.push(ch);
+    }
+
+    fn write_to_answer_buffer(&mut self, ch: char) {
+        self.answer_buffer.push(ch)
+    }
+
+    fn consume_decoy_buffer(&mut self, ch: char) {
+        let decoy_char_consumed = self.decoy[self.decoy_cursor];
+
+        dbg!(decoy_char_consumed);
+
+        self.write_to_visible_buffer(decoy_char_consumed);
+        self.advance_decoy(ch);
+    }
+
+    fn advance_decoy(&mut self, ch: char) {
+        self.write_to_answer_buffer(ch);
+        self.decoy_cursor += 1;
     }
 }
 
 // simple in the beggining, after we want to do a multy language setup
-const DECOY_STRING: &str = "Sued, grande";
+const DECOY_STRING: &str = "Sued, grande poderoso";
 
 #[cfg(test)]
 mod tests {
@@ -183,6 +220,8 @@ mod tests {
 
         engine.handle_key(Key::Char(';')); // flip to Hidden — the secret switch
         simulate_typing(&mut engine, "42"); // operator secretly types the real answer
+
+        dbg!(&engine);
 
         // The real answer is captured in the HIDDEN buffer...
         assert_eq!(
