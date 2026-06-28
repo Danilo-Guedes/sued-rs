@@ -54,6 +54,18 @@ impl Engine {
         }
     }
     pub fn handle_key(&mut self, key: Key) -> StateChange {
+        match key {
+            Key::Char(typed_char) => {
+                self.visible_buffer.push(typed_char);
+            }
+            Key::Enter => {
+                todo!()
+            }
+            Key::Backspace => {
+                todo!()
+            }
+        };
+
         StateChange::None
     }
 }
@@ -97,8 +109,6 @@ mod tests {
     }
 
     fn simulate_typing(engine: &mut Engine, typed: &str) -> () {
-
-
         for ch in typed.chars() {
             engine.handle_key(Key::Char(ch));
         }
