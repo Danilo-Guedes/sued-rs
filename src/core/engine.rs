@@ -10,3 +10,97 @@
 //! - `../../plan/sued-rs-brief.md` §4 and §9 (acceptance criteria)
 //
 // TODO(M1): implement the Engine here.
+
+#[derive(Debug)]
+pub struct Engine {
+    mode: Mode,
+    answer_buffer: String,    // the real, hidden answer
+    visible_buffer: String,   // what the audience sees being "typed"
+    decoy: Vec<char>,         // the incantation, char-indexed (UTF-8 safe)
+    decoy_cursor: usize,      // how many decoy chars revealed so far
+    revealed: Option<String>, // Some(answer) after Enter
+}
+
+#[derive(Debug, Default, PartialEq)]
+pub enum Mode {
+    #[default]
+    Normal,
+    Hidden,
+}
+
+#[derive(Debug)]
+pub enum Key {
+    Char(char),
+    Enter,
+    Backspace,
+}
+
+#[derive(Debug)]
+pub enum StateChange {
+    None,
+    EnteredHidden,
+    ExitedHidden,
+}
+
+impl Engine {
+    pub fn new(decoy_str: &str) -> Self {
+        Self {
+            mode: Mode::default(),
+            answer_buffer: String::new(),
+            visible_buffer: String::new(),
+            decoy: decoy_str.chars().collect(),
+            decoy_cursor: 0,
+            revealed: None,
+        }
+    }
+    pub fn handle_key(&mut self, key: Key) -> StateChange {
+        StateChange::None
+    }
+}
+
+// simple in the beggining, after we want to do a multy language setup
+const DECOY_STRING: &str = "Sued, grande";
+
+#[cfg(test)]
+mod tests {
+    // TODO(M1): write the spec tests here.
+
+    use super::*;
+
+    #[test]
+    fn new_engine_starts_in_normal_mode() {
+        let engine = build_test_engine();
+
+        dbg!(&engine);
+
+        assert_eq!(
+            engine.mode,
+            Mode::Normal,
+            "Engine didn't start as Normal Mode, got={:?}",
+            engine.mode
+        )
+    }
+
+    #[test]
+    fn typing_in_normal_mode_appends_to_visible() {
+        let mut engine = build_test_engine();
+
+        let typed = String::from("Bom Dia! tudo bem com você?");
+
+        simulate_typing(&mut engine, &typed);
+
+        assert_eq!(engine.visible_buffer, typed)
+    }
+
+    fn build_test_engine() -> Engine {
+        Engine::new(DECOY_STRING)
+    }
+
+    fn simulate_typing(engine: &mut Engine, typed: &str) -> () {
+
+
+        for ch in typed.chars() {
+            engine.handle_key(Key::Char(ch));
+        }
+    }
+}
