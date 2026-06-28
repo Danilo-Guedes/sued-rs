@@ -9,7 +9,9 @@
 //! - `../../plan/PLAN.md` §D (M1) and §E (open design questions)
 //! - `../../plan/sued-rs-brief.md` §4 and §9 (acceptance criteria)
 //
-// TODO(M1): implement the Engine here.
+// TEMP(M1): the engine isn't wired into main.rs yet, so the binary sees its
+// public API as "dead". Remove this once the M1 plain-terminal loop drives it.
+#![allow(dead_code)]
 
 #[derive(Debug)]
 pub struct Engine {
@@ -21,7 +23,7 @@ pub struct Engine {
     revealed: Option<String>, // Some(answer) after Enter
 }
 
-#[derive(Debug, Default, PartialEq)]
+#[derive(Debug, Default, PartialEq, Clone, Copy)]
 pub enum Mode {
     #[default]
     Normal,
@@ -55,9 +57,23 @@ impl Engine {
     }
     pub fn handle_key(&mut self, key: Key) -> StateChange {
         match key {
-            Key::Char(typed_char) => {
-                self.visible_buffer.push(typed_char);
-            }
+            Key::Char(typed_char) => match typed_char {
+                ';' => {
+                    let next_mode = match self.mode {
+                        Mode::Hidden => Mode::Normal,
+                        Mode::Normal => Mode::Hidden,
+                    };
+                    self.switch_mode(&next_mode);
+
+                    return match next_mode {
+                        Mode::Hidden => StateChange::EnteredHidden,
+                        Mode::Normal => StateChange::ExitedHidden,
+                    };
+                }
+                normal_char => {
+                    self.visible_buffer.push(normal_char);
+                }
+            },
             Key::Enter => {
                 todo!()
             }
@@ -67,6 +83,10 @@ impl Engine {
         };
 
         StateChange::None
+    }
+
+    fn switch_mode(&mut self, new_mode: &Mode) {
+        self.mode = *new_mode
     }
 }
 
@@ -83,7 +103,7 @@ mod tests {
         Engine::new(DECOY_STRING)
     }
 
-    fn simulate_typing(engine: &mut Engine, typed: &str) -> () {
+    fn simulate_typing(engine: &mut Engine, typed: &str) {
         for ch in typed.chars() {
             engine.handle_key(Key::Char(ch));
         }
@@ -92,8 +112,6 @@ mod tests {
     #[test]
     fn new_engine_starts_in_normal_mode() {
         let engine = build_test_engine();
-
-        dbg!(&engine);
 
         assert_eq!(
             engine.mode,
@@ -155,6 +173,31 @@ mod tests {
             change,
             StateChange::ExitedHidden,
             "toggling out of Hidden should report ExitedHidden"
+        );
+    }
+
+    #[test]
+    fn typing_in_hidden_mode_records_answer_and_advances_decoy() {
+        // Explicit, easy-to-read decoy so the expected output is obvious.
+        let mut engine = Engine::new("ABCDEFG");
+
+        engine.handle_key(Key::Char(';')); // flip to Hidden — the secret switch
+        simulate_typing(&mut engine, "42"); // operator secretly types the real answer
+
+        // The real answer is captured in the HIDDEN buffer...
+        assert_eq!(
+            engine.answer_buffer, "42",
+            "chars typed in Hidden mode must go to answer_buffer, not the screen"
+        );
+        // ...while the audience sees the decoy "type itself" — one char per keystroke.
+        assert_eq!(
+            engine.visible_buffer, "AB",
+            "each Hidden keystroke should reveal one more decoy char"
+        );
+        // The cursor tracks how far into the decoy we've revealed.
+        assert_eq!(
+            engine.decoy_cursor, 2,
+            "decoy_cursor should advance once per Hidden keystroke"
         );
     }
 }
