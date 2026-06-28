@@ -227,4 +227,29 @@ mod tests {
             "decoy_cursor should advance once per Hidden keystroke"
         );
     }
+
+    #[test]
+    fn decoy_clamps_when_exhausted_but_keeps_recording_answer() {
+        // Short decoy so it runs out fast (3 chars).
+        let mut engine = Engine::new("ABC");
+
+        engine.handle_key(Key::Char(';')); // Hidden
+        simulate_typing(&mut engine, "12345"); // type MORE chars than the decoy has
+
+        // Every real char is still captured — even past the end of the decoy.
+        assert_eq!(
+            engine.answer_buffer, "12345",
+            "answer must keep recording after the decoy is exhausted"
+        );
+        // The visible decoy freezes at its last char: no wrap, no repeat, no panic.
+        assert_eq!(
+            engine.visible_buffer, "ABC",
+            "visible decoy should stop at its final char once exhausted"
+        );
+        // Cursor clamps at decoy.len() and never indexes out of bounds.
+        assert_eq!(
+            engine.decoy_cursor, 3,
+            "decoy_cursor should clamp at decoy.len()"
+        );
+    }
 }
