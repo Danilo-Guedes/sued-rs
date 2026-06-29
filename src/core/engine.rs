@@ -1,16 +1,3 @@
-//! THE PRANK CORE — **you implement this at M1.**
-//!
-//! This is intentionally empty. It's yours to write: the `Mode`/`AppState` enums,
-//! the `Engine` struct, the pure `handle_key` transition function, and the decoy
-//! mechanic. We'll agree the public API together first, then Claude writes the
-//! failing tests (the spec) and you make them green.
-//!
-//! References:
-//! - `../../plan/PLAN.md` §D (M1) and §E (open design questions)
-//! - `../../plan/sued-rs-brief.md` §4 and §9 (acceptance criteria)
-//
-// TEMP(M1): the engine isn't wired into main.rs yet, so the binary sees its
-// public API as "dead". Remove this once the M1 plain-terminal loop drives it.
 #![allow(dead_code)]
 
 #[derive(Debug)]
@@ -61,7 +48,7 @@ impl Engine {
             Key::Char(';') => self.toggle_mode(),
             Key::Char(c) => self.type_char(c),
             Key::Enter => self.handle_enter_key(),
-            Key::Backspace => StateChange::None, // todo!()
+            Key::Backspace => self.handle_backspace_key(),
         }
     }
 
@@ -82,12 +69,12 @@ impl Engine {
 
     fn type_char(&mut self, ch: char) -> StateChange {
         match self.mode {
-            Mode::Normal => {
-                self.write_to_visible_buffer(ch);
-                StateChange::None
-            }
             Mode::Hidden => {
                 self.consume_decoy_buffer(ch);
+                StateChange::None
+            }
+            Mode::Normal => {
+                self.write_to_visible_buffer(ch);
                 StateChange::None
             }
         }
@@ -119,6 +106,13 @@ impl Engine {
         }
     }
 
+    fn move_back_decoy(&mut self) {
+        if self.answer_buffer.chars().count() < self.decoy_cursor {
+            self.decoy_cursor -= 1;
+            self.visible_buffer.pop();
+        }
+    }
+
     fn handle_enter_key(&mut self) -> StateChange {
         if self.answer_buffer.is_empty() {
             StateChange::None
@@ -126,6 +120,20 @@ impl Engine {
             self.revealed = Some(std::mem::take(&mut self.answer_buffer)); // mem::take take the current pointer in memory, letting a Default value in the old variable
             StateChange::Revealed
         }
+    }
+
+    fn handle_backspace_key(&mut self) -> StateChange {
+        match self.mode {
+            Mode::Hidden => {
+                if self.answer_buffer.pop().is_some() {
+                    self.move_back_decoy();
+                }
+            }
+            Mode::Normal => {
+                self.visible_buffer.pop();
+            }
+        }
+        StateChange::None
     }
 
     //////GETTERS
@@ -146,8 +154,6 @@ pub const DECOY_STRING: &str = "Sued, o maior oráculo de todos, dono da vedrdad
 
 #[cfg(test)]
 mod tests {
-    // TODO(M1): write the spec tests here.
-
     use super::*;
 
     fn build_test_engine() -> Engine {
@@ -167,7 +173,7 @@ mod tests {
     }
 
     #[test]
-    fn new_engine_starts_in_normal_mode() {
+    fn test_new_engine_starts_in_normal_mode() {
         let engine = build_test_engine();
 
         assert_eq!(
@@ -179,7 +185,7 @@ mod tests {
     }
 
     #[test]
-    fn typing_in_normal_mode_appends_to_visible() {
+    fn test_typing_in_normal_mode_appends_to_visible() {
         let mut engine = build_test_engine();
 
         let typed = String::from("Bom Dia! tudo bem com você?");
@@ -190,11 +196,9 @@ mod tests {
     }
 
     #[test]
-    fn semicolon_toggles_normal_to_hidden() {
+    fn test_semicolon_toggles_normal_to_hidden() {
         let mut engine = build_test_engine();
 
-        // ';' is the secret switch, NOT text — it must flip the mode and
-        // must not land in any buffer.
         let change = engine.handle_key(Key::Char(';'));
 
         assert_eq!(
@@ -215,7 +219,7 @@ mod tests {
     }
 
     #[test]
-    fn semicolon_toggles_hidden_back_to_normal() {
+    fn test_semicolon_toggles_hidden_back_to_normal() {
         let mut engine = build_test_engine();
 
         engine.handle_key(Key::Char(';')); // Normal -> Hidden
@@ -234,8 +238,7 @@ mod tests {
     }
 
     #[test]
-    fn typing_in_hidden_mode_records_answer_and_advances_decoy() {
-        // Explicit, easy-to-read decoy so the expected output is obvious.
+    fn test_typing_in_hidden_mode_records_answer_and_advances_decoy() {
         let mut engine = Engine::new("ABCDEFG");
 
         engine.handle_key(Key::Char(';')); // flip to Hidden — the secret switch
@@ -259,7 +262,7 @@ mod tests {
     }
 
     #[test]
-    fn decoy_clamps_when_exhausted_but_keeps_recording_answer() {
+    fn test_decoy_clamps_when_exhausted_but_keeps_recording_answer() {
         // Short decoy so it runs out fast (3 chars).
         let mut engine = Engine::new("ABC");
 
@@ -284,7 +287,7 @@ mod tests {
     }
 
     #[test]
-    fn enter_reveals_the_buffered_answer() {
+    fn test_enter_reveals_the_buffered_answer() {
         let mut engine = Engine::new("ABCDEFG");
 
         engine.handle_key(Key::Char(';')); // Hidden
@@ -306,7 +309,7 @@ mod tests {
     }
 
     #[test]
-    fn enter_with_empty_answer_is_a_noop() {
+    fn test_enter_with_empty_answer_is_a_noop() {
         let mut engine = build_test_engine();
 
         // Operator hits Enter without ever composing an answer.
@@ -323,10 +326,8 @@ mod tests {
         );
     }
 
-    // ----- Backspace (M1 leftover: currently a no-op, make these green) -----
-
     #[test]
-    fn backspace_in_normal_mode_removes_last_visible_char() {
+    fn test_backspace_in_normal_mode_removes_last_visible_char() {
         let mut engine = build_test_engine();
 
         simulate_typing(&mut engine, "abc");
@@ -344,7 +345,7 @@ mod tests {
     }
 
     #[test]
-    fn backspace_on_empty_buffer_is_a_noop() {
+    fn test_backspace_on_empty_buffer_is_a_noop() {
         let mut engine = build_test_engine();
 
         // Nothing typed yet — Backspace must not panic or underflow.
@@ -358,7 +359,7 @@ mod tests {
     }
 
     #[test]
-    fn backspace_in_hidden_mode_retracts_answer_and_decoy() {
+    fn test_backspace_in_hidden_mode_retracts_answer_and_decoy() {
         let mut engine = Engine::new("ABCDEFG");
 
         engine.handle_key(Key::Char(';')); // Hidden
@@ -383,7 +384,7 @@ mod tests {
     }
 
     #[test]
-    fn backspace_in_hidden_mode_with_no_answer_is_a_noop() {
+    fn test_backspace_in_hidden_mode_with_no_answer_is_a_noop() {
         let mut engine = Engine::new("ABC");
 
         engine.handle_key(Key::Char(';')); // Hidden, but nothing typed yet
@@ -397,19 +398,12 @@ mod tests {
             engine.visible_buffer, "",
             "nothing revealed → visible stays empty"
         );
-        assert_eq!(
-            engine.decoy_cursor, 0,
-            "cursor must not underflow below 0"
-        );
+        assert_eq!(engine.decoy_cursor, 0, "cursor must not underflow below 0");
         assert_eq!(change, StateChange::None);
     }
 
     #[test]
-    fn backspace_past_exhausted_decoy_pops_answer_but_keeps_decoy_frozen() {
-        // Mirror of `decoy_clamps_when_exhausted_but_keeps_recording_answer`:
-        // typing past the decoy's end is "silent" (no new visible char), so
-        // Backspace through that region must be silent too — pop the hidden
-        // answer while the frozen decoy stays put.
+    fn test_backspace_past_exhausted_decoy_pops_answer_but_keeps_decoy_frozen() {
         let mut engine = Engine::new("ABC");
 
         engine.handle_key(Key::Char(';')); // Hidden
@@ -442,7 +436,7 @@ mod tests {
     }
 
     #[test]
-    fn hidden_backspace_retracts_decoy_not_the_normal_typed_prefix() {
+    fn test_hidden_backspace_retracts_decoy_not_the_normal_typed_prefix() {
         let mut engine = Engine::new("ABC");
 
         simulate_typing(&mut engine, "go"); // Normal: visible "go"
