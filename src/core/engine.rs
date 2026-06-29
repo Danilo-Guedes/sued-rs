@@ -123,7 +123,7 @@ impl Engine {
         if self.answer_buffer.is_empty() {
             StateChange::None
         } else {
-            self.revealed = Some(std::mem::take(&mut self.answer_buffer));
+            self.revealed = Some(std::mem::take(&mut self.answer_buffer)); // mem::take take the current pointer in memory, letting a Default value in the old variable
             StateChange::Revealed
         }
     }
@@ -157,6 +157,12 @@ mod tests {
     fn simulate_typing(engine: &mut Engine, typed: &str) {
         for ch in typed.chars() {
             engine.handle_key(Key::Char(ch));
+        }
+    }
+
+    fn simulate_backspaces(engine: &mut Engine, n: usize) {
+        for _ in 0..n {
+            engine.handle_key(Key::Backspace);
         }
     }
 
@@ -315,5 +321,141 @@ mod tests {
             StateChange::None,
             "Enter on an empty answer should report None"
         );
+    }
+
+    // ----- Backspace (M1 leftover: currently a no-op, make these green) -----
+
+    #[test]
+    fn backspace_in_normal_mode_removes_last_visible_char() {
+        let mut engine = build_test_engine();
+
+        simulate_typing(&mut engine, "abc");
+        let change = engine.handle_key(Key::Backspace);
+
+        assert_eq!(
+            engine.visible_buffer, "ab",
+            "Backspace in Normal mode should delete the last visible char"
+        );
+        assert_eq!(
+            change,
+            StateChange::None,
+            "Backspace is plain editing — it should report no state change"
+        );
+    }
+
+    #[test]
+    fn backspace_on_empty_buffer_is_a_noop() {
+        let mut engine = build_test_engine();
+
+        // Nothing typed yet — Backspace must not panic or underflow.
+        let change = engine.handle_key(Key::Backspace);
+
+        assert_eq!(
+            engine.visible_buffer, "",
+            "Backspace on an empty buffer should leave it empty"
+        );
+        assert_eq!(change, StateChange::None);
+    }
+
+    #[test]
+    fn backspace_in_hidden_mode_retracts_answer_and_decoy() {
+        let mut engine = Engine::new("ABCDEFG");
+
+        engine.handle_key(Key::Char(';')); // Hidden
+        simulate_typing(&mut engine, "42"); // answer "42", visible "AB", cursor 2
+
+        engine.handle_key(Key::Backspace); // un-type one secret keystroke
+
+        // The real answer loses its last char...
+        assert_eq!(
+            engine.answer_buffer, "4",
+            "Backspace in Hidden mode should pop the last real answer char"
+        );
+        // ...and the decoy visibly retreats by one, so the illusion stays consistent.
+        assert_eq!(
+            engine.visible_buffer, "A",
+            "Backspace in Hidden mode should retract one revealed decoy char"
+        );
+        assert_eq!(
+            engine.decoy_cursor, 1,
+            "decoy_cursor should step back by one on Hidden Backspace"
+        );
+    }
+
+    #[test]
+    fn backspace_in_hidden_mode_with_no_answer_is_a_noop() {
+        let mut engine = Engine::new("ABC");
+
+        engine.handle_key(Key::Char(';')); // Hidden, but nothing typed yet
+        let change = engine.handle_key(Key::Backspace);
+
+        assert_eq!(
+            engine.answer_buffer, "",
+            "nothing to retract → answer stays empty"
+        );
+        assert_eq!(
+            engine.visible_buffer, "",
+            "nothing revealed → visible stays empty"
+        );
+        assert_eq!(
+            engine.decoy_cursor, 0,
+            "cursor must not underflow below 0"
+        );
+        assert_eq!(change, StateChange::None);
+    }
+
+    #[test]
+    fn backspace_past_exhausted_decoy_pops_answer_but_keeps_decoy_frozen() {
+        // Mirror of `decoy_clamps_when_exhausted_but_keeps_recording_answer`:
+        // typing past the decoy's end is "silent" (no new visible char), so
+        // Backspace through that region must be silent too — pop the hidden
+        // answer while the frozen decoy stays put.
+        let mut engine = Engine::new("ABC");
+
+        engine.handle_key(Key::Char(';')); // Hidden
+        simulate_typing(&mut engine, "12345"); // answer "12345", visible "ABC", cursor 3
+
+        simulate_backspaces(&mut engine, 2); // retract the two "silent" chars
+
+        assert_eq!(
+            engine.answer_buffer, "123",
+            "Backspace should remove the extra answer chars typed past the decoy"
+        );
+        assert_eq!(
+            engine.visible_buffer, "ABC",
+            "the exhausted decoy stays frozen while we're still past its end"
+        );
+        assert_eq!(
+            engine.decoy_cursor, 3,
+            "cursor stays clamped until we re-enter the decoy region"
+        );
+
+        // One more Backspace crosses back into the decoy and DOES retract it.
+        engine.handle_key(Key::Backspace);
+
+        assert_eq!(engine.answer_buffer, "12");
+        assert_eq!(
+            engine.visible_buffer, "AB",
+            "once back inside the decoy, Backspace retracts a visible char again"
+        );
+        assert_eq!(engine.decoy_cursor, 2);
+    }
+
+    #[test]
+    fn hidden_backspace_retracts_decoy_not_the_normal_typed_prefix() {
+        let mut engine = Engine::new("ABC");
+
+        simulate_typing(&mut engine, "go"); // Normal: visible "go"
+        engine.handle_key(Key::Char(';')); // Hidden
+        simulate_typing(&mut engine, "4"); // answer "4", visible "goA", cursor 1
+
+        engine.handle_key(Key::Backspace);
+
+        assert_eq!(engine.answer_buffer, "", "the one secret char is removed");
+        assert_eq!(
+            engine.visible_buffer, "go",
+            "Backspace removes the revealed decoy char, leaving the Normal-typed text intact"
+        );
+        assert_eq!(engine.decoy_cursor, 0);
     }
 }
