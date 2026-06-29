@@ -61,7 +61,7 @@ impl Engine {
             Key::Char(';') => self.toggle_mode(),
             Key::Char(c) => self.type_char(c),
             Key::Enter => self.handle_enter_key(),
-            Key::Backspace => todo!(),
+            Key::Backspace => StateChange::None, // todo!()
         }
     }
 
@@ -127,10 +127,22 @@ impl Engine {
             StateChange::Revealed
         }
     }
+
+    //////GETTERS
+    pub fn get_visible_buffer(&self) -> &str {
+        &self.visible_buffer
+    }
+
+    pub fn get_revealed(&self) -> Option<&str> {
+        self.revealed.as_deref()
+    }
+    pub fn get_mode(&self) -> Mode {
+        self.mode.clone()
+    }
 }
 
 // simple in the beggining, after we want to do a multy language setup
-const DECOY_STRING: &str = "Sued, grande poderoso";
+pub const DECOY_STRING: &str = "Sued, o maior oráculo de todos, dono da vedrdade e da sabedoria";
 
 #[cfg(test)]
 mod tests {
