@@ -145,7 +145,7 @@ impl Engine {
         self.revealed.as_deref()
     }
     pub fn get_mode(&self) -> Mode {
-        self.mode.clone()
+        self.mode // mode implements copy trait
     }
 }
 
