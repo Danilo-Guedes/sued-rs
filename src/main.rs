@@ -1,9 +1,8 @@
 //! sued-rs — a horror-themed terminal recreation of the SueD prank oracle.
 //!
-//! This is the M0 scaffold. The app proper begins at **M1**: implement the pure
-//! prank `Engine` in [`core::engine`]. See `../plan/PLAN.md` for the milestone plan
-//! and the working agreement.
-//!
+//! **M2 scaffold.** Terminal lifecycle (RAII guard) + the tick loop live here;
+//! the ratatui draw code lives in [`ui::app`]. The pure prank logic is in
+//! [`core::engine`] and stays untouched. See `../plan/PLAN.md` §D (M2).
 #![allow(dead_code)]
 
 mod cli;
@@ -11,120 +10,102 @@ mod config;
 mod core;
 mod ui;
 
-use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, read};
-use crossterm::terminal::{Clear, ClearType, disable_raw_mode, enable_raw_mode};
-use crossterm::{cursor::MoveTo, execute, style::Print};
-use std::io::{Write, stdout};
-
 #[cfg(feature = "audio")]
 mod audio;
 
+use std::io::{Stdout, stdout};
+use std::time::Duration;
+
 use anyhow::Result;
+use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
+use crossterm::execute;
+use crossterm::terminal::{
+    EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
+};
+use ratatui::Terminal;
+use ratatui::backend::CrosstermBackend;
 
-use crate::core::engine::{DECOY_STRING, Engine, Key, Mode, StateChange};
+use crate::core::engine::{DECOY_STRING, Engine, Key};
 
-struct RawModeGuard; // a "zero-size" marker that owns the raw-mode state
+/// How long each tick waits for input before redrawing. ~50ms ≈ 20 fps — smooth
+/// enough for the animations coming in M3/M4, cheap enough to idle on.
+const TICK: Duration = Duration::from_millis(50);
 
-impl RawModeGuard {
+/// Owns the terminal's "loud" state: raw mode + the alternate screen. Acquired
+/// on `new`, released on `Drop` — so the terminal is always restored, even on a
+/// panic or an early `?` return. (Same RAII idea as M1's guard, now owning two
+/// resources instead of one.)
+struct TerminalGuard;
+
+impl TerminalGuard {
     fn new() -> std::io::Result<Self> {
-        /* enable raw mode, return Ok(Self) */
-        match enable_raw_mode() {
-            Ok(_) => Ok(Self),
-            Err(err) => Err(err),
-        }
+        enable_raw_mode()?; // keystrokes reach us raw — no line buffering / echo
+        execute!(stdout(), EnterAlternateScreen)?; // switch to a fresh screen we own
+        Ok(Self)
     }
 }
 
-impl Drop for RawModeGuard {
+impl Drop for TerminalGuard {
     fn drop(&mut self) {
-        /* disable raw mode — best-effort, must NOT panic */
-
-        match disable_raw_mode() {
-            Ok(_) => {}
-            Err(err) => {
-                eprintln!("{}", err)
-            }
-        };
+        // Best-effort teardown, reverse order, and it must NOT panic.
+        let _ = execute!(stdout(), LeaveAlternateScreen);
+        let _ = disable_raw_mode();
     }
+}
+
+/// What the loop should do after handling a key.
+#[derive(PartialEq)]
+enum LoopFlow {
+    Continue,
+    Quit,
 }
 
 fn main() -> Result<()> {
-    let _raw_guard = RawModeGuard::new()?;
-
+    let _guard = TerminalGuard::new()?; // declared first → dropped LAST (cleans up after the terminal)
+    let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
     let mut engine = Engine::new(DECOY_STRING);
 
-    render(&engine)?;
+    run(&mut terminal, &mut engine)
+}
 
+/// The tick loop: redraw every frame, only `read()` when there's actually input.
+/// Blocking on `read()` (M1) would freeze any animation between keystrokes.
+fn run(terminal: &mut Terminal<CrosstermBackend<Stdout>>, engine: &mut Engine) -> Result<()> {
     loop {
-        match crossterm::event::read()? {
-            // BLOCKS until an event
-            Event::Key(key) => {
-                /* translate → drive engine → maybe break */
+        // 1. DRAW — ratatui diffs against the last frame and writes only what changed.
+        terminal.draw(|frame| ui::app::render(frame, engine))?;
 
-                match key {
-                    KeyEvent {
-                        code,
-                        modifiers,
-                        kind: _,
-                        state: _,
-                    } => match code {
-                        KeyCode::Backspace => {
-                            engine.handle_key(Key::Backspace);
-                        }
-                        KeyCode::Enter => {
-                            engine.handle_key(Key::Enter);
-                        }
-                        KeyCode::Esc => {
-                            // get out of the loop
-                            return Ok(());
-                        }
-                        KeyCode::Char('c') if modifiers.contains(KeyModifiers::CONTROL) => {
-                            return Ok(());
-                        }
-                        KeyCode::Char(ch) => {
-                            engine.handle_key(Key::Char(ch));
-                        }
-                        other_key => {
-                            println!("key still not handled  got={}", other_key)
-                        }
-                    },
+        // 2. POLL — wait up to `TICK` for an event. Returns false on timeout (no input).
+        if event::poll(TICK)? {
+            // 3. READ — only now, knowing an event is waiting, so this won't block.
+            if let Event::Key(key) = event::read()? {
+                // Windows fires Press AND Release; only act on Press, or every key doubles.
+                if key.kind == KeyEventKind::Press && handle_key(engine, key) == LoopFlow::Quit {
+                    return Ok(());
                 }
             }
-            _ => {} // ignore resize/mouse/etc.
         }
-
-        render(&engine)?;
     }
 }
 
-fn render(engine: &Engine) -> Result<()> {
-    let mut out = stdout();
-
-    // Wipe the screen and move the cursor home — we redraw the whole frame each key.
-    execute!(out, Clear(ClearType::All), MoveTo(0, 0))?;
-
-    let mode_tag = match engine.get_mode() {
-        Mode::Normal => "NORMAL",
-        Mode::Hidden => "HIDDEN",
-    };
-    execute!(out, Print(format!("☠  SueD — o oráculo  [{mode_tag}]\r\n")))?;
-    execute!(out, Print("──────────────────────────────\r\n"))?;
-
-    // What the audience sees being "typed":
-    execute!(out, Print(format!("{}\r\n", engine.get_visible_buffer())))?;
-
-    // After Enter, the oracle "responds":
-    if let Some(answer) = engine.get_revealed() {
-        execute!(
-            out,
-            Print(format!("\r\n>>> O ORÁCULO RESPONDE:\r\n    {answer}\r\n"))
-        )?;
+/// Translate a crossterm key into an engine `Key` and drive the engine.
+/// Returns `LoopFlow::Quit` on the exit keys so the loop can break cleanly — note we
+/// never `process::exit`; we return, so `TerminalGuard`'s `Drop` always runs.
+fn handle_key(engine: &mut Engine, key: KeyEvent) -> LoopFlow {
+    match key.code {
+        KeyCode::Esc => return LoopFlow::Quit,
+        KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => return LoopFlow::Quit,
+        KeyCode::Char(ch) => {
+            engine.handle_key(Key::Char(ch));
+        }
+        KeyCode::Enter => {
+            engine.handle_key(Key::Enter);
+        }
+        KeyCode::Backspace => {
+            engine.handle_key(Key::Backspace);
+        }
+        // Ignore anything else. (No `println!` here — it would corrupt the TUI.)
+        _ => {}
     }
-
-    execute!(
-        out,
-        Print("\r\n(';' alterna modo · Enter revela · Esc sai)\r\n")
-    )?;
-    out.flush()?;
-    Ok(())
+    LoopFlow::Continue
 }
