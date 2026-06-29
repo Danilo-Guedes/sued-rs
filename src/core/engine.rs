@@ -42,6 +42,7 @@ pub enum StateChange {
     None,
     EnteredHidden,
     ExitedHidden,
+    Revealed,
 }
 
 impl Engine {
@@ -59,7 +60,7 @@ impl Engine {
         match key {
             Key::Char(';') => self.toggle_mode(),
             Key::Char(c) => self.type_char(c),
-            Key::Enter => todo!(),
+            Key::Enter => self.handle_enter_key(),
             Key::Backspace => todo!(),
         }
     }
@@ -115,6 +116,15 @@ impl Engine {
         self.write_to_answer_buffer(ch);
         if self.decoy_cursor < self.decoy_char_list.len() {
             self.decoy_cursor += 1;
+        }
+    }
+
+    fn handle_enter_key(&mut self) -> StateChange {
+        if self.answer_buffer.is_empty() {
+            StateChange::None
+        } else {
+            self.revealed = Some(std::mem::take(&mut self.answer_buffer));
+            StateChange::Revealed
         }
     }
 }
@@ -252,6 +262,46 @@ mod tests {
         assert_eq!(
             engine.decoy_cursor, 3,
             "decoy_cursor should clamp at decoy.len()"
+        );
+    }
+
+    #[test]
+    fn enter_reveals_the_buffered_answer() {
+        let mut engine = Engine::new("ABCDEFG");
+
+        engine.handle_key(Key::Char(';')); // Hidden
+        simulate_typing(&mut engine, "42"); // secret answer
+        engine.handle_key(Key::Char(';')); // back to Normal
+
+        let change = engine.handle_key(Key::Enter); // the reveal
+
+        assert_eq!(
+            engine.revealed,
+            Some("42".to_string()),
+            "Enter should move the hidden answer into `revealed`"
+        );
+        assert_eq!(
+            change,
+            StateChange::Revealed,
+            "Enter on a non-empty answer should report Revealed"
+        );
+    }
+
+    #[test]
+    fn enter_with_empty_answer_is_a_noop() {
+        let mut engine = build_test_engine();
+
+        // Operator hits Enter without ever composing an answer.
+        let change = engine.handle_key(Key::Enter);
+
+        assert_eq!(
+            engine.revealed, None,
+            "revealing an empty answer should do nothing"
+        );
+        assert_eq!(
+            change,
+            StateChange::None,
+            "Enter on an empty answer should report None"
         );
     }
 }
