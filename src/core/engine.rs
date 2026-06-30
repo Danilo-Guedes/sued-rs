@@ -17,11 +17,14 @@ pub enum Mode {
     Hidden,
 }
 
-#[derive(Debug)]
-pub enum Key {
+#[derive(Debug, Clone, Copy)]
+pub enum KeyPress {
     Char(char),
     Enter,
     Backspace,
+    Esc,
+    Up,
+    Down,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -43,12 +46,15 @@ impl Engine {
             revealed: None,
         }
     }
-    pub fn handle_key(&mut self, key: Key) -> StateChange {
+    pub fn handle_key(&mut self, key: KeyPress) -> StateChange {
         match key {
-            Key::Char(';') => self.toggle_mode(),
-            Key::Char(c) => self.type_char(c),
-            Key::Enter => self.handle_enter_key(),
-            Key::Backspace => self.handle_backspace_key(),
+            KeyPress::Char(';') => self.toggle_mode(),
+            KeyPress::Char(c) => self.type_char(c),
+            KeyPress::Enter => self.handle_enter_key(),
+            KeyPress::Backspace => self.handle_backspace_key(),
+            KeyPress::Esc => StateChange::None,
+            KeyPress::Up => StateChange::None,
+            KeyPress::Down => StateChange::None,
         }
     }
 
@@ -162,13 +168,13 @@ mod tests {
 
     fn simulate_typing(engine: &mut Engine, typed: &str) {
         for ch in typed.chars() {
-            engine.handle_key(Key::Char(ch));
+            engine.handle_key(KeyPress::Char(ch));
         }
     }
 
     fn simulate_backspaces(engine: &mut Engine, n: usize) {
         for _ in 0..n {
-            engine.handle_key(Key::Backspace);
+            engine.handle_key(KeyPress::Backspace);
         }
     }
 
@@ -199,7 +205,7 @@ mod tests {
     fn test_semicolon_toggles_normal_to_hidden() {
         let mut engine = build_test_engine();
 
-        let change = engine.handle_key(Key::Char(';'));
+        let change = engine.handle_key(KeyPress::Char(';'));
 
         assert_eq!(
             engine.mode,
@@ -222,8 +228,8 @@ mod tests {
     fn test_semicolon_toggles_hidden_back_to_normal() {
         let mut engine = build_test_engine();
 
-        engine.handle_key(Key::Char(';')); // Normal -> Hidden
-        let change = engine.handle_key(Key::Char(';')); // Hidden -> Normal
+        engine.handle_key(KeyPress::Char(';')); // Normal -> Hidden
+        let change = engine.handle_key(KeyPress::Char(';')); // Hidden -> Normal
 
         assert_eq!(
             engine.mode,
@@ -241,7 +247,7 @@ mod tests {
     fn test_typing_in_hidden_mode_records_answer_and_advances_decoy() {
         let mut engine = Engine::new("ABCDEFG");
 
-        engine.handle_key(Key::Char(';')); // flip to Hidden — the secret switch
+        engine.handle_key(KeyPress::Char(';')); // flip to Hidden — the secret switch
         simulate_typing(&mut engine, "42"); // operator secretly types the real answer
 
         // The real answer is captured in the HIDDEN buffer...
@@ -266,7 +272,7 @@ mod tests {
         // Short decoy so it runs out fast (3 chars).
         let mut engine = Engine::new("ABC");
 
-        engine.handle_key(Key::Char(';')); // Hidden
+        engine.handle_key(KeyPress::Char(';')); // Hidden
         simulate_typing(&mut engine, "12345"); // type MORE chars than the decoy has
 
         // Every real char is still captured — even past the end of the decoy.
@@ -290,11 +296,11 @@ mod tests {
     fn test_enter_reveals_the_buffered_answer() {
         let mut engine = Engine::new("ABCDEFG");
 
-        engine.handle_key(Key::Char(';')); // Hidden
+        engine.handle_key(KeyPress::Char(';')); // Hidden
         simulate_typing(&mut engine, "42"); // secret answer
-        engine.handle_key(Key::Char(';')); // back to Normal
+        engine.handle_key(KeyPress::Char(';')); // back to Normal
 
-        let change = engine.handle_key(Key::Enter); // the reveal
+        let change = engine.handle_key(KeyPress::Enter); // the reveal
 
         assert_eq!(
             engine.revealed,
@@ -313,7 +319,7 @@ mod tests {
         let mut engine = build_test_engine();
 
         // Operator hits Enter without ever composing an answer.
-        let change = engine.handle_key(Key::Enter);
+        let change = engine.handle_key(KeyPress::Enter);
 
         assert_eq!(
             engine.revealed, None,
@@ -331,7 +337,7 @@ mod tests {
         let mut engine = build_test_engine();
 
         simulate_typing(&mut engine, "abc");
-        let change = engine.handle_key(Key::Backspace);
+        let change = engine.handle_key(KeyPress::Backspace);
 
         assert_eq!(
             engine.visible_buffer, "ab",
@@ -349,7 +355,7 @@ mod tests {
         let mut engine = build_test_engine();
 
         // Nothing typed yet — Backspace must not panic or underflow.
-        let change = engine.handle_key(Key::Backspace);
+        let change = engine.handle_key(KeyPress::Backspace);
 
         assert_eq!(
             engine.visible_buffer, "",
@@ -362,10 +368,10 @@ mod tests {
     fn test_backspace_in_hidden_mode_retracts_answer_and_decoy() {
         let mut engine = Engine::new("ABCDEFG");
 
-        engine.handle_key(Key::Char(';')); // Hidden
+        engine.handle_key(KeyPress::Char(';')); // Hidden
         simulate_typing(&mut engine, "42"); // answer "42", visible "AB", cursor 2
 
-        engine.handle_key(Key::Backspace); // un-type one secret keystroke
+        engine.handle_key(KeyPress::Backspace); // un-type one secret keystroke
 
         // The real answer loses its last char...
         assert_eq!(
@@ -387,8 +393,8 @@ mod tests {
     fn test_backspace_in_hidden_mode_with_no_answer_is_a_noop() {
         let mut engine = Engine::new("ABC");
 
-        engine.handle_key(Key::Char(';')); // Hidden, but nothing typed yet
-        let change = engine.handle_key(Key::Backspace);
+        engine.handle_key(KeyPress::Char(';')); // Hidden, but nothing typed yet
+        let change = engine.handle_key(KeyPress::Backspace);
 
         assert_eq!(
             engine.answer_buffer, "",
@@ -406,7 +412,7 @@ mod tests {
     fn test_backspace_past_exhausted_decoy_pops_answer_but_keeps_decoy_frozen() {
         let mut engine = Engine::new("ABC");
 
-        engine.handle_key(Key::Char(';')); // Hidden
+        engine.handle_key(KeyPress::Char(';')); // Hidden
         simulate_typing(&mut engine, "12345"); // answer "12345", visible "ABC", cursor 3
 
         simulate_backspaces(&mut engine, 2); // retract the two "silent" chars
@@ -425,7 +431,7 @@ mod tests {
         );
 
         // One more Backspace crosses back into the decoy and DOES retract it.
-        engine.handle_key(Key::Backspace);
+        engine.handle_key(KeyPress::Backspace);
 
         assert_eq!(engine.answer_buffer, "12");
         assert_eq!(
@@ -440,10 +446,10 @@ mod tests {
         let mut engine = Engine::new("ABC");
 
         simulate_typing(&mut engine, "go"); // Normal: visible "go"
-        engine.handle_key(Key::Char(';')); // Hidden
+        engine.handle_key(KeyPress::Char(';')); // Hidden
         simulate_typing(&mut engine, "4"); // answer "4", visible "goA", cursor 1
 
-        engine.handle_key(Key::Backspace);
+        engine.handle_key(KeyPress::Backspace);
 
         assert_eq!(engine.answer_buffer, "", "the one secret char is removed");
         assert_eq!(
