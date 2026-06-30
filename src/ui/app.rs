@@ -38,7 +38,7 @@ pub fn render(frame: &mut Frame, engine: &Engine) {
         Layout::horizontal([Constraint::Fill(1), Constraint::Length(22)]).areas(title_bar);
 
     frame.render_widget(
-        Paragraph::new(" ☠  SueD — o oráculo  ☠ ").red().bold(),
+        Paragraph::new(" ☠  SueD — O Oráculo  ☠ ").red().bold(),
         // .style(Style::new().red().rapid_blink()),
         title_bar_left,
     );
@@ -64,7 +64,13 @@ pub fn render(frame: &mut Frame, engine: &Engine) {
             Span::raw(" eu responda.").dim(),
         ]),
     ]);
-    let speak_widget = Paragraph::new(default_sued_text)
+
+    let final_sued_words = match engine.get_revealed() {
+        Some(answer) => Text::from(answer),
+        None => default_sued_text,
+    };
+
+    let speak_widget = Paragraph::new(final_sued_words)
         .block(
             Block::bordered()
                 .title("SUED FALA")
