@@ -9,6 +9,7 @@ mod cli;
 mod config;
 mod core;
 mod ui;
+mod app;
 
 #[cfg(feature = "audio")]
 mod audio;
@@ -25,7 +26,7 @@ use crossterm::terminal::{
 use ratatui::Terminal;
 use ratatui::backend::CrosstermBackend;
 
-use crate::core::engine::{DECOY_STRING, Engine, Key};
+use crate::core::engine::{DECOY_STRING, Engine, KeyPress};
 
 /// How long each tick waits for input before redrawing. ~50ms ≈ 20 fps — smooth
 /// enough for the animations coming in M3/M4, cheap enough to idle on.
@@ -96,13 +97,13 @@ fn handle_key(engine: &mut Engine, key: KeyEvent) -> LoopFlow {
         KeyCode::Esc => return LoopFlow::Quit,
         KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => return LoopFlow::Quit,
         KeyCode::Char(ch) => {
-            engine.handle_key(Key::Char(ch));
+            engine.handle_key(KeyPress::Char(ch));
         }
         KeyCode::Enter => {
-            engine.handle_key(Key::Enter);
+            engine.handle_key(KeyPress::Enter);
         }
         KeyCode::Backspace => {
-            engine.handle_key(Key::Backspace);
+            engine.handle_key(KeyPress::Backspace);
         }
         // Ignore anything else. (No `println!` here — it would corrupt the TUI.)
         _ => {}
