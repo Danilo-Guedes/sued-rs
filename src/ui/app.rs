@@ -8,7 +8,8 @@
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::style::Stylize;
-use ratatui::widgets::{Block, Paragraph};
+use ratatui::text::{Line, Span, Text};
+use ratatui::widgets::{Block, Padding, Paragraph, Wrap};
 
 use crate::core::engine::Engine;
 
@@ -33,8 +34,8 @@ pub fn render(frame: &mut Frame, engine: &Engine) {
     ])
     .areas(frame.area());
 
-let [title_bar_left, title_bar_right] =
-    Layout::horizontal([Constraint::Fill(1), Constraint::Length(22)]).areas(title_bar);
+    let [title_bar_left, title_bar_right] =
+        Layout::horizontal([Constraint::Fill(1), Constraint::Length(22)]).areas(title_bar);
 
     frame.render_widget(
         Paragraph::new(" ☠  SueD — o oráculo  ☠ ").red().bold(),
@@ -42,26 +43,59 @@ let [title_bar_left, title_bar_right] =
         title_bar_left,
     );
 
-    frame.render_widget(
-        Paragraph::new("sessão #666  * online")
-            .blue()
-            .right_aligned(),
-        title_bar_right,
-    );
+    let session = Line::from(vec![
+        Span::raw("sessão #666  "),
+        Span::raw("*").red(), // the "online" dot in its own color
+        Span::raw(" online").red(),
+    ]);
+
+    frame.render_widget(Paragraph::new(session).right_aligned(), title_bar_right);
     frame.render_widget(Block::bordered().title("sued_art"), sued_art);
 
-    let speak = centered(sued_says, Constraint::Length(50), Constraint::Length(6));
+    let speak_layout =
+        create_centered_rect(sued_says, Constraint::Length(60), Constraint::Length(8));
 
-    frame.render_widget(Block::bordered().title("sued_says"), sued_says);
+    let default_sued_text = Text::from(vec![
+        Line::from("Pergunte-me o que deseja saber, humano..."),
+        Line::from(""), // blank row for breathing space
+        Line::from(vec![
+            Span::raw("— elogie-me antes da pergunta, e ").dim(),
+            Span::raw("talvez").red(),
+            Span::raw(" eu responda.").dim(),
+        ]),
+    ]);
+    let speak_widget = Paragraph::new(default_sued_text)
+        .block(
+            Block::bordered()
+                .title("SUED FALA")
+                .padding(Padding::new(2, 2, 1, 1)),
+        )
+        .wrap(Wrap { trim: false });
 
-    frame.render_widget(Block::bordered().title("sued_says"), speak);
+    frame.render_widget(speak_widget, speak_layout);
+
+    let default_logs_text = Text::from(vec![
+        Line::from(vec![
+            Span::raw(">").red(),
+            Span::raw(" "),
+            Span::raw("conexão com o além estabelecida.").dim(),
+        ]),
+        Line::from(""),
+        Line::from(vec![
+            Span::raw(">").red(),
+            Span::raw(" "),
+            Span::raw("aguardando oferenda do mortal_").dim(),
+        ]),
+    ]);
 
     frame.render_widget(
-        Paragraph::new("Pergunte-me o que deseja saber, humano ...").block(Block::new()),
-        speak,
+        Paragraph::new(default_logs_text).block(
+            Block::bordered()
+                .title("sued_logs")
+                .padding(Padding::new(2, 2, 1, 1)),
+        ),
+        sued_logs,
     );
-
-    frame.render_widget(Block::bordered().title("sued_logs"), sued_logs);
 
     let typed = Paragraph::new(engine.get_visible_buffer())
         .block(Block::bordered().title("input").on_light_red());
@@ -71,7 +105,7 @@ let [title_bar_left, title_bar_right] =
     frame.render_widget(Block::bordered().title("status_bar").on_red(), status);
 }
 
-fn centered(area: Rect, width: Constraint, height: Constraint) -> Rect {
+fn create_centered_rect(area: Rect, width: Constraint, height: Constraint) -> Rect {
     let [a] = Layout::horizontal([width]).flex(Flex::Center).areas(area);
     let [a] = Layout::vertical([height]).flex(Flex::Center).areas(a);
     a
