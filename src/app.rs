@@ -44,34 +44,50 @@ pub enum AppState {
     About,
 }
 
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub enum MenuItem {
-    Ask,
-    Info,
-    About,
-    Exit,
-}
-
 #[derive(Debug, PartialEq)]
 pub enum AppFlow {
     Stay,
     Quit,
 }
 
+#[derive(Debug, PartialEq, Clone, Copy, Default)]
+pub enum MenuItem {
+    #[default]
+    Ask,
+    Info,
+    About,
+    Exit,
+}
+
 #[derive(Debug)]
-pub struct MenuState {/* your call — selected index, etc. */}
+pub struct MenuState {
+    /* your call — selected index, etc. */
+    selected_menu: MenuItem,
+}
 
 impl AppState {
     pub fn new() -> Self {
         AppState::default()
     }
     pub fn handle_key(&mut self, key: KeyPress) -> AppFlow {
-        AppFlow::Stay
+        match key {
+            KeyPress::Enter => {
+                *self = AppState::Menu(MenuState::new());
+                AppFlow::Stay
+            }
+            KeyPress::Esc => AppFlow::Quit,
+            _ => AppFlow::Stay,
+        }
     }
 }
 impl MenuState {
+    pub fn new() -> Self {
+        Self {
+            selected_menu: MenuItem::default(),
+        }
+    }
     pub fn selected_item(&self) -> MenuItem {
-        todo!();
+        self.selected_menu
     }
 }
 
@@ -80,16 +96,8 @@ mod tests {
     use super::*;
     use crate::core::engine::KeyPress;
 
-    /// Start at the intro and replay a sequence of keystrokes.
-    fn drive(keys: &[KeyPress]) -> AppState {
-        let mut state = AppState::new();
-        for &key in keys {
-            state.handle_key(key);
-        }
-        state
-    }
-
-    /// Same, but hand back the `Flow` returned by the *last* key (Stay/Quit).
+    /// Replay a sequence of keystrokes from the intro, handing back the final
+    /// state *and* the `AppFlow` returned by the last key (Stay/Quit).
     fn drive_flow(keys: &[KeyPress]) -> (AppState, AppFlow) {
         let mut state = AppState::new();
         let mut flow = AppFlow::Stay;
@@ -97,6 +105,12 @@ mod tests {
             flow = state.handle_key(key);
         }
         (state, flow)
+    }
+
+    /// Same, when the test only cares about where we landed (a thin wrapper —
+    /// one source of truth for the loop, clean call sites for the common case).
+    fn drive(keys: &[KeyPress]) -> AppState {
+        drive_flow(keys).0
     }
 
     /// The highlighted menu item, or panic if we're not on the menu.
@@ -117,6 +131,7 @@ mod tests {
     #[test]
     fn intro_enter_opens_menu_on_first_item() {
         let state = drive(&[KeyPress::Enter]);
+        dbg!(&state);
         assert!(matches!(state, AppState::Menu(_)));
         assert_eq!(selected(&state), MenuItem::Ask);
     }
