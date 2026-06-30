@@ -179,7 +179,7 @@ mod tests {
     }
 
     #[test]
-    fn test_new_engine_starts_in_normal_mode() {
+    fn new_engine_starts_in_normal_mode() {
         let engine = build_test_engine();
 
         assert_eq!(
@@ -191,7 +191,7 @@ mod tests {
     }
 
     #[test]
-    fn test_typing_in_normal_mode_appends_to_visible() {
+    fn typing_in_normal_mode_appends_to_visible() {
         let mut engine = build_test_engine();
 
         let typed = String::from("Bom Dia! tudo bem com você?");
@@ -202,7 +202,7 @@ mod tests {
     }
 
     #[test]
-    fn test_semicolon_toggles_normal_to_hidden() {
+    fn semicolon_toggles_normal_to_hidden() {
         let mut engine = build_test_engine();
 
         let change = engine.handle_key(KeyPress::Char(';'));
@@ -225,7 +225,7 @@ mod tests {
     }
 
     #[test]
-    fn test_semicolon_toggles_hidden_back_to_normal() {
+    fn semicolon_toggles_hidden_back_to_normal() {
         let mut engine = build_test_engine();
 
         engine.handle_key(KeyPress::Char(';')); // Normal -> Hidden
@@ -244,7 +244,7 @@ mod tests {
     }
 
     #[test]
-    fn test_typing_in_hidden_mode_records_answer_and_advances_decoy() {
+    fn typing_in_hidden_mode_records_answer_and_advances_decoy() {
         let mut engine = Engine::new("ABCDEFG");
 
         engine.handle_key(KeyPress::Char(';')); // flip to Hidden — the secret switch
@@ -268,7 +268,7 @@ mod tests {
     }
 
     #[test]
-    fn test_decoy_clamps_when_exhausted_but_keeps_recording_answer() {
+    fn decoy_clamps_when_exhausted_but_keeps_recording_answer() {
         // Short decoy so it runs out fast (3 chars).
         let mut engine = Engine::new("ABC");
 
@@ -293,7 +293,7 @@ mod tests {
     }
 
     #[test]
-    fn test_enter_reveals_the_buffered_answer() {
+    fn enter_reveals_the_buffered_answer() {
         let mut engine = Engine::new("ABCDEFG");
 
         engine.handle_key(KeyPress::Char(';')); // Hidden
@@ -315,7 +315,7 @@ mod tests {
     }
 
     #[test]
-    fn test_enter_with_empty_answer_is_a_noop() {
+    fn enter_with_empty_answer_is_a_noop() {
         let mut engine = build_test_engine();
 
         // Operator hits Enter without ever composing an answer.
@@ -333,7 +333,7 @@ mod tests {
     }
 
     #[test]
-    fn test_backspace_in_normal_mode_removes_last_visible_char() {
+    fn backspace_in_normal_mode_removes_last_visible_char() {
         let mut engine = build_test_engine();
 
         simulate_typing(&mut engine, "abc");
@@ -351,7 +351,7 @@ mod tests {
     }
 
     #[test]
-    fn test_backspace_on_empty_buffer_is_a_noop() {
+    fn backspace_on_empty_buffer_is_a_noop() {
         let mut engine = build_test_engine();
 
         // Nothing typed yet — Backspace must not panic or underflow.
@@ -365,7 +365,7 @@ mod tests {
     }
 
     #[test]
-    fn test_backspace_in_hidden_mode_retracts_answer_and_decoy() {
+    fn backspace_in_hidden_mode_retracts_answer_and_decoy() {
         let mut engine = Engine::new("ABCDEFG");
 
         engine.handle_key(KeyPress::Char(';')); // Hidden
@@ -390,7 +390,7 @@ mod tests {
     }
 
     #[test]
-    fn test_backspace_in_hidden_mode_with_no_answer_is_a_noop() {
+    fn backspace_in_hidden_mode_with_no_answer_is_a_noop() {
         let mut engine = Engine::new("ABC");
 
         engine.handle_key(KeyPress::Char(';')); // Hidden, but nothing typed yet
@@ -409,7 +409,7 @@ mod tests {
     }
 
     #[test]
-    fn test_backspace_past_exhausted_decoy_pops_answer_but_keeps_decoy_frozen() {
+    fn backspace_past_exhausted_decoy_pops_answer_but_keeps_decoy_frozen() {
         let mut engine = Engine::new("ABC");
 
         engine.handle_key(KeyPress::Char(';')); // Hidden
@@ -442,7 +442,7 @@ mod tests {
     }
 
     #[test]
-    fn test_hidden_backspace_retracts_decoy_not_the_normal_typed_prefix() {
+    fn hidden_backspace_retracts_decoy_not_the_normal_typed_prefix() {
         let mut engine = Engine::new("ABC");
 
         simulate_typing(&mut engine, "go"); // Normal: visible "go"
