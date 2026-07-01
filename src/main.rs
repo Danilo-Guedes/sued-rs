@@ -8,6 +8,7 @@
 mod app;
 mod cli;
 mod config;
+mod contants;
 mod core;
 mod ui;
 

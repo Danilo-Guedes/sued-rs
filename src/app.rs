@@ -6,7 +6,7 @@
 //! simply *owns* one `Engine` and forwards keys to it.
 //!
 
-#![allow(dead_code, unused_variables)]
+#![allow(unused_variables)]
 
 use crate::core::engine::{DECOY_STRING, Engine, KeyPress};
 
@@ -33,6 +33,17 @@ pub enum MenuItem {
     Info,
     About,
     Exit,
+}
+
+impl MenuItem {
+    pub fn label(&self) -> &'static str {
+        match self {
+            MenuItem::Ask => "PERGUNTAR AO ORÁCULO",
+            MenuItem::Info => "INFORMAÇÃO",
+            MenuItem::About => "SOBRE O SUED",
+            MenuItem::Exit => "SAIR",
+        }
+    }
 }
 
 #[derive(Debug, Default)]
