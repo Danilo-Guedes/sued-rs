@@ -168,7 +168,7 @@ impl MenuState {
             MenuItem::Ask => MenuItem::Exit, // wrap back to the bottom
             MenuItem::Info => MenuItem::Ask,
             MenuItem::About => MenuItem::Info,
-            MenuItem::Exit => MenuItem::Ask,
+            MenuItem::Exit => MenuItem::About,
         };
     }
 
