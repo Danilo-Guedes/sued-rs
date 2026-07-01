@@ -143,14 +143,14 @@ impl Engine {
     }
 
     //////GETTERS
-    pub fn get_visible_buffer(&self) -> &str {
+    pub fn visible_buffer(&self) -> &str {
         &self.visible_buffer
     }
 
-    pub fn get_revealed(&self) -> Option<&str> {
+    pub fn revealed(&self) -> Option<&str> {
         self.revealed.as_deref()
     }
-    pub fn get_mode(&self) -> Mode {
+    pub fn mode(&self) -> Mode {
         self.mode // mode implements copy trait
     }
 }
