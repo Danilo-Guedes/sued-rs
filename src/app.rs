@@ -5,34 +5,10 @@
 //! untouched — when we're on the question screen, `AppState::AwaitingQuestion`
 //! simply *owns* one `Engine` and forwards keys to it.
 //!
-//! ## Contract for this file
-//! The `#[cfg(test)] mod tests` block below is the **executable spec** (Claude's
-//! half). Everything *above* it — the types and `handle_key` logic — is **yours**
-//! to write until the suite goes green. Reshape the types if you want a cleaner
-//! shape; just keep the names the tests reference.
-//!
-//!
-//! ## Your green-path steps (red → green)
-//! 1. `mod app;` in `main.rs` so this file (and `cargo test`) actually sees it.
-//! 2. Grow `Key` in `core/engine.rs`: add `Esc`, `Up`, `Down`, and
-//!    `#[derive(Clone, Copy)]` (the test helper presses keys by value). The engine
-//!    doesn't care about those three — give it no-op match arms (`=> StateChange::None`).
-//!    *This is the shared-`Key` call (#3a): one input alphabet for the whole app;
-//!    the engine just ignores the keys it has no use for.*
-//! 3. Write the types + `handle_key` here until the suite is green.
-//!
-//! Transitions the suite pins (read the tests as the source of truth):
-//! - `Intro`:  Enter → Menu · Esc → Quit
-//! - `Menu`:   Up/Down move the selection (**wraps** around the 4 items) ·
-//!             Enter routes per selected item (Perguntar → a *fresh* `AwaitingQuestion`,
-//!             Informações → Info, Sobre → About, Sair → Quit) · Esc → Quit
-//! - `AwaitingQuestion(Engine)`: typing keys forward to the engine · Esc → back to Menu
-//! - `Info` / `About`: Esc → back to Menu
-//!
-//!
-//!
 
-use crate::core::engine::{Engine, KeyPress};
+#![allow(dead_code, unused_variables)]
+
+use crate::core::engine::{DECOY_STRING, Engine, KeyPress};
 
 #[derive(Default, Debug)]
 pub enum AppState {
@@ -59,7 +35,7 @@ pub enum MenuItem {
     Exit,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct MenuState {
     /* your call — selected index, etc. */
     selected_menu: MenuItem,
@@ -71,11 +47,102 @@ impl AppState {
     }
     pub fn handle_key(&mut self, key: KeyPress) -> AppFlow {
         match key {
-            KeyPress::Enter => {
-                *self = AppState::Menu(MenuState::new());
+            KeyPress::Enter => self.handle_enter(),
+            KeyPress::Esc => self.handle_esc(),
+            KeyPress::Up => self.handle_up(),
+            KeyPress::Down => self.handle_down(),
+            KeyPress::Backspace => self.handle_backspace(),
+            KeyPress::Char(ch) => self.handle_char(ch),
+        }
+    }
+
+    fn handle_enter(&mut self) -> AppFlow {
+        match self {
+            AppState::Intro => {
+                *self = AppState::Menu(MenuState::default());
                 AppFlow::Stay
             }
-            KeyPress::Esc => AppFlow::Quit,
+            AppState::Menu(menu_state) => match menu_state.get_selected_menu() {
+                MenuItem::Ask => {
+                    *self = AppState::AwaitingQuestion(Engine::new(DECOY_STRING));
+                    AppFlow::Stay
+                }
+                MenuItem::Info => {
+                    *self = AppState::Info;
+                    AppFlow::Stay
+                }
+                MenuItem::About => {
+                    *self = AppState::About;
+                    AppFlow::Stay
+                }
+                MenuItem::Exit => AppFlow::Quit,
+            },
+            AppState::AwaitingQuestion(eng) => AppFlow::Stay,
+            AppState::Info => AppFlow::Stay,
+            AppState::About => AppFlow::Stay,
+        }
+    }
+
+    fn handle_esc(&mut self) -> AppFlow {
+        match self {
+            AppState::Intro => AppFlow::Quit,
+            AppState::Menu(menu_state) => AppFlow::Quit,
+            AppState::AwaitingQuestion(eng) => {
+                *self = AppState::Menu(MenuState::default());
+                AppFlow::Stay
+            }
+            AppState::Info => {
+                *self = AppState::Menu(MenuState::default());
+                AppFlow::Stay
+            }
+            AppState::About => {
+                *self = AppState::Menu(MenuState::default());
+                AppFlow::Stay
+            }
+        }
+    }
+
+    fn handle_up(&mut self) -> AppFlow {
+        match self {
+            AppState::Intro => AppFlow::Stay,
+            AppState::Menu(menu_state) => {
+                menu_state.move_menu_up();
+                AppFlow::Stay
+            }
+            AppState::AwaitingQuestion(eng) => AppFlow::Stay,
+            AppState::Info => AppFlow::Stay,
+            AppState::About => AppFlow::Stay,
+        }
+    }
+    fn handle_down(&mut self) -> AppFlow {
+        match self {
+            AppState::Intro => AppFlow::Stay,
+            AppState::Menu(menu_state) => {
+                menu_state.move_menu_down();
+                AppFlow::Stay
+            }
+            AppState::AwaitingQuestion(eng) => AppFlow::Stay,
+            AppState::Info => AppFlow::Stay,
+            AppState::About => AppFlow::Stay,
+        }
+    }
+
+    fn handle_backspace(&mut self) -> AppFlow {
+        match self {
+            AppState::Intro => AppFlow::Stay,
+            AppState::Menu(menu_state) => AppFlow::Stay,
+            AppState::AwaitingQuestion(eng) => AppFlow::Stay,
+            AppState::Info => AppFlow::Stay,
+            AppState::About => AppFlow::Stay,
+        }
+    }
+
+    fn handle_char(&mut self, ch: char) -> AppFlow {
+        match self {
+            AppState::AwaitingQuestion(eng) => {
+                eng.handle_key(KeyPress::Char(ch));
+                AppFlow::Stay
+            }
             _ => AppFlow::Stay,
         }
     }
@@ -86,7 +153,26 @@ impl MenuState {
             selected_menu: MenuItem::default(),
         }
     }
-    pub fn selected_item(&self) -> MenuItem {
+
+    pub fn move_menu_down(&mut self) {
+        self.selected_menu = match self.selected_menu {
+            MenuItem::Ask => MenuItem::Info,
+            MenuItem::Info => MenuItem::About,
+            MenuItem::About => MenuItem::Exit,
+            MenuItem::Exit => MenuItem::Ask, // wrap back to the top
+        };
+    }
+
+    pub fn move_menu_up(&mut self) {
+        self.selected_menu = match self.selected_menu {
+            MenuItem::Ask => MenuItem::Exit, // wrap back to the bottom
+            MenuItem::Info => MenuItem::Ask,
+            MenuItem::About => MenuItem::Info,
+            MenuItem::Exit => MenuItem::Ask,
+        };
+    }
+
+    pub fn get_selected_menu(&self) -> MenuItem {
         self.selected_menu
     }
 }
@@ -116,7 +202,7 @@ mod tests {
     /// The highlighted menu item, or panic if we're not on the menu.
     fn selected(state: &AppState) -> MenuItem {
         match state {
-            AppState::Menu(menu) => menu.selected_item(),
+            AppState::Menu(menu) => menu.get_selected_menu(),
             other => panic!("expected Menu, got {other:?}"),
         }
     }
