@@ -1,9 +1,4 @@
-//! ratatui draw code — reads `Engine` state each frame and renders it.
-//!
-//! This is the **M2 scaffold**: a single bordered panel showing the live
-//! `visible_buffer`, just enough to prove the `Engine → ratatui` pipe works.
-//! Growing this is yours (improvement: immediate-mode rendering, `Layout`/`Rect`,
-//! widgets, the menu + marquee). See `../../plan/PLAN.md` §D (M2).
+//! ratatui draw code — reads `AppState` state each frame and renders it.
 
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
@@ -11,18 +6,45 @@ use ratatui::style::Stylize;
 use ratatui::text::{Line, Span, Text};
 use ratatui::widgets::{Block, Padding, Paragraph, Wrap};
 
-use crate::core::engine::Engine;
+use crate::app::AppState;
 
-/// Draw one frame. Called every tick by the run loop in `main.rs`.
-///
-/// `render` only ever *reads* the engine — it never mutates the prank logic.
-/// That read-only split is the habit to keep as this grows.
-pub fn render(frame: &mut Frame, engine: &Engine) {
-    // TODO(M2 — yours):
-    //   * split `frame.area()` with `Layout` into title / oracle panel / input area
-    //   * show `engine.revealed()` as the oracle's answer after Enter
-    //   * build the menu screen (`Resposta / Informações / Sair`) + red marquee
-    //   * style it spooky (red on black, borders, etc.)
+pub fn render(frame: &mut Frame, app_state: &mut AppState) {
+    match app_state {
+        AppState::Intro => {
+            //logic
+            render_intro_screen(frame, app_state);
+        }
+        AppState::Menu(_menu_state) => {
+            //logic
+            render_menu_screen(frame, app_state);
+        }
+        AppState::AwaitingQuestion(_eng) => {
+            //logic
+            render_ask_screen(frame, app_state);
+        }
+
+        AppState::Info => {
+            //logic
+        }
+        AppState::About => {
+            //logic
+        }
+    }
+}
+
+fn render_intro_screen(frame: &mut Frame, _app_state: &mut AppState) {
+    frame.render_widget(Block::bordered().title("INTRO"), frame.area());
+}
+
+fn render_menu_screen(frame: &mut Frame, _app_state: &mut AppState) {
+    frame.render_widget(Block::bordered().title("MENU"), frame.area());
+}
+
+fn render_ask_screen(frame: &mut Frame, app_state: &mut AppState) {
+    let engine = match app_state {
+        AppState::AwaitingQuestion(eng) => eng,
+        _ => return,
+    };
 
     let [title_bar, sued_art, sued_says, sued_logs, input, status] = Layout::vertical([
         Constraint::Length(2), // title bar,
@@ -109,6 +131,14 @@ pub fn render(frame: &mut Frame, engine: &Engine) {
     frame.render_widget(typed, input);
 
     frame.render_widget(Block::bordered().title("status_bar").on_red(), status);
+}
+
+fn render_info_screen(frame: &mut Frame, _app_state: &mut AppState) {
+    frame.render_widget(Block::bordered().title("INFO"), frame.area());
+}
+
+fn render_about_screen(frame: &mut Frame, _app_state: &mut AppState) {
+    frame.render_widget(Block::bordered().title("ABOUT"), frame.area());
 }
 
 fn create_centered_rect(area: Rect, width: Constraint, height: Constraint) -> Rect {
