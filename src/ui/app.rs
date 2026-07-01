@@ -20,7 +20,7 @@ use crate::core::engine::Engine;
 pub fn render(frame: &mut Frame, engine: &Engine) {
     // TODO(M2 — yours):
     //   * split `frame.area()` with `Layout` into title / oracle panel / input area
-    //   * show `engine.get_revealed()` as the oracle's answer after Enter
+    //   * show `engine.revealed()` as the oracle's answer after Enter
     //   * build the menu screen (`Resposta / Informações / Sair`) + red marquee
     //   * style it spooky (red on black, borders, etc.)
 
@@ -65,7 +65,7 @@ pub fn render(frame: &mut Frame, engine: &Engine) {
         ]),
     ]);
 
-    let final_sued_words = match engine.get_revealed() {
+    let final_sued_words = match engine.revealed() {
         Some(answer) => Text::from(answer),
         None => default_sued_text,
     };
@@ -103,7 +103,7 @@ pub fn render(frame: &mut Frame, engine: &Engine) {
         sued_logs,
     );
 
-    let typed = Paragraph::new(engine.get_visible_buffer())
+    let typed = Paragraph::new(engine.visible_buffer())
         .block(Block::bordered().title("input").on_light_red());
 
     frame.render_widget(typed, input);

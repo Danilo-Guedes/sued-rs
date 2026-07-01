@@ -37,7 +37,6 @@ pub enum MenuItem {
 
 #[derive(Debug, Default)]
 pub struct MenuState {
-    /* your call — selected index, etc. */
     selected_menu: MenuItem,
 }
 
@@ -46,104 +45,77 @@ impl AppState {
         AppState::default()
     }
     pub fn handle_key(&mut self, key: KeyPress) -> AppFlow {
-        match key {
-            KeyPress::Enter => self.handle_enter(),
-            KeyPress::Esc => self.handle_esc(),
-            KeyPress::Up => self.handle_up(),
-            KeyPress::Down => self.handle_down(),
-            KeyPress::Backspace => self.handle_backspace(),
-            KeyPress::Char(ch) => self.handle_char(ch),
-        }
-    }
-
-    fn handle_enter(&mut self) -> AppFlow {
         match self {
             AppState::Intro => {
-                *self = AppState::Menu(MenuState::default());
-                AppFlow::Stay
+                match key {
+                    KeyPress::Enter => {
+                        //logic
+                        *self = AppState::Menu(MenuState::default());
+                        AppFlow::Stay
+                    }
+                    KeyPress::Esc => AppFlow::Quit,
+                    _ => AppFlow::Stay,
+                }
             }
-            AppState::Menu(menu_state) => match menu_state.get_selected_menu() {
-                MenuItem::Ask => {
-                    *self = AppState::AwaitingQuestion(Engine::new(DECOY_STRING));
+            AppState::Menu(menu_state) => match key {
+                KeyPress::Enter => match menu_state.selected_menu() {
+                    MenuItem::Ask => {
+                        *self = AppState::AwaitingQuestion(Engine::new(DECOY_STRING));
+                        AppFlow::Stay
+                    }
+                    MenuItem::Info => {
+                        *self = AppState::Info;
+                        AppFlow::Stay
+                    }
+                    MenuItem::About => {
+                        *self = AppState::About;
+                        AppFlow::Stay
+                    }
+                    MenuItem::Exit => AppFlow::Quit,
+                },
+                KeyPress::Esc => AppFlow::Quit,
+                KeyPress::Up => {
+                    menu_state.move_menu_up();
                     AppFlow::Stay
                 }
-                MenuItem::Info => {
-                    *self = AppState::Info;
+                KeyPress::Down => {
+                    menu_state.move_menu_down();
                     AppFlow::Stay
                 }
-                MenuItem::About => {
-                    *self = AppState::About;
-                    AppFlow::Stay
-                }
-                MenuItem::Exit => AppFlow::Quit,
+                _ => AppFlow::Stay,
             },
-            AppState::AwaitingQuestion(eng) => AppFlow::Stay,
-            AppState::Info => AppFlow::Stay,
-            AppState::About => AppFlow::Stay,
-        }
-    }
-
-    fn handle_esc(&mut self) -> AppFlow {
-        match self {
-            AppState::Intro => AppFlow::Quit,
-            AppState::Menu(menu_state) => AppFlow::Quit,
-            AppState::AwaitingQuestion(eng) => {
-                *self = AppState::Menu(MenuState::default());
-                AppFlow::Stay
-            }
-            AppState::Info => {
-                *self = AppState::Menu(MenuState::default());
-                AppFlow::Stay
-            }
-            AppState::About => {
-                *self = AppState::Menu(MenuState::default());
-                AppFlow::Stay
-            }
-        }
-    }
-
-    fn handle_up(&mut self) -> AppFlow {
-        match self {
-            AppState::Intro => AppFlow::Stay,
-            AppState::Menu(menu_state) => {
-                menu_state.move_menu_up();
-                AppFlow::Stay
-            }
-            AppState::AwaitingQuestion(eng) => AppFlow::Stay,
-            AppState::Info => AppFlow::Stay,
-            AppState::About => AppFlow::Stay,
-        }
-    }
-    fn handle_down(&mut self) -> AppFlow {
-        match self {
-            AppState::Intro => AppFlow::Stay,
-            AppState::Menu(menu_state) => {
-                menu_state.move_menu_down();
-                AppFlow::Stay
-            }
-            AppState::AwaitingQuestion(eng) => AppFlow::Stay,
-            AppState::Info => AppFlow::Stay,
-            AppState::About => AppFlow::Stay,
-        }
-    }
-
-    fn handle_backspace(&mut self) -> AppFlow {
-        match self {
-            AppState::Intro => AppFlow::Stay,
-            AppState::Menu(menu_state) => AppFlow::Stay,
-            AppState::AwaitingQuestion(eng) => AppFlow::Stay,
-            AppState::Info => AppFlow::Stay,
-            AppState::About => AppFlow::Stay,
-        }
-    }
-
-    fn handle_char(&mut self, ch: char) -> AppFlow {
-        match self {
-            AppState::AwaitingQuestion(eng) => {
-                eng.handle_key(KeyPress::Char(ch));
-                AppFlow::Stay
-            }
-            _ => AppFlow::Stay,
+            AppState::AwaitingQuestion(engine) => match key {
+                KeyPress::Enter => {
+                    engine.handle_key(KeyPress::Enter);
+                    AppFlow::Stay
+                }
+                KeyPress::Esc => {
+                    *self = AppState::Menu(MenuState::default());
+                    AppFlow::Stay
+                }
+                KeyPress::Backspace => {
+                    engine.handle_key(KeyPress::Backspace);
+                    AppFlow::Stay
+                }
+                other_char => {
+                    engine.handle_key(other_char);
+                    AppFlow::Stay
+                }
+            },
+            AppState::Info => match key {
+                KeyPress::Esc => {
+                    *self = AppState::Menu(MenuState::default());
+                    AppFlow::Quit
+                }
+                _ => AppFlow::Stay,
+            },
+            AppState::About => match key {
+                KeyPress::Esc => {
+                    *self = AppState::Menu(MenuState::new());
+                    AppFlow::Stay
+                }
+                _ => AppFlow::Stay,
+            },
         }
     }
 }
@@ -172,7 +144,7 @@ impl MenuState {
         };
     }
 
-    pub fn get_selected_menu(&self) -> MenuItem {
+    pub fn selected_menu(&self) -> MenuItem {
         self.selected_menu
     }
 }
@@ -202,7 +174,7 @@ mod tests {
     /// The highlighted menu item, or panic if we're not on the menu.
     fn selected(state: &AppState) -> MenuItem {
         match state {
-            AppState::Menu(menu) => menu.get_selected_menu(),
+            AppState::Menu(menu) => menu.selected_menu(),
             other => panic!("expected Menu, got {other:?}"),
         }
     }
@@ -217,7 +189,6 @@ mod tests {
     #[test]
     fn intro_enter_opens_menu_on_first_item() {
         let state = drive(&[KeyPress::Enter]);
-        dbg!(&state);
         assert!(matches!(state, AppState::Menu(_)));
         assert_eq!(selected(&state), MenuItem::Ask);
     }
@@ -264,7 +235,7 @@ mod tests {
         assert_eq!(flow, AppFlow::Stay);
         match state {
             // A brand-new prank session: nothing typed, nothing on screen yet.
-            AppState::AwaitingQuestion(engine) => assert_eq!(engine.get_visible_buffer(), ""),
+            AppState::AwaitingQuestion(engine) => assert_eq!(engine.visible_buffer(), ""),
             other => panic!("expected AwaitingQuestion, got {other:?}"),
         }
     }
@@ -311,7 +282,7 @@ mod tests {
             KeyPress::Char('i'),
         ]);
         match state {
-            AppState::AwaitingQuestion(engine) => assert_eq!(engine.get_visible_buffer(), "oi"),
+            AppState::AwaitingQuestion(engine) => assert_eq!(engine.visible_buffer(), "oi"),
             other => panic!("expected AwaitingQuestion, got {other:?}"),
         }
     }

@@ -5,11 +5,11 @@
 //! [`core::engine`] and stays untouched. See `../plan/PLAN.md` §D (M2).
 #![allow(dead_code)]
 
+mod app;
 mod cli;
 mod config;
 mod core;
 mod ui;
-mod app;
 
 #[cfg(feature = "audio")]
 mod audio;
@@ -95,7 +95,9 @@ fn run(terminal: &mut Terminal<CrosstermBackend<Stdout>>, engine: &mut Engine) -
 fn handle_key(engine: &mut Engine, key: KeyEvent) -> LoopFlow {
     match key.code {
         KeyCode::Esc => return LoopFlow::Quit,
-        KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => return LoopFlow::Quit,
+        KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+            return LoopFlow::Quit;
+        }
         KeyCode::Char(ch) => {
             engine.handle_key(KeyPress::Char(ch));
         }
