@@ -6,47 +6,167 @@ use ratatui::style::Stylize;
 use ratatui::text::{Line, Span, Text};
 use ratatui::widgets::{Block, Padding, Paragraph, Wrap};
 
-use crate::app::AppState;
+use crate::app::{AppState, MenuState};
+use crate::contants::APP_TITLE;
+use crate::core::engine::Engine;
 
 pub fn render(frame: &mut Frame, app_state: &mut AppState) {
     match app_state {
         AppState::Intro => {
-            //logic
-            render_intro_screen(frame, app_state);
+            render_intro_screen(frame);
         }
-        AppState::Menu(_menu_state) => {
-            //logic
-            render_menu_screen(frame, app_state);
+        AppState::Menu(menu_state) => {
+            render_menu_screen(frame, menu_state);
         }
-        AppState::AwaitingQuestion(_eng) => {
-            //logic
-            render_ask_screen(frame, app_state);
+        AppState::AwaitingQuestion(engine) => {
+            render_ask_screen(frame, engine);
         }
 
         AppState::Info => {
-            //logic
+            render_info_screen(frame);
         }
         AppState::About => {
-            //logic
+            render_about_screen(frame);
         }
     }
 }
 
-fn render_intro_screen(frame: &mut Frame, _app_state: &mut AppState) {
-    frame.render_widget(Block::bordered().title("INTRO"), frame.area());
+fn render_intro_screen(frame: &mut Frame) {
+    let [
+        title_bar_layout,
+        page_title_and_sub_layout,
+        intro_text_layout,
+        status_layout,
+    ] = Layout::vertical([
+        Constraint::Length(2), // title bar,
+        Constraint::Fill(1),   // page_title_and_sub
+        Constraint::Fill(2),   // intro_text_layout
+        Constraint::Length(3), // status bar
+    ])
+    .areas(frame.area());
+
+    frame.render_widget(
+        Paragraph::new(APP_TITLE).red().bold().left_aligned(),
+        title_bar_layout,
+    );
+
+    let page_title_and_sub_texts = Text::from(vec![
+        Line::from("SUED".red().bold()),
+        Line::from(""), // blank row for breathing space
+        Line::from("SUA ÚLTIMA ESPERANÇA DIVINA".dim()),
+    ]);
+
+    frame.render_widget(
+        Paragraph::new(page_title_and_sub_texts).centered(),
+        page_title_and_sub_layout,
+    );
+
+    let intro_texts = Text::from(vec![
+        Line::from("ATENÇÃO".red().bold()),
+        Line::from(""), // blank row for breathing space
+        Line::from(
+            "Você está prestes a abrir uma porta para o desconhecido.
+            Aconselho acender uma vela e apagar as luzes antes de executar o programa.
+            Para que SUED responda, você deve elogiá-lo e em seguida perguntar de forma clara.
+            Pessoas fracas e sensíveis não devem utilizar o programa.
+            Tenha muito cuidado com o que você irá perguntar..."
+                .dim(),
+        ),
+    ]);
+
+    frame.render_widget(
+        Paragraph::new(intro_texts)
+            .centered()
+            .wrap(Wrap { trim: false }),
+        intro_text_layout,
+    );
+
+    let status_texts = Line::from(vec![
+        "[Enter]".red().bold(),
+        " ".into(),
+        "continuar".dim(),
+        " ".into(),
+        "[Esc]".red().bold(),
+        " ".into(),
+        "sair".dim(),
+    ]);
+
+    frame.render_widget(
+        Paragraph::new(status_texts).block(Block::bordered()),
+        status_layout,
+    );
 }
 
-fn render_menu_screen(frame: &mut Frame, _app_state: &mut AppState) {
-    frame.render_widget(Block::bordered().title("MENU"), frame.area());
+fn render_menu_screen(frame: &mut Frame, menu_state: &mut MenuState) {
+    let [title_bar_layout, center_layout, status_layout] = Layout::vertical([
+        Constraint::Length(2), // title title_bar_layout,
+        Constraint::Fill(1),   // center_layout
+        Constraint::Length(3), // status_layout
+    ])
+    .areas(frame.area());
+
+    frame.render_widget(
+        Paragraph::new(APP_TITLE).red().bold().left_aligned(),
+        title_bar_layout,
+    );
+
+    let [menu_left_layout, disclaim_right_layout] =
+        Layout::horizontal([Constraint::Fill(6), Constraint::Fill(4)]).areas(center_layout);
+
+    let mut menu_items_lines: Vec<Line> = vec![];
+
+    for (idx, menu_item) in MenuState::ALL.iter().enumerate() {
+        let label = if idx == menu_state.menu_index() {
+            menu_item.label().to_string().black().on_red()
+        } else {
+            menu_item.label().to_string().red()
+        };
+
+        menu_items_lines.push(Line::from(label));
+    }
+
+    frame.render_widget(Paragraph::new(menu_items_lines), menu_left_layout);
+
+    let displaimer_texts = Text::from(vec![
+        Line::from("ATENÇÃO").red(),
+        Line::from(" "),
+        Line::from("Pessoas fracas e sensíveis não devem utilizar o programa.").red(),
+        Line::from(" "),
+        Line::from("Acenda uma vela. Apague as luzes.").red(),
+        Line::from(" "),
+        Line::from("Tenha cuidado com o que irá perguntar...").red(),
+    ]);
+
+    frame.render_widget(Paragraph::new(displaimer_texts), disclaim_right_layout);
+
+    let status_texts = Line::from(vec![
+        "[↑↓]".red().bold(),
+        " ".into(),
+        "navegar".dim(),
+        " ".into(),
+        "[Enter]".red().bold(),
+        " ".into(),
+        "selecionar".dim(),
+        "[Esc]".red().bold(),
+        " ".into(),
+        "sair".dim(),
+    ]);
+
+    frame.render_widget(
+        Paragraph::new(status_texts).block(Block::bordered()),
+        status_layout,
+    );
 }
 
-fn render_ask_screen(frame: &mut Frame, app_state: &mut AppState) {
-    let engine = match app_state {
-        AppState::AwaitingQuestion(eng) => eng,
-        _ => return,
-    };
-
-    let [title_bar, sued_art, sued_says, sued_logs, input, status] = Layout::vertical([
+fn render_ask_screen(frame: &mut Frame, engine: &mut Engine) {
+    let [
+        title_bar_layout,
+        sued_art_layout,
+        sued_says_layout,
+        sued_logs_layout,
+        input_layout,
+        status_layout,
+    ] = Layout::vertical([
         Constraint::Length(2), // title bar,
         Constraint::Fill(2),   // sued_art
         Constraint::Fill(2),   // sued_says
@@ -57,10 +177,10 @@ fn render_ask_screen(frame: &mut Frame, app_state: &mut AppState) {
     .areas(frame.area());
 
     let [title_bar_left, title_bar_right] =
-        Layout::horizontal([Constraint::Fill(1), Constraint::Length(22)]).areas(title_bar);
+        Layout::horizontal([Constraint::Fill(1), Constraint::Length(22)]).areas(title_bar_layout);
 
     frame.render_widget(
-        Paragraph::new(" ☠  SueD — O Oráculo  ☠ ").red().bold(),
+        Paragraph::new(APP_TITLE).red().bold(),
         // .style(Style::new().red().rapid_blink()),
         title_bar_left,
     );
@@ -72,10 +192,13 @@ fn render_ask_screen(frame: &mut Frame, app_state: &mut AppState) {
     ]);
 
     frame.render_widget(Paragraph::new(session).right_aligned(), title_bar_right);
-    frame.render_widget(Block::bordered().title("sued_art"), sued_art);
+    frame.render_widget(Block::bordered().title("sued_art"), sued_art_layout);
 
-    let speak_layout =
-        create_centered_rect(sued_says, Constraint::Length(60), Constraint::Length(8));
+    let speak_layout = create_centered_rect(
+        sued_says_layout,
+        Constraint::Length(60),
+        Constraint::Length(8),
+    );
 
     let default_sued_text = Text::from(vec![
         Line::from("Pergunte-me o que deseja saber, humano..."),
@@ -122,22 +245,25 @@ fn render_ask_screen(frame: &mut Frame, app_state: &mut AppState) {
                 .title("sued_logs")
                 .padding(Padding::new(2, 2, 1, 1)),
         ),
-        sued_logs,
+        sued_logs_layout,
     );
 
     let typed = Paragraph::new(engine.visible_buffer())
         .block(Block::bordered().title("input").on_light_red());
 
-    frame.render_widget(typed, input);
+    frame.render_widget(typed, input_layout);
 
-    frame.render_widget(Block::bordered().title("status_bar").on_red(), status);
+    frame.render_widget(
+        Block::bordered().title("status_bar").on_red(),
+        status_layout,
+    );
 }
 
-fn render_info_screen(frame: &mut Frame, _app_state: &mut AppState) {
+fn render_info_screen(frame: &mut Frame) {
     frame.render_widget(Block::bordered().title("INFO"), frame.area());
 }
 
-fn render_about_screen(frame: &mut Frame, _app_state: &mut AppState) {
+fn render_about_screen(frame: &mut Frame) {
     frame.render_widget(Block::bordered().title("ABOUT"), frame.area());
 }
 
