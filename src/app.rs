@@ -37,7 +37,16 @@ pub enum MenuItem {
 
 #[derive(Debug, Default)]
 pub struct MenuState {
-    selected_menu: MenuItem,
+    menu_index: usize,
+}
+
+impl MenuState {
+    pub const ALL: [MenuItem; 4] = [
+        MenuItem::Ask,
+        MenuItem::Info,
+        MenuItem::About,
+        MenuItem::Exit,
+    ];
 }
 
 impl AppState {
@@ -46,32 +55,30 @@ impl AppState {
     }
     pub fn handle_key(&mut self, key: KeyPress) -> AppFlow {
         match self {
-            AppState::Intro => {
-                match key {
-                    KeyPress::Enter => {
-                        //logic
-                        *self = AppState::Menu(MenuState::default());
-                        AppFlow::Stay
-                    }
-                    KeyPress::Esc => AppFlow::Quit,
-                    _ => AppFlow::Stay,
+            AppState::Intro => match key {
+                KeyPress::Enter => {
+                    *self = AppState::Menu(MenuState::default());
+                    AppFlow::Stay
                 }
-            }
+                KeyPress::Esc => AppFlow::Quit,
+                _ => AppFlow::Stay,
+            },
             AppState::Menu(menu_state) => match key {
-                KeyPress::Enter => match menu_state.selected_menu() {
-                    MenuItem::Ask => {
+                KeyPress::Enter => match menu_state.menu_index() {
+                    0 => {
                         *self = AppState::AwaitingQuestion(Engine::new(DECOY_STRING));
                         AppFlow::Stay
                     }
-                    MenuItem::Info => {
+                    1 => {
                         *self = AppState::Info;
                         AppFlow::Stay
                     }
-                    MenuItem::About => {
+                    2 => {
                         *self = AppState::About;
                         AppFlow::Stay
                     }
-                    MenuItem::Exit => AppFlow::Quit,
+                    3 => AppFlow::Quit,
+                    _ => AppFlow::Stay,
                 },
                 KeyPress::Esc => AppFlow::Quit,
                 KeyPress::Up => {
@@ -105,7 +112,7 @@ impl AppState {
             AppState::Info => match key {
                 KeyPress::Esc => {
                     *self = AppState::Menu(MenuState::default());
-                    AppFlow::Quit
+                    AppFlow::Stay
                 }
                 _ => AppFlow::Stay,
             },
@@ -119,38 +126,34 @@ impl AppState {
         }
     }
 }
+
 impl MenuState {
     pub fn new() -> Self {
-        Self {
-            selected_menu: MenuItem::default(),
-        }
+        Self::default()
     }
 
     pub fn move_menu_down(&mut self) {
-        self.selected_menu = match self.selected_menu {
-            MenuItem::Ask => MenuItem::Info,
-            MenuItem::Info => MenuItem::About,
-            MenuItem::About => MenuItem::Exit,
-            MenuItem::Exit => MenuItem::Ask, // wrap back to the top
-        };
+        let curr_index = self.menu_index();
+        let menu_size = Self::ALL.len();
+        let new_index = (curr_index + 1) % menu_size;
+        self.menu_index = new_index;
     }
 
     pub fn move_menu_up(&mut self) {
-        self.selected_menu = match self.selected_menu {
-            MenuItem::Ask => MenuItem::Exit, // wrap back to the bottom
-            MenuItem::Info => MenuItem::Ask,
-            MenuItem::About => MenuItem::Info,
-            MenuItem::Exit => MenuItem::About,
-        };
+        let curr_index = self.menu_index();
+        let menu_size = Self::ALL.len();
+        let new_index = (curr_index + menu_size - 1) % menu_size;
+        self.menu_index = new_index;
     }
 
-    pub fn selected_menu(&self) -> MenuItem {
-        self.selected_menu
+    pub fn menu_index(&self) -> usize {
+        self.menu_index
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use super::MenuState;
     use super::*;
     use crate::core::engine::KeyPress;
 
@@ -174,7 +177,7 @@ mod tests {
     /// The highlighted menu item, or panic if we're not on the menu.
     fn selected(state: &AppState) -> MenuItem {
         match state {
-            AppState::Menu(menu) => menu.selected_menu(),
+            AppState::Menu(menu) => MenuState::ALL[menu.menu_index()],
             other => panic!("expected Menu, got {other:?}"),
         }
     }
