@@ -18,7 +18,7 @@ pub fn render(frame: &mut Frame, app_state: &mut AppState) {
         AppState::Menu(menu_state) => {
             render_menu_screen(frame, menu_state);
         }
-        AppState::AwaitingQuestion(engine) => {
+        AppState::Asking(engine) => {
             render_ask_screen(frame, engine);
         }
 

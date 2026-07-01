@@ -15,7 +15,7 @@ pub enum AppState {
     #[default]
     Intro,
     Menu(MenuState),
-    AwaitingQuestion(Engine),
+    Asking(Engine),
     Info,
     About,
 }
@@ -77,7 +77,7 @@ impl AppState {
             AppState::Menu(menu_state) => match key {
                 KeyPress::Enter => match menu_state.menu_index() {
                     0 => {
-                        *self = AppState::AwaitingQuestion(Engine::new(DECOY_STRING));
+                        *self = AppState::Asking(Engine::new(DECOY_STRING));
                         AppFlow::Stay
                     }
                     1 => {
@@ -102,7 +102,7 @@ impl AppState {
                 }
                 _ => AppFlow::Stay,
             },
-            AppState::AwaitingQuestion(engine) => match key {
+            AppState::Asking(engine) => match key {
                 KeyPress::Enter => {
                     engine.handle_key(KeyPress::Enter);
                     AppFlow::Stay
@@ -245,7 +245,7 @@ mod tests {
         assert_eq!(flow, AppFlow::Stay);
         match state {
             // A brand-new prank session: nothing typed, nothing on screen yet.
-            AppState::AwaitingQuestion(engine) => assert_eq!(engine.visible_buffer(), ""),
+            AppState::Asking(engine) => assert_eq!(engine.visible_buffer(), ""),
             other => panic!("expected AwaitingQuestion, got {other:?}"),
         }
     }
@@ -292,7 +292,7 @@ mod tests {
             KeyPress::Char('i'),
         ]);
         match state {
-            AppState::AwaitingQuestion(engine) => assert_eq!(engine.visible_buffer(), "oi"),
+            AppState::Asking(engine) => assert_eq!(engine.visible_buffer(), "oi"),
             other => panic!("expected AwaitingQuestion, got {other:?}"),
         }
     }
