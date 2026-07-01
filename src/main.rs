@@ -1,7 +1,7 @@
 //! sued-rs — a horror-themed terminal recreation of the SueD prank oracle.
 //!
 //! **M2 scaffold.** Terminal lifecycle (RAII guard) + the tick loop live here;
-//! the ratatui draw code lives in [`ui::app`]. The pure prank logic is in
+//! the ratatui draw code lives in [`ui::screens`]. The pure prank logic is in
 //! [`core::engine`] and stays untouched. See `../plan/PLAN.md` §D (M2).
 #![allow(dead_code)]
 
@@ -26,7 +26,8 @@ use crossterm::terminal::{
 use ratatui::Terminal;
 use ratatui::backend::CrosstermBackend;
 
-use crate::core::engine::{DECOY_STRING, Engine, KeyPress};
+use crate::app::{AppFlow, AppState};
+use crate::core::engine::KeyPress;
 
 /// How long each tick waits for input before redrawing. ~50ms ≈ 20 fps — smooth
 /// enough for the animations coming in M3/M4, cheap enough to idle on.
@@ -54,34 +55,28 @@ impl Drop for TerminalGuard {
     }
 }
 
-/// What the loop should do after handling a key.
-#[derive(PartialEq)]
-enum LoopFlow {
-    Continue,
-    Quit,
-}
-
 fn main() -> Result<()> {
     let _guard = TerminalGuard::new()?; // declared first → dropped LAST (cleans up after the terminal)
     let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
-    let mut engine = Engine::new(DECOY_STRING);
+    let mut app_state = AppState::new();
 
-    run(&mut terminal, &mut engine)
+    run(&mut terminal, &mut app_state)
 }
 
 /// The tick loop: redraw every frame, only `read()` when there's actually input.
 /// Blocking on `read()` (M1) would freeze any animation between keystrokes.
-fn run(terminal: &mut Terminal<CrosstermBackend<Stdout>>, engine: &mut Engine) -> Result<()> {
+fn run(terminal: &mut Terminal<CrosstermBackend<Stdout>>, app_state: &mut AppState) -> Result<()> {
     loop {
         // 1. DRAW — ratatui diffs against the last frame and writes only what changed.
-        terminal.draw(|frame| ui::app::render(frame, engine))?;
+        terminal.draw(|frame| ui::screens::render(frame, app_state))?;
 
         // 2. POLL — wait up to `TICK` for an event. Returns false on timeout (no input).
         if event::poll(TICK)? {
             // 3. READ — only now, knowing an event is waiting, so this won't block.
             if let Event::Key(key) = event::read()? {
                 // Windows fires Press AND Release; only act on Press, or every key doubles.
-                if key.kind == KeyEventKind::Press && handle_key(engine, key) == LoopFlow::Quit {
+                if key.kind == KeyEventKind::Press && translate_key(app_state, key) == AppFlow::Quit
+                {
                     return Ok(());
                 }
             }
@@ -90,25 +85,17 @@ fn run(terminal: &mut Terminal<CrosstermBackend<Stdout>>, engine: &mut Engine) -
 }
 
 /// Translate a crossterm key into an engine `Key` and drive the engine.
-/// Returns `LoopFlow::Quit` on the exit keys so the loop can break cleanly — note we
+/// Returns `AppFlow::Quit` on the exit keys so the loop can break cleanly — note we
 /// never `process::exit`; we return, so `TerminalGuard`'s `Drop` always runs.
-fn handle_key(engine: &mut Engine, key: KeyEvent) -> LoopFlow {
+fn translate_key(app_state: &mut AppState, key: KeyEvent) -> AppFlow {
     match key.code {
-        KeyCode::Esc => return LoopFlow::Quit,
-        KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-            return LoopFlow::Quit;
-        }
-        KeyCode::Char(ch) => {
-            engine.handle_key(KeyPress::Char(ch));
-        }
-        KeyCode::Enter => {
-            engine.handle_key(KeyPress::Enter);
-        }
-        KeyCode::Backspace => {
-            engine.handle_key(KeyPress::Backspace);
-        }
-        // Ignore anything else. (No `println!` here — it would corrupt the TUI.)
-        _ => {}
+        KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => AppFlow::Quit,
+        KeyCode::Backspace => app_state.handle_key(KeyPress::Backspace),
+        KeyCode::Esc => app_state.handle_key(KeyPress::Esc),
+        KeyCode::Enter => app_state.handle_key(KeyPress::Enter),
+        KeyCode::Down => app_state.handle_key(KeyPress::Down),
+        KeyCode::Up => app_state.handle_key(KeyPress::Up),
+        KeyCode::Char(ch) => app_state.handle_key(KeyPress::Char(ch)),
+        _ => AppFlow::Stay,
     }
-    LoopFlow::Continue
 }
