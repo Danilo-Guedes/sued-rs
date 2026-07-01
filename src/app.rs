@@ -133,17 +133,13 @@ impl MenuState {
     }
 
     pub fn move_menu_down(&mut self) {
-        let curr_index = self.menu_index();
         let menu_size = Self::ALL.len();
-        let new_index = (curr_index + 1) % menu_size;
-        self.menu_index = new_index;
+        self.menu_index = (self.menu_index + 1) % menu_size;
     }
 
     pub fn move_menu_up(&mut self) {
-        let curr_index = self.menu_index();
         let menu_size = Self::ALL.len();
-        let new_index = (curr_index + menu_size - 1) % menu_size;
-        self.menu_index = new_index;
+        self.menu_index = (self.menu_index + menu_size - 1) % menu_size;
     }
 
     pub fn menu_index(&self) -> usize {
