@@ -163,12 +163,14 @@ mod tests {
     use super::*;
     use crate::core::engine::KeyPress;
 
-    // ── The API these tests pin (build with the struct-based design) ──────────
-    // AppState  = struct { screen: AppScreen, menu_index: usize }
+    // ── The API these tests pin (option C: MenuState embedded as a field) ─────
+    // AppState  = struct { screen: AppScreen, menu_state: MenuState }
     // AppScreen = enum { Intro, Menu, Asking(Engine), Info, About }   (Menu is UNIT)
     // AppState::screen(&self)     -> &AppScreen
-    // AppState::menu_index(&self) -> usize
-    // MenuItem::ALL               (moved here from the old MenuState)
+    // AppState::menu_state(&self) -> &MenuState
+    // MenuState keeps ALL, menu_index(), move_menu_up/down() exactly as today —
+    //   it just moves from *inside* the Menu variant to a sibling field, so the
+    //   cursor persists across screen changes.
     //
     // If you keep `AppScreen::Menu(MenuState)` (option B), change the one
     // `on_menu` helper below to `matches!(state.screen(), AppScreen::Menu(_))`.
@@ -189,11 +191,11 @@ mod tests {
         drive_flow(keys).0
     }
 
-    /// The currently highlighted menu item. `menu_index` is app-level state now,
-    /// so this is *always* valid — assert `on_menu` separately when the current
-    /// *screen* is what matters.
+    /// The currently highlighted menu item. The menu cursor lives on `AppState`
+    /// now (inside `menu_state`), so this is *always* valid — assert `on_menu`
+    /// separately when the current *screen* is what matters.
     fn selected(state: &AppState) -> MenuItem {
-        MenuItem::ALL[state.menu_index()]
+        MenuState::ALL[state.menu_state().menu_index()]
     }
 
     /// Are we on the menu screen? (Single point to tweak for option B.)
