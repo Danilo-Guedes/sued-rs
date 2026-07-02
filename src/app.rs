@@ -2,7 +2,7 @@
 //!
 //! `AppState` is the **app shell**: which screen are we on, and how do keys move
 //! us between screens. The pure prank lives in [`crate::core::engine`] and stays
-//! untouched — when we're on the question screen, `AppState::AwaitingQuestion`
+//! untouched — when we're on the question screen, `AppState::Asking`
 //! simply *owns* one `Engine` and forwards keys to it.
 //!
 
@@ -160,11 +160,20 @@ impl MenuState {
 
 #[cfg(test)]
 mod tests {
-    use super::MenuState;
     use super::*;
     use crate::core::engine::KeyPress;
 
-    /// Replay a sequence of keystrokes from the intro, handing back the final
+    // ── The API these tests pin (build with the struct-based design) ──────────
+    // AppState  = struct { screen: AppScreen, menu_index: usize }
+    // AppScreen = enum { Intro, Menu, Asking(Engine), Info, About }   (Menu is UNIT)
+    // AppState::screen(&self)     -> &AppScreen
+    // AppState::menu_index(&self) -> usize
+    // MenuItem::ALL               (moved here from the old MenuState)
+    //
+    // If you keep `AppScreen::Menu(MenuState)` (option B), change the one
+    // `on_menu` helper below to `matches!(state.screen(), AppScreen::Menu(_))`.
+
+    /// Replay a sequence of keystrokes from a fresh app, handing back the final
     /// state *and* the `AppFlow` returned by the last key (Stay/Quit).
     fn drive_flow(keys: &[KeyPress]) -> (AppState, AppFlow) {
         let mut state = AppState::new();
@@ -175,31 +184,34 @@ mod tests {
         (state, flow)
     }
 
-    /// Same, when the test only cares about where we landed (a thin wrapper —
-    /// one source of truth for the loop, clean call sites for the common case).
+    /// Same, when the test only cares about where we landed.
     fn drive(keys: &[KeyPress]) -> AppState {
         drive_flow(keys).0
     }
 
-    /// The highlighted menu item, or panic if we're not on the menu.
+    /// The currently highlighted menu item. `menu_index` is app-level state now,
+    /// so this is *always* valid — assert `on_menu` separately when the current
+    /// *screen* is what matters.
     fn selected(state: &AppState) -> MenuItem {
-        match state {
-            AppState::Menu(menu) => MenuState::ALL[menu.menu_index()],
-            other => panic!("expected Menu, got {other:?}"),
-        }
+        MenuItem::ALL[state.menu_index()]
+    }
+
+    /// Are we on the menu screen? (Single point to tweak for option B.)
+    fn on_menu(state: &AppState) -> bool {
+        matches!(state.screen(), AppScreen::Menu)
     }
 
     // ── Intro ────────────────────────────────────────────────────────────────
 
     #[test]
     fn new_starts_at_intro() {
-        assert!(matches!(AppState::new(), AppState::Intro));
+        assert!(matches!(AppState::new().screen(), AppScreen::Intro));
     }
 
     #[test]
     fn intro_enter_opens_menu_on_first_item() {
         let state = drive(&[KeyPress::Enter]);
-        assert!(matches!(state, AppState::Menu(_)));
+        assert!(on_menu(&state));
         assert_eq!(selected(&state), MenuItem::Ask);
     }
 
@@ -243,17 +255,17 @@ mod tests {
     fn menu_enter_on_perguntar_opens_a_fresh_question() {
         let (state, flow) = drive_flow(&[KeyPress::Enter, KeyPress::Enter]);
         assert_eq!(flow, AppFlow::Stay);
-        match state {
+        match state.screen() {
             // A brand-new prank session: nothing typed, nothing on screen yet.
-            AppState::Asking(engine) => assert_eq!(engine.visible_buffer(), ""),
-            other => panic!("expected AwaitingQuestion, got {other:?}"),
+            AppScreen::Asking(engine) => assert_eq!(engine.visible_buffer(), ""),
+            other => panic!("expected Asking, got {other:?}"),
         }
     }
 
     #[test]
     fn menu_enter_on_informacoes_opens_info() {
         let state = drive(&[KeyPress::Enter, KeyPress::Down, KeyPress::Enter]);
-        assert!(matches!(state, AppState::Info));
+        assert!(matches!(state.screen(), AppScreen::Info));
     }
 
     #[test]
@@ -264,7 +276,7 @@ mod tests {
             KeyPress::Down,
             KeyPress::Enter,
         ]);
-        assert!(matches!(state, AppState::About));
+        assert!(matches!(state.screen(), AppScreen::About));
     }
 
     #[test]
@@ -291,16 +303,16 @@ mod tests {
             KeyPress::Char('o'),
             KeyPress::Char('i'),
         ]);
-        match state {
-            AppState::Asking(engine) => assert_eq!(engine.visible_buffer(), "oi"),
-            other => panic!("expected AwaitingQuestion, got {other:?}"),
+        match state.screen() {
+            AppScreen::Asking(engine) => assert_eq!(engine.visible_buffer(), "oi"),
+            other => panic!("expected Asking, got {other:?}"),
         }
     }
 
     #[test]
     fn question_esc_returns_to_menu() {
         let state = drive(&[KeyPress::Enter, KeyPress::Enter, KeyPress::Esc]);
-        assert!(matches!(state, AppState::Menu(_)));
+        assert!(on_menu(&state));
     }
 
     // ── Static screens bounce back to the menu ───────────────────────────────
@@ -313,7 +325,7 @@ mod tests {
             KeyPress::Enter,
             KeyPress::Esc,
         ]);
-        assert!(matches!(state, AppState::Menu(_)));
+        assert!(on_menu(&state));
     }
 
     #[test]
@@ -325,6 +337,67 @@ mod tests {
             KeyPress::Enter,
             KeyPress::Esc,
         ]);
-        assert!(matches!(state, AppState::Menu(_)));
+        assert!(on_menu(&state));
+    }
+
+    // ── NEW: menu selection PERSISTS across a sub-screen visit ────────────────
+    // The whole point of hoisting `menu_index` to the app struct: the cursor is
+    // app-level state, so leaving the menu and returning must NOT reset it to 0.
+    // These are the tests that go red on the *behaviour* (not just the types).
+
+    #[test]
+    fn info_esc_preserves_menu_selection() {
+        // Menu → Down (Info, idx 1) → Enter (into Info) → Esc (back to Menu).
+        let state = drive(&[
+            KeyPress::Enter,
+            KeyPress::Down,
+            KeyPress::Enter,
+            KeyPress::Esc,
+        ]);
+        assert!(on_menu(&state));
+        assert_eq!(
+            selected(&state),
+            MenuItem::Info,
+            "returning from Info must keep the cursor on Info, not reset to Ask"
+        );
+    }
+
+    #[test]
+    fn about_esc_preserves_menu_selection() {
+        // Menu → Down, Down (Sobre, idx 2) → Enter → Esc.
+        let state = drive(&[
+            KeyPress::Enter,
+            KeyPress::Down,
+            KeyPress::Down,
+            KeyPress::Enter,
+            KeyPress::Esc,
+        ]);
+        assert!(on_menu(&state));
+        assert_eq!(selected(&state), MenuItem::About);
+    }
+
+    #[test]
+    fn question_esc_preserves_menu_selection() {
+        // Ask is index 0, so this "worked" by coincidence with default() — pin it
+        // so a future menu reorder can't silently break the round-trip.
+        let state = drive(&[KeyPress::Enter, KeyPress::Enter, KeyPress::Esc]);
+        assert!(on_menu(&state));
+        assert_eq!(selected(&state), MenuItem::Ask);
+    }
+
+    #[test]
+    fn restored_selection_is_a_live_cursor_not_a_frozen_value() {
+        // Return from Sobre (idx 2), then Down must advance to Sair (idx 3) —
+        // proving the restored index is the real, still-navigable cursor.
+        let state = drive(&[
+            KeyPress::Enter,
+            KeyPress::Down,
+            KeyPress::Down, // Sobre (2)
+            KeyPress::Enter, // into Sobre
+            KeyPress::Esc,   // back to Menu, still at 2
+            KeyPress::Down,  // → Sair (3)
+        ]);
+        assert!(on_menu(&state));
+        assert_eq!(selected(&state), MenuItem::Exit);
     }
 }
