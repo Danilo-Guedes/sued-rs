@@ -10,8 +10,8 @@ use crate::app::{App, Menu, Screen};
 use crate::contants::APP_TITLE;
 use crate::core::engine::Engine;
 
-pub fn render(frame: &mut Frame, app: &mut App) {
-    match &mut app.screen() {
+pub fn render(frame: &mut Frame, app: &App) {
+    match app.screen() {
         Screen::Intro => {
             render_intro_screen(frame);
         }
