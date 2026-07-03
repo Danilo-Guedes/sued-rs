@@ -39,8 +39,8 @@ fn render_intro_screen(frame: &mut Frame) {
         status_layout,
     ] = Layout::vertical([
         Constraint::Length(2), // title bar,
-        Constraint::Fill(1),   // page_title_and_sub
-        Constraint::Fill(2),   // intro_text_layout
+        Constraint::Fill(2),   // page_title_and_sub
+        Constraint::Fill(3),   // intro_text_layout
         Constraint::Length(3), // status bar
     ])
     .areas(frame.area());
@@ -62,23 +62,27 @@ fn render_intro_screen(frame: &mut Frame) {
     );
 
     let intro_texts = Text::from(vec![
-        Line::from("ATENÇÃO".red().bold()),
+        Line::from("ATENÇÃO".bold()),
         Line::from(""), // blank row for breathing space
+        Line::from("Você está prestes a abrir uma porta para o desconhecido."),
+        Line::from(""),
+        Line::from("Aconselho acender uma vela e apagar as luzes antes de executar o programa."),
+        Line::from(""),
         Line::from(
-            "Você está prestes a abrir uma porta para o desconhecido.
-            Aconselho acender uma vela e apagar as luzes antes de executar o programa.
-            Para que SUED responda, você deve elogiá-lo e em seguida perguntar de forma clara.
-            Pessoas fracas e sensíveis não devem utilizar o programa.
-            Tenha muito cuidado com o que você irá perguntar..."
-                .dim(),
+            "Para que SUED responda, você deve elogiá-lo e em seguida perguntar de forma clara.",
         ),
+        Line::from(""),
+        Line::from("Pessoas fracas e sensíveis não devem utilizar o programa."),
+        Line::from(""),
+        Line::from("Tenha muito cuidado com o que você irá perguntar..."),
     ]);
 
     frame.render_widget(
         Paragraph::new(intro_texts)
+            .red()
             .centered()
             .wrap(Wrap { trim: false }),
-        intro_text_layout,
+        intro_text_layout.centered_horizontally(Constraint::Percentage(50)),
     );
 
     let status_texts = Line::from(vec![
