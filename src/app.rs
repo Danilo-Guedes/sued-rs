@@ -12,8 +12,8 @@ use crate::core::engine::{DECOY_STRING, Engine, KeyPress};
 
 #[derive(Default, Debug)]
 pub struct App {
-    pub screen: Screen,
-    pub menu: Menu,
+    screen: Screen,
+    menu: Menu,
 }
 
 #[derive(Default, Debug)]
@@ -141,11 +141,11 @@ impl App {
             },
         }
     }
-    pub fn screen(&mut self) -> &Screen {
+    pub fn screen(&self) -> &Screen {
         &self.screen
     }
 
-    pub fn menu(&mut self) -> &Menu {
+    pub fn menu(&self) -> &Menu {
         &self.menu
     }
 }
@@ -190,11 +190,11 @@ mod tests {
         drive_flow(keys).0
     }
 
-    fn selected(state: &mut App) -> MenuItem {
+    fn selected(state: &App) -> MenuItem {
         Menu::ALL[state.menu().index()]
     }
 
-    fn on_menu(state: &mut App) -> bool {
+    fn on_menu(state: &App) -> bool {
         matches!(state.screen(), Screen::Menu)
     }
 
@@ -207,9 +207,9 @@ mod tests {
 
     #[test]
     fn intro_enter_opens_menu_on_first_item() {
-        let mut state = drive(&[KeyPress::Enter]);
-        assert!(on_menu(&mut state));
-        assert_eq!(selected(&mut state), MenuItem::Ask);
+        let state = drive(&[KeyPress::Enter]);
+        assert!(on_menu(&state));
+        assert_eq!(selected(&state), MenuItem::Ask);
     }
 
     #[test]
@@ -222,28 +222,28 @@ mod tests {
 
     #[test]
     fn menu_down_advances_selection() {
-        let mut state = drive(&[KeyPress::Enter, KeyPress::Down]);
-        assert_eq!(selected(&mut state), MenuItem::Info);
+        let state = drive(&[KeyPress::Enter, KeyPress::Down]);
+        assert_eq!(selected(&state), MenuItem::Info);
     }
 
     #[test]
     fn menu_down_wraps_past_last_item() {
         // Perguntar → Informacoes → Sobre → Sair → back to Perguntar.
-        let mut state = drive(&[
+        let state = drive(&[
             KeyPress::Enter,
             KeyPress::Down,
             KeyPress::Down,
             KeyPress::Down,
             KeyPress::Down,
         ]);
-        assert_eq!(selected(&mut state), MenuItem::Ask);
+        assert_eq!(selected(&state), MenuItem::Ask);
     }
 
     #[test]
     fn menu_up_wraps_to_last_item() {
         // From the first item, Up lands on Sair.
-        let mut state = drive(&[KeyPress::Enter, KeyPress::Up]);
-        assert_eq!(selected(&mut state), MenuItem::Exit);
+        let state = drive(&[KeyPress::Enter, KeyPress::Up]);
+        assert_eq!(selected(&state), MenuItem::Exit);
     }
 
     // ── Menu selection (Enter routes per item) ───────────────────────────────
@@ -261,19 +261,19 @@ mod tests {
 
     #[test]
     fn menu_enter_on_informacoes_opens_info() {
-        let mut state = drive(&[KeyPress::Enter, KeyPress::Down, KeyPress::Enter]);
-        assert!(matches!(&mut state.screen(), Screen::Info));
+        let state = drive(&[KeyPress::Enter, KeyPress::Down, KeyPress::Enter]);
+        assert!(matches!(state.screen(), Screen::Info));
     }
 
     #[test]
     fn menu_enter_on_sobre_opens_about() {
-        let mut state = drive(&[
+        let state = drive(&[
             KeyPress::Enter,
             KeyPress::Down,
             KeyPress::Down,
             KeyPress::Enter,
         ]);
-        assert!(matches!(&mut state.screen(), Screen::About));
+        assert!(matches!(state.screen(), Screen::About));
     }
 
     #[test]
@@ -308,33 +308,33 @@ mod tests {
 
     #[test]
     fn question_esc_returns_to_menu() {
-        let mut state = drive(&[KeyPress::Enter, KeyPress::Enter, KeyPress::Esc]);
-        assert!(on_menu(&mut state));
+        let state = drive(&[KeyPress::Enter, KeyPress::Enter, KeyPress::Esc]);
+        assert!(on_menu(&state));
     }
 
     // ── Static screens bounce back to the menu ───────────────────────────────
 
     #[test]
     fn info_esc_returns_to_menu() {
-        let mut state = drive(&[
+        let state = drive(&[
             KeyPress::Enter,
             KeyPress::Down,
             KeyPress::Enter,
             KeyPress::Esc,
         ]);
-        assert!(on_menu(&mut state));
+        assert!(on_menu(&state));
     }
 
     #[test]
     fn about_esc_returns_to_menu() {
-        let mut state = drive(&[
+        let state = drive(&[
             KeyPress::Enter,
             KeyPress::Down,
             KeyPress::Down,
             KeyPress::Enter,
             KeyPress::Esc,
         ]);
-        assert!(on_menu(&mut state));
+        assert!(on_menu(&state));
     }
 
     // ── NEW: menu selection PERSISTS across a sub-screen visit ────────────────
@@ -345,15 +345,15 @@ mod tests {
     #[test]
     fn info_esc_preserves_menu_selection() {
         // Menu → Down (Info, idx 1) → Enter (into Info) → Esc (back to Menu).
-        let mut state = drive(&[
+        let state = drive(&[
             KeyPress::Enter,
             KeyPress::Down,
             KeyPress::Enter,
             KeyPress::Esc,
         ]);
-        assert!(on_menu(&mut state));
+        assert!(on_menu(&state));
         assert_eq!(
-            selected(&mut state),
+            selected(&state),
             MenuItem::Info,
             "returning from Info must keep the cursor on Info, not reset to Ask"
         );
@@ -362,31 +362,31 @@ mod tests {
     #[test]
     fn about_esc_preserves_menu_selection() {
         // Menu → Down, Down (Sobre, idx 2) → Enter → Esc.
-        let mut state = drive(&[
+        let state = drive(&[
             KeyPress::Enter,
             KeyPress::Down,
             KeyPress::Down,
             KeyPress::Enter,
             KeyPress::Esc,
         ]);
-        assert!(on_menu(&mut state));
-        assert_eq!(selected(&mut state), MenuItem::About);
+        assert!(on_menu(&state));
+        assert_eq!(selected(&state), MenuItem::About);
     }
 
     #[test]
     fn question_esc_preserves_menu_selection() {
         // Ask is index 0, so this "worked" by coincidence with default() — pin it
         // so a future menu reorder can't silently break the round-trip.
-        let mut state = drive(&[KeyPress::Enter, KeyPress::Enter, KeyPress::Esc]);
-        assert!(on_menu(&mut state));
-        assert_eq!(selected(&mut state), MenuItem::Ask);
+        let state = drive(&[KeyPress::Enter, KeyPress::Enter, KeyPress::Esc]);
+        assert!(on_menu(&state));
+        assert_eq!(selected(&state), MenuItem::Ask);
     }
 
     #[test]
     fn restored_selection_is_a_live_cursor_not_a_frozen_value() {
         // Return from Sobre (idx 2), then Down must advance to Sair (idx 3) —
         // proving the restored index is the real, still-navigable cursor.
-        let mut state = drive(&[
+        let state = drive(&[
             KeyPress::Enter,
             KeyPress::Down,
             KeyPress::Down,  // Sobre (2)
@@ -394,7 +394,7 @@ mod tests {
             KeyPress::Esc,   // back to Menu, still at 2
             KeyPress::Down,  // → Sair (3)
         ]);
-        assert!(on_menu(&mut state));
-        assert_eq!(selected(&mut state), MenuItem::Exit);
+        assert!(on_menu(&state));
+        assert_eq!(selected(&state), MenuItem::Exit);
     }
 }

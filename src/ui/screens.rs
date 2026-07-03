@@ -11,12 +11,12 @@ use crate::contants::APP_TITLE;
 use crate::core::engine::Engine;
 
 pub fn render(frame: &mut Frame, app: &mut App) {
-    match &mut app.screen {
+    match &mut app.screen() {
         Screen::Intro => {
             render_intro_screen(frame);
         }
         Screen::Menu => {
-            render_menu_screen(frame, &mut app.menu);
+            render_menu_screen(frame, app.menu());
         }
         Screen::Asking(engine) => {
             render_ask_screen(frame, engine);
@@ -97,7 +97,7 @@ fn render_intro_screen(frame: &mut Frame) {
     );
 }
 
-fn render_menu_screen(frame: &mut Frame, menu: &mut Menu) {
+fn render_menu_screen(frame: &mut Frame, menu: &Menu) {
     let [title_bar_layout, center_layout, status_layout] = Layout::vertical([
         Constraint::Length(2), // title title_bar_layout,
         Constraint::Fill(1),   // center_layout
@@ -158,7 +158,7 @@ fn render_menu_screen(frame: &mut Frame, menu: &mut Menu) {
     );
 }
 
-fn render_ask_screen(frame: &mut Frame, engine: &mut Engine) {
+fn render_ask_screen(frame: &mut Frame, engine: &Engine) {
     let [
         title_bar_layout,
         sued_art_layout,
