@@ -1,4 +1,4 @@
-//! ratatui draw code — reads `AppState` state each frame and renders it.
+//! ratatui draw code — reads the `App` state each frame and renders it.
 
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
