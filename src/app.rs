@@ -1,9 +1,9 @@
 //! Top-level application state machine (M2).
 //!
-//! `AppState` is the **app shell**: which screen are we on, and how do keys move
-//! us between screens. The pure prank lives in [`crate::core::engine`] and stays
-//! untouched — when we're on the question screen, `AppState::Asking`
-//! simply *owns* one `Engine` and forwards keys to it.
+//! [`App`] is the **app shell** — a struct pairing the current [`Screen`] with the
+//! menu cursor ([`Menu`]), so the selection survives moving between screens. The pure
+//! prank lives in [`crate::core::engine`] and stays untouched — on the question
+//! screen, `Screen::Asking` simply *owns* one `Engine` and forwards keys to it.
 //!
 
 #![allow(unused_variables)]
