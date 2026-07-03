@@ -27,7 +27,7 @@ use crossterm::terminal::{
 use ratatui::Terminal;
 use ratatui::backend::CrosstermBackend;
 
-use crate::app::{AppFlow, AppState};
+use crate::app::{App, AppFlow};
 use crate::core::engine::KeyPress;
 
 /// How long each tick waits for input before redrawing. ~50ms ≈ 20 fps — smooth
@@ -59,14 +59,14 @@ impl Drop for TerminalGuard {
 fn main() -> Result<()> {
     let _guard = TerminalGuard::new()?; // declared first → dropped LAST (cleans up after the terminal)
     let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
-    let mut app_state = AppState::new();
+    let mut app_state = App::new();
 
     run(&mut terminal, &mut app_state)
 }
 
 /// The tick loop: redraw every frame, only `read()` when there's actually input.
 /// Blocking on `read()` (M1) would freeze any animation between keystrokes.
-fn run(terminal: &mut Terminal<CrosstermBackend<Stdout>>, app_state: &mut AppState) -> Result<()> {
+fn run(terminal: &mut Terminal<CrosstermBackend<Stdout>>, app_state: &mut App) -> Result<()> {
     loop {
         // 1. DRAW — ratatui diffs against the last frame and writes only what changed.
         terminal.draw(|frame| ui::screens::render(frame, app_state))?;
@@ -88,7 +88,7 @@ fn run(terminal: &mut Terminal<CrosstermBackend<Stdout>>, app_state: &mut AppSta
 /// Translate a crossterm key into an engine `Key` and drive the engine.
 /// Returns `AppFlow::Quit` on the exit keys so the loop can break cleanly — note we
 /// never `process::exit`; we return, so `TerminalGuard`'s `Drop` always runs.
-fn translate_key(app_state: &mut AppState, key: KeyEvent) -> AppFlow {
+fn translate_key(app_state: &mut App, key: KeyEvent) -> AppFlow {
     match key.code {
         KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => AppFlow::Quit,
         KeyCode::Backspace => app_state.handle_key(KeyPress::Backspace),

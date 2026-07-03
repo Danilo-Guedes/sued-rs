@@ -6,26 +6,26 @@ use ratatui::style::Stylize;
 use ratatui::text::{Line, Span, Text};
 use ratatui::widgets::{Block, Padding, Paragraph, Wrap};
 
-use crate::app::{AppState, MenuState};
+use crate::app::{App, Menu, Screen};
 use crate::contants::APP_TITLE;
 use crate::core::engine::Engine;
 
-pub fn render(frame: &mut Frame, app_state: &mut AppState) {
-    match app_state {
-        AppState::Intro => {
+pub fn render(frame: &mut Frame, app: &mut App) {
+    match &mut app.screen {
+        Screen::Intro => {
             render_intro_screen(frame);
         }
-        AppState::Menu(menu_state) => {
-            render_menu_screen(frame, menu_state);
+        Screen::Menu => {
+            render_menu_screen(frame, &mut app.menu);
         }
-        AppState::Asking(engine) => {
+        Screen::Asking(engine) => {
             render_ask_screen(frame, engine);
         }
 
-        AppState::Info => {
+        Screen::Info => {
             render_info_screen(frame);
         }
-        AppState::About => {
+        Screen::About => {
             render_about_screen(frame);
         }
     }
@@ -97,7 +97,7 @@ fn render_intro_screen(frame: &mut Frame) {
     );
 }
 
-fn render_menu_screen(frame: &mut Frame, menu_state: &mut MenuState) {
+fn render_menu_screen(frame: &mut Frame, menu: &mut Menu) {
     let [title_bar_layout, center_layout, status_layout] = Layout::vertical([
         Constraint::Length(2), // title title_bar_layout,
         Constraint::Fill(1),   // center_layout
@@ -115,8 +115,8 @@ fn render_menu_screen(frame: &mut Frame, menu_state: &mut MenuState) {
 
     let mut menu_items_lines: Vec<Line> = vec![];
 
-    for (idx, menu_item) in MenuState::ALL.iter().enumerate() {
-        let label = if idx == menu_state.menu_index() {
+    for (idx, menu_item) in Menu::ALL.iter().enumerate() {
+        let label = if idx == menu.index() {
             menu_item.label().to_string().black().on_red()
         } else {
             menu_item.label().to_string().red()
