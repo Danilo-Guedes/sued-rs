@@ -6,12 +6,13 @@ use ratatui::style::Stylize;
 use ratatui::text::Line;
 use ratatui::widgets::{Block, Padding, Paragraph, Wrap};
 
-use super::common::{step_badge, table_row};
+use super::common::{render_nav_strip, step_badge, table_row};
 use crate::contants::APP_TITLE;
 
 pub(super) fn render(frame: &mut Frame) {
-    let [title_bar_layout, center_layout, status_layout] = Layout::vertical([
+    let [title_bar_layout, nav_layout, center_layout, status_layout] = Layout::vertical([
         Constraint::Length(2), // title bar
+        Constraint::Length(1), // nav strip
         Constraint::Fill(1),   // center: two panels
         Constraint::Length(3), // status bar
     ])
@@ -21,6 +22,9 @@ pub(super) fn render(frame: &mut Frame) {
         Paragraph::new(APP_TITLE).red().bold().left_aligned(),
         title_bar_layout,
     );
+
+    // TODO(you): pass Some(NavTab::Informacoes) to light up the active tab.
+    render_nav_strip(frame, nav_layout, None);
 
     // The body is two side-by-side panels. Each panel is its own fn that takes
     // only its `Rect`, so it owns its internal layout — the screen fn just hands
