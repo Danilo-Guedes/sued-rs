@@ -6,13 +6,14 @@ use ratatui::style::{Color, Style, Stylize};
 use ratatui::text::{Line, Span, Text};
 use ratatui::widgets::{Block, Padding, Paragraph, Wrap};
 
-use super::common::create_centered_rect;
+use super::common::{create_centered_rect, render_nav_strip};
 use crate::contants::APP_TITLE;
 use crate::core::engine::Engine;
 
 pub(super) fn render(frame: &mut Frame, engine: &Engine) {
     let [
         title_bar_layout,
+        nav_layout,
         sued_art_layout,
         sued_says_layout,
         sued_logs_layout,
@@ -20,6 +21,7 @@ pub(super) fn render(frame: &mut Frame, engine: &Engine) {
         status_layout,
     ] = Layout::vertical([
         Constraint::Length(2), // title bar,
+        Constraint::Length(1), // nav strip
         Constraint::Fill(3),   // sued_art
         Constraint::Fill(2),   // sued_says
         Constraint::Fill(3),   // sued_logs
@@ -28,22 +30,13 @@ pub(super) fn render(frame: &mut Frame, engine: &Engine) {
     ])
     .areas(frame.area());
 
-    let [title_bar_left, title_bar_right] =
-        Layout::horizontal([Constraint::Fill(1), Constraint::Length(22)]).areas(title_bar_layout);
+    frame.render_widget(Paragraph::new(APP_TITLE).red().bold(), title_bar_layout);
 
-    frame.render_widget(
-        Paragraph::new(APP_TITLE).red().bold(),
-        // .style(Style::new().red().rapid_blink()),
-        title_bar_left,
-    );
+    // The session badge lives in the nav strip now (per the design), so the title
+    // bar is just the title.
+    // TODO(you): pass Some(NavTab::Pergunta) to light up the active tab.
+    render_nav_strip(frame, nav_layout, None);
 
-    let session = Line::from(vec![
-        Span::raw("sessão #666  "),
-        Span::raw("*").red(), // the "online" dot in its own color
-        Span::raw(" online").red(),
-    ]);
-
-    frame.render_widget(Paragraph::new(session).right_aligned(), title_bar_right);
     frame.render_widget(Block::bordered().title("sued_art"), sued_art_layout);
 
     let speak_layout = create_centered_rect(

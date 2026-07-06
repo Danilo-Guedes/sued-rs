@@ -7,17 +7,19 @@ use ratatui::text::{Line, Span, Text};
 use ratatui::widgets::{Block, Paragraph, Wrap};
 
 use crate::contants::APP_TITLE;
-use crate::ui::screens::common::table_row;
+use crate::ui::screens::common::{render_nav_strip, table_row};
 
 pub(super) fn render(frame: &mut Frame) {
     let [
         title_bar_layout,
+        nav_layout,
         _empty_space,
         center_layout,
         footer_layout,
         status_layout,
     ] = Layout::vertical([
         Constraint::Length(2), // title bar
+        Constraint::Length(1), // nav strip
         Constraint::Fill(1),   //empty space
         Constraint::Fill(3),   // center: two panels
         Constraint::Fill(1),
@@ -29,6 +31,9 @@ pub(super) fn render(frame: &mut Frame) {
         Paragraph::new(APP_TITLE).red().bold().left_aligned(),
         title_bar_layout,
     );
+
+    // TODO(you): pass Some(NavTab::Sobre) to light up the active tab.
+    render_nav_strip(frame, nav_layout, None);
 
     let [art_area, text_area, _empty] = Layout::horizontal([
         Constraint::Fill(1),
