@@ -2,7 +2,7 @@
 
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout};
-use ratatui::style::Stylize;
+use ratatui::style::{Color, Style, Stylize};
 use ratatui::text::{Line, Span, Text};
 use ratatui::widgets::{Block, Padding, Paragraph, Wrap};
 
@@ -20,10 +20,10 @@ pub(super) fn render(frame: &mut Frame, engine: &Engine) {
         status_layout,
     ] = Layout::vertical([
         Constraint::Length(2), // title bar,
-        Constraint::Fill(2),   // sued_art
+        Constraint::Fill(3),   // sued_art
         Constraint::Fill(2),   // sued_says
         Constraint::Fill(3),   // sued_logs
-        Constraint::Length(4), // input box
+        Constraint::Length(5), // input box
         Constraint::Length(3), // status bar
     ])
     .areas(frame.area());
@@ -49,7 +49,7 @@ pub(super) fn render(frame: &mut Frame, engine: &Engine) {
     let speak_layout = create_centered_rect(
         sued_says_layout,
         Constraint::Length(60),
-        Constraint::Length(8),
+        Constraint::Fill(1),
     );
 
     let default_sued_text = Text::from(vec![
@@ -70,7 +70,8 @@ pub(super) fn render(frame: &mut Frame, engine: &Engine) {
     let speak_widget = Paragraph::new(final_sued_words)
         .block(
             Block::bordered()
-                .title("SUED FALA")
+                .border_style(Style::default().fg(Color::Red).bold())
+                .title(" SUED FALA ")
                 .padding(Padding::new(2, 2, 1, 1)),
         )
         .wrap(Wrap { trim: false });
@@ -100,13 +101,45 @@ pub(super) fn render(frame: &mut Frame, engine: &Engine) {
         sued_logs_layout,
     );
 
-    let typed = Paragraph::new(engine.visible_buffer())
-        .block(Block::bordered().title("input").on_light_red());
-
-    frame.render_widget(typed, input_layout);
+    let typed = Text::from(vec![
+        "".into(),
+        Line::from(vec![
+            " ▶ ".red().bold(),
+            Span::raw(engine.visible_buffer()).white(),
+        ]),
+    ]);
 
     frame.render_widget(
-        Block::bordered().title("status_bar").on_red(),
-        status_layout,
+        Paragraph::new(typed)
+            .block(
+                Block::bordered()
+                    .border_style(Style::default().fg(Color::Red).bold())
+                    .title(" input "),
+            )
+            .wrap(Wrap { trim: false }),
+        input_layout,
     );
+
+    let status_block = Block::bordered();
+    let status_inner = status_block.inner(status_layout);
+    frame.render_widget(status_block, status_layout);
+
+    let [hints_area, page_area] =
+        Layout::horizontal([Constraint::Fill(1), Constraint::Length(14)]).areas(status_inner);
+
+    let hints = Line::from(vec![
+        "[Enter]".red().bold(),
+        " ".into(),
+        "perguntar".dim(),
+        "  ".into(),
+        "[Esc]".red().bold(),
+        " ".into(),
+        "menu".dim(),
+        "  ".into(),
+        "[Ctrl-C]".red().bold(),
+        " ".into(),
+        "sair".dim(),
+    ]);
+    frame.render_widget(Paragraph::new(hints), hints_area);
+    frame.render_widget(Paragraph::new("PERGUNTA".dim()).right_aligned(), page_area);
 }
