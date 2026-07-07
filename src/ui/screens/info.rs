@@ -8,7 +8,7 @@ use ratatui::widgets::{Block, Padding, Paragraph, Wrap};
 
 use super::common::{panel_block, render_nav_strip, step_badge, table_row};
 use crate::contants::APP_TITLE;
-use crate::ui::screens::common::NavTab;
+use crate::ui::screens::common::{DEFAULT_PADDING, NavTab};
 
 pub(super) fn render(frame: &mut Frame) {
     let [title_bar_layout, nav_layout, center_layout, status_layout] = Layout::vertical([
@@ -44,13 +44,14 @@ pub(super) fn render(frame: &mut Frame) {
         Layout::horizontal([Constraint::Fill(1), Constraint::Length(14)]).areas(status_inner);
 
     let hints = Line::from(vec![
+        DEFAULT_PADDING.into(),
         "[Esc]".red().bold(),
         " ".into(),
         "voltar ao menu".dim(),
     ]);
     frame.render_widget(Paragraph::new(hints), hints_area);
     frame.render_widget(
-        Paragraph::new("INFORMAÇÕES".dim()).right_aligned(),
+        Paragraph::new(format!("INFORMAÇÕES{}", DEFAULT_PADDING).dim()).right_aligned(),
         page_area,
     );
 }
@@ -64,27 +65,42 @@ fn render_ritual_panel(frame: &mut Frame, area: Rect) {
     let inner = block.inner(area);
     frame.render_widget(block, area);
 
-    let [heading_area, steps_area, divider_area, example_area] = Layout::vertical([
+    // Steps take their natural height so the divider + example sit *right under*
+    // step 4; the trailing `Fill(1)` sinks the leftover space to the bottom.
+    let [
+        heading_area,
+        steps_area,
+        divider_area,
+        example_area,
+        _spacer,
+    ] = Layout::vertical([
         Constraint::Length(2), // heading + blank line
-        Constraint::Fill(1),   // numbered steps
-        Constraint::Length(1), // divider
-        Constraint::Length(2), // example
+        Constraint::Length(7), // 4 numbered steps + 3 blank lines between them
+        Constraint::Length(1), // red divider
+        Constraint::Length(2), // example, directly below the last step
+        Constraint::Fill(1),   // empty space sinks here
     ])
     .areas(inner);
 
     frame.render_widget(
-        Paragraph::new(Line::from("▚ O RITUAL ▞").red().bold()),
+        Paragraph::new(
+            Line::from(format!("{}▚ O RITUAL ▞", DEFAULT_PADDING))
+                .red()
+                .bold(),
+        ),
         heading_area,
     );
 
     let steps = vec![
         Line::from(vec![
+            DEFAULT_PADDING.into(),
             step_badge(1),
             " ".into(),
             "Acenda uma vela e apague as luzes do recinto.".into(),
         ]),
         Line::from(""),
         Line::from(vec![
+            DEFAULT_PADDING.into(),
             step_badge(2),
             " ".into(),
             "Elogie".red().bold(),
@@ -92,6 +108,7 @@ fn render_ritual_panel(frame: &mut Frame, area: Rect) {
         ]),
         Line::from(""),
         Line::from(vec![
+            DEFAULT_PADDING.into(),
             step_badge(3),
             " ".into(),
             "Faça ".into(),
@@ -100,6 +117,7 @@ fn render_ritual_panel(frame: &mut Frame, area: Rect) {
         ]),
         Line::from(""),
         Line::from(vec![
+            DEFAULT_PADDING.into(),
             step_badge(4),
             " ".into(),
             "Aguarde em silêncio. A resposta virá do além.".into(),
@@ -107,13 +125,16 @@ fn render_ritual_panel(frame: &mut Frame, area: Rect) {
     ];
     frame.render_widget(Paragraph::new(steps), steps_area);
 
-    // Divider stretches to fill the content width — sized from the rect, not hard-coded.
+    // Red rule separating the steps from the example (sized from the rect).
     let divider = "─".repeat(inner.width as usize);
-    frame.render_widget(Paragraph::new(divider).dim(), divider_area);
+    frame.render_widget(Paragraph::new(divider).red(), divider_area);
 
-    let example = Line::from("» Ex.: \"Sued, o mais sábio de todos, o que me aguarda amanhã?\"")
-        .dim()
-        .italic();
+    let example = Line::from(format!(
+        "{}» Ex.: \"Sued, o mais sábio de todos, o que me aguarda amanhã?\"",
+        DEFAULT_PADDING
+    ))
+    .dim()
+    .italic();
     frame.render_widget(
         Paragraph::new(example).wrap(Wrap { trim: false }),
         example_area,

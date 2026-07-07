@@ -7,7 +7,9 @@ use ratatui::text::{Line, Span, Text};
 use ratatui::widgets::{Paragraph, Wrap};
 
 use crate::contants::APP_TITLE;
-use crate::ui::screens::common::{NavTab, panel_block, render_nav_strip, table_row};
+use crate::ui::screens::common::{
+    DEFAULT_PADDING, NavTab, panel_block, render_nav_strip, table_row,
+};
 
 pub(super) fn render(frame: &mut Frame) {
     let [
@@ -98,10 +100,14 @@ pub(super) fn render(frame: &mut Frame) {
         Layout::horizontal([Constraint::Fill(1), Constraint::Length(14)]).areas(status_inner);
 
     let hints = Line::from(vec![
+        DEFAULT_PADDING.into(),
         "[Esc]".red().bold(),
         " ".into(),
         "voltar ao menu".dim(),
     ]);
     frame.render_widget(Paragraph::new(hints), hints_area);
-    frame.render_widget(Paragraph::new("SOBRE".dim()).right_aligned(), page_area);
+    frame.render_widget(
+        Paragraph::new(format!("SOBRE{}", DEFAULT_PADDING).dim()).right_aligned(),
+        page_area,
+    );
 }

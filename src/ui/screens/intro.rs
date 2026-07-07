@@ -7,7 +7,7 @@ use ratatui::text::{Line, Span, Text};
 use ratatui::widgets::{Paragraph, Wrap};
 
 use crate::contants::APP_TITLE;
-use crate::ui::screens::common::panel_block;
+use crate::ui::screens::common::{DEFAULT_PADDING, panel_block};
 
 pub(super) fn render(frame: &mut Frame) {
     let [
@@ -73,6 +73,7 @@ pub(super) fn render(frame: &mut Frame) {
     );
 
     let status_texts = Line::from(vec![
+        DEFAULT_PADDING.into(),
         "[Enter]".red().bold(),
         " ".into(),
         "continuar".dim(),
