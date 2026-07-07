@@ -27,6 +27,20 @@ pub(super) const DEMON_ART: &str = r"  ▄▄▖                    ▗▄▄
 pub(super) const DEMON_ART_WIDTH: u16 = 28;
 pub(super) const DEMON_ART_HEIGHT: u16 = 11;
 
+/// The SUED word-mark — verbatim block-font banner, shown on the Intro screen.
+/// Same rendering as `DEMON_ART`: centre a Rect to its exact size, then render
+/// LEFT-aligned with the style on the `Paragraph` (never `.red()` on the `&str`,
+/// which would collapse it into a single `Span`/line).
+pub(super) const SUED_BANNER: &str = r"███████╗██╗   ██╗███████╗██████╗
+██╔════╝██║   ██║██╔════╝██╔══██╗
+███████╗██║   ██║█████╗  ██║  ██║
+╚════██║██║   ██║██╔══╝  ██║  ██║
+███████║╚██████╔╝███████╗██████╔╝
+╚══════╝ ╚═════╝ ╚══════╝╚═════╝";
+
+pub(super) const SUED_BANNER_WIDTH: u16 = 33;
+pub(super) const SUED_BANNER_HEIGHT: u16 = 6;
+
 /// Center `area` down to `width` × `height`, discarding the surrounding space.
 pub(super) fn create_centered_rect(area: Rect, width: Constraint, height: Constraint) -> Rect {
     let [a] = Layout::horizontal([width]).flex(Flex::Center).areas(area);

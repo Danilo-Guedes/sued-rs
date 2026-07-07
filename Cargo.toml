@@ -13,7 +13,9 @@ categories = ["command-line-utilities"]
 anyhow = "1.0.103"
 clap = { version = "4.6.1", features = ["derive"] }
 crossterm = "0.29.0"
-ratatui = "0.30.2"
+# `unstable-rendered-line-info` unlocks `Paragraph::line_count()` — used on the
+# About screen to size the lore's Rect to its exact wrapped height (no clipping).
+ratatui = { version = "0.30.2", features = ["unstable-rendered-line-info"] }
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.150"
 # Audio is optional so the project builds with no ALSA headers (M1 doesn't use it).

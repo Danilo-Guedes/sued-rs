@@ -1,13 +1,16 @@
 //! 01 · INTRO / Invocação.
 
 use ratatui::Frame;
-use ratatui::layout::{Constraint, Layout};
+use ratatui::layout::{Constraint, Flex, Layout};
 use ratatui::style::Stylize;
 use ratatui::text::{Line, Span, Text};
 use ratatui::widgets::{Paragraph, Wrap};
 
 use crate::contants::APP_TITLE;
-use crate::ui::screens::common::{DEFAULT_PADDING, panel_block};
+use crate::ui::screens::common::{
+    DEFAULT_PADDING, SUED_BANNER, SUED_BANNER_HEIGHT, SUED_BANNER_WIDTH, create_centered_rect,
+    panel_block,
+};
 
 pub(super) fn render(frame: &mut Frame) {
     let [
@@ -32,15 +35,39 @@ pub(super) fn render(frame: &mut Frame) {
         title_bar_layout,
     );
 
-    let page_title_and_sub_texts = Text::from(vec![
-        Line::from("SUED".red().bold()),
-        Line::from(""), // blank row for breathing space
-        Line::from("SUA ÚLTIMA ESPERANÇA DIVINA".dim()),
-    ]);
+    let [banner_area, _gap, subtitle_area] = Layout::vertical([
+        Constraint::Length(SUED_BANNER_HEIGHT),
+        Constraint::Length(1), // breathing space
+        Constraint::Length(1), // subtitle line
+    ])
+    .flex(Flex::Center)
+    .areas(page_title_and_sub_layout);
+
+    let banner_rect = create_centered_rect(
+        banner_area,
+        Constraint::Length(SUED_BANNER_WIDTH),
+        Constraint::Length(SUED_BANNER_HEIGHT),
+    );
+    frame.render_widget(Paragraph::new(SUED_BANNER).red().bold(), banner_rect);
 
     frame.render_widget(
-        Paragraph::new(page_title_and_sub_texts).centered(),
-        page_title_and_sub_layout,
+        Paragraph::new("SUA ÚLTIMA ESPERANÇA DIVINA".dim()).centered(),
+        subtitle_area,
+    );
+
+    // Red rule + breathing space above the ATENÇÃO block (per the design). Split a
+    // small strip off the top for the rule; the warning text fills the rest.
+    let [divider_area, atencao_area] = Layout::vertical([
+        Constraint::Length(3), // red rule (row 0) + a two-row gap below it
+        Constraint::Fill(1),   // the warning text block
+    ])
+    .areas(intro_text_layout);
+
+    // Match the rule to the same centred 50% band the warning text uses.
+    let rule_band = divider_area.centered_horizontally(Constraint::Percentage(50));
+    frame.render_widget(
+        Paragraph::new("─".repeat(rule_band.width as usize)).red(),
+        rule_band,
     );
 
     let intro_texts = Text::from(vec![
@@ -69,7 +96,7 @@ pub(super) fn render(frame: &mut Frame) {
             .white()
             .centered()
             .wrap(Wrap { trim: false }),
-        intro_text_layout.centered_horizontally(Constraint::Percentage(50)),
+        atencao_area.centered_horizontally(Constraint::Percentage(50)),
     );
 
     let status_texts = Line::from(vec![
