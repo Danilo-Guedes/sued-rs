@@ -9,6 +9,7 @@ use ratatui::widgets::{Block, Padding, Paragraph, Wrap};
 use super::common::{create_centered_rect, render_nav_strip};
 use crate::contants::APP_TITLE;
 use crate::core::engine::Engine;
+use crate::ui::screens::common::NavTab;
 
 pub(super) fn render(frame: &mut Frame, engine: &Engine) {
     let [
@@ -32,10 +33,7 @@ pub(super) fn render(frame: &mut Frame, engine: &Engine) {
 
     frame.render_widget(Paragraph::new(APP_TITLE).red().bold(), title_bar_layout);
 
-    // The session badge lives in the nav strip now (per the design), so the title
-    // bar is just the title.
-    // TODO(you): pass Some(NavTab::Pergunta) to light up the active tab.
-    render_nav_strip(frame, nav_layout, None);
+    render_nav_strip(frame, nav_layout, NavTab::Ask);
 
     frame.render_widget(Block::bordered().title("sued_art"), sued_art_layout);
 

@@ -34,38 +34,26 @@ pub(super) fn table_row(key: &str, desc: &str, key_width: usize) -> Line<'static
 /// four "destinations" (note: not the same as `MenuItem`, which also has `Exit`).
 #[derive(Clone, Copy, PartialEq)]
 pub(super) enum NavTab {
-    Invocacao,
-    Pergunta,
-    Informacoes,
-    Sobre,
+    Intro,
+    Ask,
+    Info,
+    About,
 }
 
 impl NavTab {
-    /// Left-to-right order the tabs are drawn in.
-    const ALL: [NavTab; 4] = [
-        NavTab::Invocacao,
-        NavTab::Pergunta,
-        NavTab::Informacoes,
-        NavTab::Sobre,
-    ];
+    const ALL: [NavTab; 4] = [NavTab::Intro, NavTab::Ask, NavTab::Info, NavTab::About];
 
     fn label(self) -> &'static str {
         match self {
-            NavTab::Invocacao => "Invocação",
-            NavTab::Pergunta => "Pergunta",
-            NavTab::Informacoes => "Informações",
-            NavTab::Sobre => "Sobre",
+            NavTab::Intro => "Invocação",
+            NavTab::Ask => "Pergunta",
+            NavTab::Info => "Informações",
+            NavTab::About => "Sobre",
         }
     }
 }
 
-/// The shared top-nav strip (tabs on the left, session badge on the right).
-///
-/// Pure layout: pass `Some(tab)` to highlight the current page, or `None` while
-/// you wire that up. The active tab renders uppercased in a red chip; the rest
-/// are dim. Deciding *which* tab is active is the caller's job — that's the
-/// "selected" logic left for you.
-pub(super) fn render_nav_strip(frame: &mut Frame, area: Rect, active: Option<NavTab>) {
+pub(super) fn render_nav_strip(frame: &mut Frame, area: Rect, active: NavTab) {
     let [tabs_area, session_area] =
         Layout::horizontal([Constraint::Fill(1), Constraint::Length(24)]).areas(area);
 
@@ -75,7 +63,7 @@ pub(super) fn render_nav_strip(frame: &mut Frame, area: Rect, active: Option<Nav
         if i > 0 {
             spans.push("    ".into()); // gap between tabs
         }
-        if active == Some(*tab) {
+        if active == *tab {
             // Active: uppercased, black-on-red chip (leading/trailing space = padding).
             spans.push(
                 Span::from(format!(" {} ", tab.label().to_uppercase()))
@@ -91,7 +79,7 @@ pub(super) fn render_nav_strip(frame: &mut Frame, area: Rect, active: Option<Nav
 
     // Session badge — static placeholder for now; wire it to real state later.
     let session = Line::from(vec![
-        "sessão #013 ".dim(),
+        "sessão #666 ".dim(),
         "· ".dim(),
         "●".red(),
         " online".dim(),

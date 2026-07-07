@@ -8,6 +8,7 @@ use ratatui::widgets::{Block, Padding, Paragraph, Wrap};
 
 use super::common::{render_nav_strip, step_badge, table_row};
 use crate::contants::APP_TITLE;
+use crate::ui::screens::common::NavTab;
 
 pub(super) fn render(frame: &mut Frame) {
     let [title_bar_layout, nav_layout, center_layout, status_layout] = Layout::vertical([
@@ -23,8 +24,7 @@ pub(super) fn render(frame: &mut Frame) {
         title_bar_layout,
     );
 
-    // TODO(you): pass Some(NavTab::Informacoes) to light up the active tab.
-    render_nav_strip(frame, nav_layout, None);
+    render_nav_strip(frame, nav_layout, NavTab::Info);
 
     // The body is two side-by-side panels. Each panel is its own fn that takes
     // only its `Rect`, so it owns its internal layout — the screen fn just hands
