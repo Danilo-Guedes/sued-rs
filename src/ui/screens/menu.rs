@@ -9,6 +9,7 @@ use ratatui::widgets::{Paragraph, Wrap};
 use super::common::panel_block;
 use crate::app::Menu;
 use crate::contants::APP_TITLE;
+use crate::ui::screens::common::DEFAULT_PADDING;
 
 pub(super) fn render(frame: &mut Frame, menu: &Menu) {
     let [title_bar_layout, center_layout, status_layout] = Layout::vertical([
@@ -45,7 +46,9 @@ fn render_menu_column(frame: &mut Frame, area: Rect, menu: &Menu) {
 
     let width = list_area.width as usize;
     let mut lines: Vec<Line> = vec![
-        Line::from("▚ ESCOLHA SEU DESTINO ▞").red().bold(),
+        Line::from(format!("{}▚ ESCOLHA SEU DESTINO ▞", DEFAULT_PADDING))
+            .red()
+            .bold(),
         Line::from(""),
     ];
 
@@ -69,7 +72,7 @@ fn render_menu_column(frame: &mut Frame, area: Rect, menu: &Menu) {
 
     lines.push(Line::from(""));
     // The design's divider stops short of the column edge — about 70% width.
-    lines.push(Line::from("─".repeat((width * 7) / 10)).dim());
+    lines.push(Line::from("─".repeat((width * 7) / 10)).red());
 
     frame.render_widget(Paragraph::new(lines), list_area);
 
@@ -78,7 +81,14 @@ fn render_menu_column(frame: &mut Frame, area: Rect, menu: &Menu) {
     )
     .dim()
     .italic();
-    frame.render_widget(Paragraph::new(hint).wrap(Wrap { trim: false }), hint_area);
+    // Wrap the hint at the divider's width (the "line above"), not the whole
+    // column — carve a left sub-rect that matches the ~70% divider.
+    let [hint_sub, _] = Layout::horizontal([
+        Constraint::Length(((width * 7) / 10) as u16),
+        Constraint::Fill(1),
+    ])
+    .areas(hint_area);
+    frame.render_widget(Paragraph::new(hint).wrap(Wrap { trim: false }), hint_sub);
 }
 
 /// Right column — the ATENÇÃO warning, with a bottom-pinned footer.
@@ -115,6 +125,7 @@ fn render_status_bar(frame: &mut Frame, area: Rect, selected_menu: usize) {
         Layout::horizontal([Constraint::Fill(1), Constraint::Length(6)]).areas(inner);
 
     let hints = Line::from(vec![
+        DEFAULT_PADDING.into(),
         "[↑↓]".red().bold(),
         " ".into(),
         "navegar".dim(),
@@ -129,7 +140,16 @@ fn render_status_bar(frame: &mut Frame, area: Rect, selected_menu: usize) {
     ]);
     frame.render_widget(Paragraph::new(hints), hints_area);
     frame.render_widget(
-        Paragraph::new(format!("{}/{}", selected_menu + 1, Menu::ALL.len()).dim()).right_aligned(),
+        Paragraph::new(
+            format!(
+                "{}/{}{}",
+                selected_menu + 1,
+                Menu::ALL.len(),
+                DEFAULT_PADDING
+            )
+            .dim(),
+        )
+        .right_aligned(),
         page_area,
     );
 }

@@ -6,6 +6,8 @@ use ratatui::style::{Color, Style, Stylize};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Padding, Paragraph};
 
+pub const DEFAULT_PADDING: &str = "   ";
+
 /// Center `area` down to `width` × `height`, discarding the surrounding space.
 pub(super) fn create_centered_rect(area: Rect, width: Constraint, height: Constraint) -> Rect {
     let [a] = Layout::horizontal([width]).flex(Flex::Center).areas(area);
@@ -74,7 +76,9 @@ pub(super) fn render_nav_strip(frame: &mut Frame, area: Rect, active: NavTab) {
     // Build the tab row as one Line: label, four spaces, next label, ...
     let mut spans: Vec<Span<'static>> = Vec::new();
     for (i, tab) in NavTab::ALL.iter().enumerate() {
-        if i > 0 {
+        if i == 0 {
+            spans.push(DEFAULT_PADDING.into()) // left padding
+        } else {
             spans.push("    ".into()); // gap between tabs
         }
         if active == *tab {
@@ -97,6 +101,7 @@ pub(super) fn render_nav_strip(frame: &mut Frame, area: Rect, active: NavTab) {
         "· ".dim(),
         "●".red(),
         " online".dim(),
+        DEFAULT_PADDING.into(),
     ]);
     frame.render_widget(Paragraph::new(session).right_aligned(), session_area);
 }

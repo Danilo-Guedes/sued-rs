@@ -9,7 +9,7 @@ use ratatui::widgets::{Block, Padding, Paragraph, Wrap};
 use super::common::{create_centered_rect, panel_block, render_nav_strip};
 use crate::contants::APP_TITLE;
 use crate::core::engine::Engine;
-use crate::ui::screens::common::NavTab;
+use crate::ui::screens::common::{DEFAULT_PADDING, NavTab};
 
 pub(super) fn render(frame: &mut Frame, engine: &Engine) {
     let [
@@ -71,12 +71,14 @@ pub(super) fn render(frame: &mut Frame, engine: &Engine) {
 
     let default_logs_text = Text::from(vec![
         Line::from(vec![
+            DEFAULT_PADDING.into(),
             Span::raw(">").red(),
             Span::raw(" "),
             Span::raw("conexão com o além estabelecida.").dim(),
         ]),
         Line::from(""),
         Line::from(vec![
+            DEFAULT_PADDING.into(),
             Span::raw(">").red(),
             Span::raw(" "),
             Span::raw("aguardando oferenda do mortal_").dim(),
@@ -108,6 +110,7 @@ pub(super) fn render(frame: &mut Frame, engine: &Engine) {
         Layout::horizontal([Constraint::Fill(1), Constraint::Length(14)]).areas(status_inner);
 
     let hints = Line::from(vec![
+        DEFAULT_PADDING.into(),
         "[Enter]".red().bold(),
         " ".into(),
         "perguntar".dim(),
@@ -121,5 +124,10 @@ pub(super) fn render(frame: &mut Frame, engine: &Engine) {
         "sair".dim(),
     ]);
     frame.render_widget(Paragraph::new(hints), hints_area);
-    frame.render_widget(Paragraph::new("PERGUNTA".dim()).right_aligned(), page_area);
+    frame.render_widget(
+        Paragraph::new(format!("PERGUNTA{}", DEFAULT_PADDING))
+            .dim()
+            .right_aligned(),
+        page_area,
+    );
 }
