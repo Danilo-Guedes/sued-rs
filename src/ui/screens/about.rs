@@ -8,7 +8,8 @@ use ratatui::widgets::{Paragraph, Wrap};
 
 use crate::contants::APP_TITLE;
 use crate::ui::screens::common::{
-    DEFAULT_PADDING, NavTab, panel_block, render_nav_strip, table_row,
+    DEFAULT_PADDING, DEMON_ART, DEMON_ART_HEIGHT, DEMON_ART_WIDTH, NavTab, create_centered_rect,
+    panel_block, render_nav_strip, table_row,
 };
 
 pub(super) fn render(frame: &mut Frame) {
@@ -43,10 +44,13 @@ pub(super) fn render(frame: &mut Frame) {
     ])
     .areas(center_layout);
 
-    frame.render_widget(
-        Paragraph::new("ART".dim()).centered(),
-        art_area.centered_vertically(Constraint::Length(1)),
+    let art_rect = create_centered_rect(
+        art_area,
+        Constraint::Length(DEMON_ART_WIDTH),
+        Constraint::Length(DEMON_ART_HEIGHT),
     );
+
+    frame.render_widget(Paragraph::new(DEMON_ART.red()), art_rect);
 
     let text_lines = Text::from(vec![
         Line::from("SUED, O ORÁCULO".red().bold()),

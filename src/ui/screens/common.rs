@@ -6,7 +6,26 @@ use ratatui::style::{Color, Style, Stylize};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Padding, Paragraph};
 
-pub const DEFAULT_PADDING: &str = "   ";
+pub(super) const DEFAULT_PADDING: &str = "   ";
+
+/// The demon face — verbatim quadrant-block art (11 rows), shown on the
+/// Pergunta + Sobre screens. Centre it by carving a Rect the *exact* size of the
+/// art and rendering LEFT-aligned into it (see `create_centered_rect`) so the rows
+/// stay locked together — never `.centered()`, which shears each row apart.
+pub(super) const DEMON_ART: &str = r"  ▄▄▖                    ▗▄▄
+  ▜██▄▄                ▄▄██▛
+    ▀▜███▄▄▄▄▄▄▄▄▄▄███▜▀
+        ▟█▀▘        ▝▀█▙
+      ▄█▀   ▄▄    ▄▄   ▀█▄
+     ██▌   ▐█▌    ▐█▌   ▐██
+      ▀█▖   ▀▘    ▀▘   ▗█▀
+        ▜█▄    ▄▄▄▄    ▄█▛
+         ▝█▖ ▝▌▐▌▝▌ ▗█▘
+          ▜█▄▖▙▟▟▙▗▄█▛
+            ▀▀██████▀▀";
+
+pub(super) const DEMON_ART_WIDTH: u16 = 28;
+pub(super) const DEMON_ART_HEIGHT: u16 = 11;
 
 /// Center `area` down to `width` × `height`, discarding the surrounding space.
 pub(super) fn create_centered_rect(area: Rect, width: Constraint, height: Constraint) -> Rect {
