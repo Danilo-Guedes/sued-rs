@@ -7,7 +7,7 @@ use ratatui::text::{Line, Span, Text};
 use ratatui::widgets::{Block, Paragraph, Wrap};
 
 use crate::contants::APP_TITLE;
-use crate::ui::screens::common::{render_nav_strip, table_row};
+use crate::ui::screens::common::{NavTab, render_nav_strip, table_row};
 
 pub(super) fn render(frame: &mut Frame) {
     let [
@@ -32,8 +32,7 @@ pub(super) fn render(frame: &mut Frame) {
         title_bar_layout,
     );
 
-    // TODO(you): pass Some(NavTab::Sobre) to light up the active tab.
-    render_nav_strip(frame, nav_layout, None);
+    render_nav_strip(frame, nav_layout, NavTab::About);
 
     let [art_area, text_area, _empty] = Layout::horizontal([
         Constraint::Fill(1),
