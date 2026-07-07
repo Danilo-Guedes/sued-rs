@@ -9,13 +9,15 @@ use ratatui::widgets::{Block, Padding, Paragraph, Wrap};
 use super::common::{create_centered_rect, panel_block, render_nav_strip};
 use crate::contants::APP_TITLE;
 use crate::core::engine::Engine;
-use crate::ui::screens::common::{DEFAULT_PADDING, NavTab};
+use crate::ui::screens::common::{
+    DEFAULT_PADDING, DEMON_ART, DEMON_ART_HEIGHT, DEMON_ART_WIDTH, NavTab,
+};
 
 pub(super) fn render(frame: &mut Frame, engine: &Engine) {
     let [
         title_bar_layout,
         nav_layout,
-        sued_art_layout,
+        sued_art_top_layout,
         sued_says_layout,
         sued_logs_layout,
         input_layout,
@@ -35,8 +37,22 @@ pub(super) fn render(frame: &mut Frame, engine: &Engine) {
 
     render_nav_strip(frame, nav_layout, NavTab::Ask);
 
+    let [_, center_art_rect, _] = Layout::horizontal([
+        Constraint::Fill(1),
+        Constraint::Fill(1),
+        Constraint::Fill(1),
+    ])
+    .areas(sued_art_top_layout);
+
     // demon ASCII art will fill this area next (no border, per design)
-    frame.render_widget(Paragraph::new("").centered(), sued_art_layout);
+    frame.render_widget(
+        Paragraph::new(DEMON_ART).red(),
+        create_centered_rect(
+            center_art_rect,
+            Constraint::Length(DEMON_ART_WIDTH),
+            Constraint::Length(DEMON_ART_HEIGHT),
+        ),
+    );
 
     let speak_layout = create_centered_rect(
         sued_says_layout,
