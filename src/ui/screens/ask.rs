@@ -2,11 +2,11 @@
 
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout};
-use ratatui::style::{Color, Style, Stylize};
+use ratatui::style::Stylize;
 use ratatui::text::{Line, Span, Text};
 use ratatui::widgets::{Block, Padding, Paragraph, Wrap};
 
-use super::common::{create_centered_rect, render_nav_strip};
+use super::common::{create_centered_rect, panel_block, render_nav_strip};
 use crate::contants::APP_TITLE;
 use crate::core::engine::Engine;
 use crate::ui::screens::common::NavTab;
@@ -22,11 +22,11 @@ pub(super) fn render(frame: &mut Frame, engine: &Engine) {
         status_layout,
     ] = Layout::vertical([
         Constraint::Length(2), // title bar,
-        Constraint::Length(1), // nav strip
+        Constraint::Length(2), // nav strip
         Constraint::Fill(3),   // sued_art
         Constraint::Fill(2),   // sued_says
         Constraint::Fill(3),   // sued_logs
-        Constraint::Length(5), // input box
+        Constraint::Length(3), // input box
         Constraint::Length(3), // status bar
     ])
     .areas(frame.area());
@@ -35,7 +35,8 @@ pub(super) fn render(frame: &mut Frame, engine: &Engine) {
 
     render_nav_strip(frame, nav_layout, NavTab::Ask);
 
-    frame.render_widget(Block::bordered().title("sued_art"), sued_art_layout);
+    // demon ASCII art will fill this area next (no border, per design)
+    frame.render_widget(Paragraph::new("").centered(), sued_art_layout);
 
     let speak_layout = create_centered_rect(
         sued_says_layout,
@@ -60,8 +61,7 @@ pub(super) fn render(frame: &mut Frame, engine: &Engine) {
 
     let speak_widget = Paragraph::new(final_sued_words)
         .block(
-            Block::bordered()
-                .border_style(Style::default().fg(Color::Red).bold())
+            panel_block()
                 .title(" SUED FALA ")
                 .padding(Padding::new(2, 2, 1, 1)),
         )
@@ -84,34 +84,23 @@ pub(super) fn render(frame: &mut Frame, engine: &Engine) {
     ]);
 
     frame.render_widget(
-        Paragraph::new(default_logs_text).block(
-            Block::bordered()
-                .title("sued_logs")
-                .padding(Padding::new(2, 2, 1, 1)),
-        ),
+        Paragraph::new(default_logs_text).block(Block::new().padding(Padding::new(2, 2, 0, 0))),
         sued_logs_layout,
     );
 
-    let typed = Text::from(vec![
-        "".into(),
-        Line::from(vec![
-            " ▶ ".red().bold(),
-            Span::raw(engine.visible_buffer()).white(),
-        ]),
-    ]);
+    let typed = Text::from(vec![Line::from(vec![
+        " ▶ ".red().bold(),
+        Span::raw(engine.visible_buffer()).white(),
+    ])]);
 
     frame.render_widget(
         Paragraph::new(typed)
-            .block(
-                Block::bordered()
-                    .border_style(Style::default().fg(Color::Red).bold())
-                    .title(" input "),
-            )
+            .block(panel_block().title(" input "))
             .wrap(Wrap { trim: false }),
         input_layout,
     );
 
-    let status_block = Block::bordered();
+    let status_block = panel_block();
     let status_inner = status_block.inner(status_layout);
     frame.render_widget(status_block, status_layout);
 

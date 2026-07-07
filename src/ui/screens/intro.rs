@@ -4,9 +4,10 @@ use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout};
 use ratatui::style::Stylize;
 use ratatui::text::{Line, Span, Text};
-use ratatui::widgets::{Block, Paragraph, Wrap};
+use ratatui::widgets::{Paragraph, Wrap};
 
 use crate::contants::APP_TITLE;
+use crate::ui::screens::common::panel_block;
 
 pub(super) fn render(frame: &mut Frame) {
     let [
@@ -82,7 +83,7 @@ pub(super) fn render(frame: &mut Frame) {
     ]);
 
     frame.render_widget(
-        Paragraph::new(status_texts).block(Block::bordered()),
+        Paragraph::new(status_texts).block(panel_block()),
         status_layout,
     );
 }

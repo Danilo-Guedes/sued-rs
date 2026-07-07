@@ -4,10 +4,10 @@ use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout};
 use ratatui::style::Stylize;
 use ratatui::text::{Line, Span, Text};
-use ratatui::widgets::{Block, Paragraph, Wrap};
+use ratatui::widgets::{Paragraph, Wrap};
 
 use crate::contants::APP_TITLE;
-use crate::ui::screens::common::{NavTab, render_nav_strip, table_row};
+use crate::ui::screens::common::{NavTab, panel_block, render_nav_strip, table_row};
 
 pub(super) fn render(frame: &mut Frame) {
     let [
@@ -19,7 +19,7 @@ pub(super) fn render(frame: &mut Frame) {
         status_layout,
     ] = Layout::vertical([
         Constraint::Length(2), // title bar
-        Constraint::Length(1), // nav strip
+        Constraint::Length(2), // nav strip
         Constraint::Fill(1),   //empty space
         Constraint::Fill(3),   // center: two panels
         Constraint::Fill(1),
@@ -70,7 +70,7 @@ pub(super) fn render(frame: &mut Frame) {
         top_text,
     );
 
-    let status_block = Block::bordered();
+    let status_block = panel_block();
     let status_inner = status_block.inner(status_layout);
     frame.render_widget(status_block, status_layout);
 

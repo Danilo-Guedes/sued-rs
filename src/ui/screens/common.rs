@@ -2,15 +2,21 @@
 
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
-use ratatui::style::Stylize;
+use ratatui::style::{Color, Style, Stylize};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::Paragraph;
+use ratatui::widgets::{Block, Borders, Padding, Paragraph};
 
 /// Center `area` down to `width` × `height`, discarding the surrounding space.
 pub(super) fn create_centered_rect(area: Rect, width: Constraint, height: Constraint) -> Rect {
     let [a] = Layout::horizontal([width]).flex(Flex::Center).areas(area);
     let [a] = Layout::vertical([height]).flex(Flex::Center).areas(a);
     a
+}
+
+/// The shared accent-red panel frame, so every screen's border colour lives in
+/// one place (M5/M6 can swap the theme palette here).
+pub(super) fn panel_block() -> Block<'static> {
+    Block::bordered().border_style(Style::default().fg(Color::Red))
 }
 
 /// Accent "chip" for a step number: black glyphs on the accent colour.
@@ -54,8 +60,16 @@ impl NavTab {
 }
 
 pub(super) fn render_nav_strip(frame: &mut Frame, area: Rect, active: NavTab) {
+    // `area` must now be 2 rows tall: one row of tabs plus the red underline.
+    let block = Block::new()
+        .borders(Borders::BOTTOM)
+        .border_style(Style::default().fg(Color::Red))
+        .padding(Padding::new(1, 1, 0, 0));
+    let inner = block.inner(area);
+    frame.render_widget(block, area);
+
     let [tabs_area, session_area] =
-        Layout::horizontal([Constraint::Fill(1), Constraint::Length(24)]).areas(area);
+        Layout::horizontal([Constraint::Fill(1), Constraint::Length(24)]).areas(inner);
 
     // Build the tab row as one Line: label, four spaces, next label, ...
     let mut spans: Vec<Span<'static>> = Vec::new();
