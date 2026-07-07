@@ -6,14 +6,14 @@ use ratatui::style::Stylize;
 use ratatui::text::Line;
 use ratatui::widgets::{Block, Padding, Paragraph, Wrap};
 
-use super::common::{render_nav_strip, step_badge, table_row};
+use super::common::{panel_block, render_nav_strip, step_badge, table_row};
 use crate::contants::APP_TITLE;
 use crate::ui::screens::common::NavTab;
 
 pub(super) fn render(frame: &mut Frame) {
     let [title_bar_layout, nav_layout, center_layout, status_layout] = Layout::vertical([
         Constraint::Length(2), // title bar
-        Constraint::Length(1), // nav strip
+        Constraint::Length(2), // nav strip
         Constraint::Fill(1),   // center: two panels
         Constraint::Length(3), // status bar
     ])
@@ -36,7 +36,7 @@ pub(super) fn render(frame: &mut Frame) {
     render_shortcuts_panel(frame, shortcuts_area);
 
     // Status bar: split the *inside* of one border into left hints + right page tag.
-    let status_block = Block::bordered();
+    let status_block = panel_block();
     let status_inner = status_block.inner(status_layout);
     frame.render_widget(status_block, status_layout);
 
@@ -57,23 +57,25 @@ pub(super) fn render(frame: &mut Frame) {
 
 /// Left panel — the 4-step ritual.
 fn render_ritual_panel(frame: &mut Frame, area: Rect) {
-    // The reusable move for a bordered panel with content:
-    //   1. build the frame `Block`,
-    //   2. ask it for the `inner` content rect (border + padding removed),
-    //   3. draw the frame,
-    //   4. lay the content out inside `inner`.
-    let block = Block::bordered()
-        .title(Line::from("▚ O RITUAL ▞").red().bold())
-        .padding(Padding::new(2, 2, 1, 1));
+    // Borderless panel: a padding-only `Block` still hands back an inset `inner`
+    // rect (nothing is drawn), and the old `.title(...)` that sat on the border
+    // becomes a plain heading `Line` rendered in its own row on top.
+    let block = Block::new().padding(Padding::new(0, 2, 1, 0));
     let inner = block.inner(area);
     frame.render_widget(block, area);
 
-    let [steps_area, divider_area, example_area] = Layout::vertical([
+    let [heading_area, steps_area, divider_area, example_area] = Layout::vertical([
+        Constraint::Length(2), // heading + blank line
         Constraint::Fill(1),   // numbered steps
         Constraint::Length(1), // divider
         Constraint::Length(2), // example
     ])
     .areas(inner);
+
+    frame.render_widget(
+        Paragraph::new(Line::from("▚ O RITUAL ▞").red().bold()),
+        heading_area,
+    );
 
     let steps = vec![
         Line::from(vec![
@@ -120,27 +122,33 @@ fn render_ritual_panel(frame: &mut Frame, area: Rect) {
 
 /// Right panel — the keyboard shortcuts table.
 fn render_shortcuts_panel(frame: &mut Frame, area: Rect) {
-    let block = Block::bordered()
-        .title(Line::from("⌨ ATALHOS").red().bold())
-        .padding(Padding::new(2, 2, 1, 1));
+    // Borderless, same move as the ritual panel: padding-only block for the inset,
+    // the title becomes a heading `Line`.
+    let block = Block::new().padding(Padding::new(2, 0, 1, 0));
     let inner = block.inner(area);
     frame.render_widget(block, area);
 
-    let [rows_area, footer_area] = Layout::vertical([
+    let [heading_area, rows_area, footer_area] = Layout::vertical([
+        Constraint::Length(2), // heading + blank line
         Constraint::Fill(1),   // key/desc rows
         Constraint::Length(1), // bottom-pinned footer
     ])
     .areas(inner);
 
+    frame.render_widget(
+        Paragraph::new(Line::from("⌨   ATALHOS").red().bold()),
+        heading_area,
+    );
+
     // A "table" here is just aligned lines: pad the key column to a fixed width
     // so every description starts at the same column. No table widget needed.
-    const KEY_WIDTH: usize = 9;
+    const KEY_WIDTH: usize = 10;
     let rows = vec![
-        table_row("Enter", "perguntar / confirmar", KEY_WIDTH),
-        table_row("↑ ↓", "navegar o menu", KEY_WIDTH),
-        table_row("Tab", "alternar menu", KEY_WIDTH),
-        table_row("Esc", "voltar", KEY_WIDTH),
-        table_row("Ctrl-C", "encerrar sessão", KEY_WIDTH),
+        table_row("[Enter]", "perguntar / confirmar", KEY_WIDTH),
+        table_row("[↑ ↓]", "navegar o menu", KEY_WIDTH),
+        table_row("[Tab]", "alternar menu", KEY_WIDTH),
+        table_row("[Esc]", "voltar", KEY_WIDTH),
+        table_row("[Ctrl-C]", "encerrar sessão", KEY_WIDTH),
     ];
     frame.render_widget(Paragraph::new(rows), rows_area);
 
