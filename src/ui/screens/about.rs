@@ -50,7 +50,7 @@ pub(super) fn render(frame: &mut Frame) {
         Constraint::Length(DEMON_ART_HEIGHT),
     );
 
-    frame.render_widget(Paragraph::new(DEMON_ART.red()), art_rect);
+    frame.render_widget(Paragraph::new(DEMON_ART).red(), art_rect);
 
     let text_lines = Text::from(vec![
         Line::from("SUED, O ORÁCULO".red().bold()),
