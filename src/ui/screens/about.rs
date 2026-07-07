@@ -52,33 +52,20 @@ pub(super) fn render(frame: &mut Frame) {
 
     frame.render_widget(Paragraph::new(DEMON_ART).red(), art_rect);
 
-    let text_lines = Text::from(vec![
+    // Right column: lore text + spec table. Build both, then size their rects by
+    // *content* — the lore's wrapped height comes from `line_count(width)` so it can
+    // never clip, the table gets exactly its row count, a fixed gap sits between,
+    // and `Fill(1)` spacers centre the whole group.
+    let text_para = Paragraph::new(Text::from(vec![
         Line::from("SUED, O ORÁCULO".red().bold()),
         Line::from(" "),
         Line::from(vec![
             Span::raw("Uma entidade antiga que tudo vê e tudo sabe. Preso entre mundos, response às perguntas dos mortais tolos o bastante para invocá-lo - ").white(),
             Span::raw("nem sempre com a verdade que deseja ouvir.").red().bold(),
         ]),
-    ]);
-
-    let [_, top_text, bottom_table, _] = Layout::vertical([
-        Constraint::Fill(1),
-        Constraint::Percentage(25),
-        Constraint::Percentage(25),
-        Constraint::Fill(1),
-    ])
-    .areas(text_area);
-
-    frame.render_widget(
-        Paragraph::new(text_lines)
-            .left_aligned()
-            .wrap(Wrap { trim: (false) }),
-        top_text,
-    );
-
-    let status_block = panel_block();
-    let status_inner = status_block.inner(status_layout);
-    frame.render_widget(status_block, status_layout);
+    ]))
+    .left_aligned()
+    .wrap(Wrap { trim: false });
 
     const KEY_WIDTH: usize = 12;
     let rows = vec![
@@ -87,7 +74,23 @@ pub(super) fn render(frame: &mut Frame) {
         table_row("origem", "o além · desconhecida", KEY_WIDTH),
         table_row("runtime", "rust · ratatui · crossterm", KEY_WIDTH),
     ];
-    frame.render_widget(Paragraph::new(rows), bottom_table);
+
+    let text_h = text_para.line_count(text_area.width) as u16;
+    let [_, text_block, _gap, table_block, _] = Layout::vertical([
+        Constraint::Fill(1),                   // top spacer
+        Constraint::Length(text_h),            // lore, sized to its wrapped height
+        Constraint::Length(2),                 // breathing space between text + table
+        Constraint::Length(rows.len() as u16), // the spec table (one row each)
+        Constraint::Fill(1),                   // bottom spacer
+    ])
+    .areas(text_area);
+
+    frame.render_widget(text_para, text_block);
+    frame.render_widget(Paragraph::new(rows), table_block);
+
+    let status_block = panel_block();
+    let status_inner = status_block.inner(status_layout);
+    frame.render_widget(status_block, status_layout);
 
     let [_, bottom_footer_layout] =
         Layout::vertical([Constraint::Fill(1), Constraint::Length(3)]).areas(footer_layout);
