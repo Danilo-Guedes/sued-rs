@@ -4,11 +4,11 @@ use ratatui::Frame;
 use ratatui::layout::{Constraint, Flex, Layout};
 use ratatui::style::Stylize;
 use ratatui::text::{Line, Span, Text};
-use ratatui::widgets::{Borders, Paragraph, Wrap};
+use ratatui::widgets::{Borders, Padding, Paragraph, Wrap};
 
 use crate::ui::screens::common::{
-    DEFAULT_PADDING, NavTab, SUED_BANNER, SUED_BANNER_HEIGHT, SUED_BANNER_WIDTH,
-    colorfull_bordered_block, create_centered_rect, create_screen_block, render_nav_strip,
+    NavTab, SUED_BANNER, SUED_BANNER_HEIGHT, SUED_BANNER_WIDTH, colorfull_bordered_block,
+    create_centered_rect, create_screen_block, render_nav_strip,
 };
 
 pub(super) fn render(frame: &mut Frame) {
@@ -25,7 +25,7 @@ pub(super) fn render(frame: &mut Frame) {
         Constraint::Length(4),  // nav strip
         Constraint::Fill(1),    // empty
         Constraint::Fill(3),    // page_title_and_sub
-        Constraint::Length(20), // intro_text_layout
+        Constraint::Length(18), // intro_text_layout
         Constraint::Fill(1),    // empty
         Constraint::Length(2),  // status bar
     ])
@@ -72,17 +72,13 @@ pub(super) fn render(frame: &mut Frame) {
         Line::from("A T E N Ç Ã O".red().bold()),
         Line::from(""), // blank row for breathing space
         Line::from("Você está prestes a abrir uma porta para o desconhecido."),
-        Line::from(""),
         Line::from("Aconselho acender uma vela e apagar as luzes antes de executar."),
-        Line::from(""),
         Line::from(vec![
             Span::raw("Para que "),
             Span::raw("SUED ").red().bold(),
             Span::raw("responda, você deve elogiá-lo e em seguida pergunte com clareza."),
         ]),
-        Line::from(""),
         Line::from("Pessoas fracas e sensíveis não devem utilizar o programa."),
-        Line::from(""),
         Line::from("Tenha muito cuidado com o que você irá perguntar..."),
         Line::from(""),
         Line::from(""),
@@ -98,18 +94,18 @@ pub(super) fn render(frame: &mut Frame) {
     );
 
     let status_texts = Line::from(vec![
-        DEFAULT_PADDING.into(),
         "[Enter]".red().bold(),
         " ".into(),
         "continuar".dim(),
-        " ".into(),
+        "  ".into(),
         "[Esc]".red().bold(),
         " ".into(),
         "sair".dim(),
     ]);
 
     frame.render_widget(
-        Paragraph::new(status_texts).block(colorfull_bordered_block(Some(Borders::TOP))),
+        Paragraph::new(status_texts)
+            .block(colorfull_bordered_block(Some(Borders::TOP)).padding(Padding::new(2, 0, 0, 0))),
         status_layout,
     );
 }

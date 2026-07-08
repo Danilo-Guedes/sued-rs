@@ -9,8 +9,6 @@ use ratatui::widgets::{Block, Borders, Padding, Paragraph};
 
 use crate::contants::APP_TITLE;
 
-pub(super) const DEFAULT_PADDING: &str = "   ";
-
 /// The demon face — verbatim quadrant-block art (11 rows), shown on the
 /// Pergunta + Sobre screens. Centre it by carving a Rect the *exact* size of the
 /// art and rendering LEFT-aligned into it (see `create_centered_rect`) so the rows
@@ -110,7 +108,7 @@ pub(super) fn render_nav_strip(frame: &mut Frame, area: Rect, active: NavTab) {
     let block = Block::new()
         .borders(Borders::BOTTOM)
         .border_style(Style::default().fg(Color::Red))
-        .padding(Padding::new(1, 1, 1, 0));
+        .padding(Padding::new(2, 2, 1, 0));
 
     let inner = block.inner(area);
     frame.render_widget(block, area);
@@ -121,11 +119,10 @@ pub(super) fn render_nav_strip(frame: &mut Frame, area: Rect, active: NavTab) {
     // Build the tab row as one Line: label, four spaces, next label, ...
     let mut spans: Vec<Span<'static>> = Vec::new();
     for (i, tab) in NavTab::ALL.iter().enumerate() {
-        if i == 0 {
-            spans.push(DEFAULT_PADDING.into()) // left padding
-        } else {
+        if i > 0 {
             spans.push("    ".into()); // gap between tabs
         }
+
         if active == *tab {
             // Active: uppercased, black-on-red chip (leading/trailing space = padding).
             spans.push(
@@ -146,7 +143,6 @@ pub(super) fn render_nav_strip(frame: &mut Frame, area: Rect, active: NavTab) {
         "· ".dim(),
         "●".red(),
         " online".dim(),
-        DEFAULT_PADDING.into(),
     ]);
     frame.render_widget(Paragraph::new(session).right_aligned(), session_area);
 }

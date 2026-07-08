@@ -9,14 +9,13 @@ use ratatui::widgets::{Block, Borders, Padding, Paragraph, Wrap};
 use super::common::{colorfull_bordered_block, create_centered_rect, render_nav_strip};
 use crate::core::engine::Engine;
 use crate::ui::screens::common::{
-    DEFAULT_PADDING, DEMON_ART, DEMON_ART_HEIGHT, DEMON_ART_WIDTH, NavTab, create_screen_block,
+    DEMON_ART, DEMON_ART_HEIGHT, DEMON_ART_WIDTH, NavTab, create_screen_block,
 };
 
 pub(super) fn render(frame: &mut Frame, engine: &Engine) {
     let layout = create_screen_block(frame);
 
     let [
-        _,
         nav_layout,
         sued_art_top_layout,
         sued_says_layout,
@@ -24,7 +23,6 @@ pub(super) fn render(frame: &mut Frame, engine: &Engine) {
         input_layout,
         status_layout,
     ] = Layout::vertical([
-        Constraint::Length(1), // empty,
         Constraint::Length(4), // nav strip
         Constraint::Fill(3),   // sued_art
         Constraint::Fill(2),   // sued_says
@@ -86,14 +84,12 @@ pub(super) fn render(frame: &mut Frame, engine: &Engine) {
 
     let default_logs_text = Text::from(vec![
         Line::from(vec![
-            DEFAULT_PADDING.into(),
             Span::raw(">").red(),
             Span::raw(" "),
             Span::raw("conexão com o além estabelecida.").dim(),
         ]),
         Line::from(""),
         Line::from(vec![
-            DEFAULT_PADDING.into(),
             Span::raw(">").red(),
             Span::raw(" "),
             Span::raw("aguardando oferenda do mortal_").dim(),
@@ -101,7 +97,7 @@ pub(super) fn render(frame: &mut Frame, engine: &Engine) {
     ]);
 
     frame.render_widget(
-        Paragraph::new(default_logs_text).block(Block::new().padding(Padding::new(2, 2, 0, 0))),
+        Paragraph::new(default_logs_text).block(Block::new().padding(Padding::new(4, 2, 0, 0))),
         sued_logs_layout,
     );
 
@@ -117,7 +113,7 @@ pub(super) fn render(frame: &mut Frame, engine: &Engine) {
         input_layout,
     );
 
-    let status_block = colorfull_bordered_block(Some(Borders::TOP));
+    let status_block = colorfull_bordered_block(Some(Borders::TOP)).padding(Padding::horizontal(2));
     let status_inner = status_block.inner(status_layout);
     frame.render_widget(status_block, status_layout);
 
@@ -125,7 +121,6 @@ pub(super) fn render(frame: &mut Frame, engine: &Engine) {
         Layout::horizontal([Constraint::Fill(1), Constraint::Length(14)]).areas(status_inner);
 
     let hints = Line::from(vec![
-        DEFAULT_PADDING.into(),
         "[Enter]".red().bold(),
         " ".into(),
         "perguntar".dim(),
@@ -139,10 +134,5 @@ pub(super) fn render(frame: &mut Frame, engine: &Engine) {
         "sair".dim(),
     ]);
     frame.render_widget(Paragraph::new(hints), hints_area);
-    frame.render_widget(
-        Paragraph::new(format!("PERGUNTA{}", DEFAULT_PADDING))
-            .dim()
-            .right_aligned(),
-        page_area,
-    );
+    frame.render_widget(Paragraph::new("PERGUNTA").dim().right_aligned(), page_area);
 }

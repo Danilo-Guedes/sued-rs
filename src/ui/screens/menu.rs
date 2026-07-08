@@ -4,26 +4,25 @@ use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::Stylize;
 use ratatui::text::Line;
-use ratatui::widgets::{Borders, Paragraph, Wrap};
+use ratatui::widgets::{Block, Borders, Padding, Paragraph, Wrap};
 
 use crate::app::Menu;
-use crate::ui::screens::common::{DEFAULT_PADDING, colorfull_bordered_block, create_screen_block};
+use crate::ui::screens::common::{colorfull_bordered_block, create_screen_block};
 
 pub(super) fn render(frame: &mut Frame, menu: &Menu) {
     let layout = create_screen_block(frame);
 
-    let [_, center_layout, status_layout] = Layout::vertical([
-        Constraint::Length(1),
+    let [center_layout, status_layout] = Layout::vertical([
         Constraint::Fill(1),   // center: menu | aviso
         Constraint::Length(2), // status bar
     ])
     .areas(layout);
 
     let [menu_area, aviso_area] =
-        Layout::horizontal([Constraint::Fill(6), Constraint::Fill(4)]).areas(center_layout);
+        Layout::horizontal([Constraint::Fill(5), Constraint::Fill(4)]).areas(center_layout);
 
     render_menu_column(frame, menu_area, menu);
-    render_aviso_column(frame, aviso_area);
+    render_disclaimer_column(frame, aviso_area);
     render_status_bar(frame, status_layout, menu.index());
 }
 
@@ -38,9 +37,8 @@ fn render_menu_column(frame: &mut Frame, area: Rect, menu: &Menu) {
 
     let width = list_area.width as usize;
     let mut lines: Vec<Line> = vec![
-        Line::from(format!("{}▚ ESCOLHA SEU DESTINO ▞", DEFAULT_PADDING))
-            .red()
-            .bold(),
+        Line::from(""),
+        Line::from("▚ ESCOLHA SEU DESTINO ▞").red().bold(),
         Line::from(""),
     ];
 
@@ -66,7 +64,10 @@ fn render_menu_column(frame: &mut Frame, area: Rect, menu: &Menu) {
     // The design's divider stops short of the column edge — about 70% width.
     lines.push(Line::from("─".repeat((width * 7) / 10)).red());
 
-    frame.render_widget(Paragraph::new(lines), list_area);
+    frame.render_widget(
+        Paragraph::new(lines).block(Block::new().padding(Padding::new(2, 0, 1, 0))),
+        list_area,
+    );
 
     let hint = Line::from(
         "» Faça sua pergunta ao oráculo. Elogie-o primeiro, depois pergunte de forma clara e objetiva.",
@@ -80,16 +81,31 @@ fn render_menu_column(frame: &mut Frame, area: Rect, menu: &Menu) {
         Constraint::Fill(1),
     ])
     .areas(hint_area);
-    frame.render_widget(Paragraph::new(hint).wrap(Wrap { trim: false }), hint_sub);
+    frame.render_widget(
+        Paragraph::new(hint)
+            .wrap(Wrap { trim: false })
+            .block(Block::new().padding(Padding::new(2, 0, 1, 0))),
+        hint_sub,
+    );
 }
 
 /// Right column — the ATENÇÃO warning, with a bottom-pinned footer.
-fn render_aviso_column(frame: &mut Frame, area: Rect) {
+fn render_disclaimer_column(frame: &mut Frame, area: Rect) {
+    // One block owns the column's full-height left border: render it over the whole
+    // `area`, then lay the content into its `inner`. A `Block` is *moved* into
+    // `.block()`, so it can't be shared by two Paragraphs — but the fix isn't a
+    // second block, it's to draw the border once here and drop `.block()` on the
+    // content. (Same "block once, content into inner" idiom as `render_status_bar`.)
+    let block = colorfull_bordered_block(Some(Borders::LEFT)).padding(Padding::new(2, 0, 1, 0));
+    let inner = block.inner(area);
+    frame.render_widget(block, area);
+
     // Spacer-above trick (`Fill(1)` then `Length(2)`) pins the footer to the bottom.
     let [body_area, footer_area] =
-        Layout::vertical([Constraint::Fill(1), Constraint::Length(2)]).areas(area);
+        Layout::vertical([Constraint::Fill(1), Constraint::Length(2)]).areas(inner);
 
     let body = vec![
+        Line::from(""),
         Line::from("⚠ ATENÇÃO").red().bold(),
         Line::from(""),
         Line::from("Pessoas fracas e sensíveis não devem utilizar o programa.").dim(),
@@ -98,7 +114,11 @@ fn render_aviso_column(frame: &mut Frame, area: Rect) {
         Line::from(""),
         Line::from("Tenha cuidado com o que irá perguntar...").dim(),
     ];
-    frame.render_widget(Paragraph::new(body), body_area);
+
+    frame.render_widget(
+        Paragraph::new(body).block(Block::new().padding(Padding::left(2))),
+        body_area,
+    );
 
     let footer = vec![
         Line::from("☠ ☠ ☠").dim(),
@@ -109,7 +129,7 @@ fn render_aviso_column(frame: &mut Frame, area: Rect) {
 
 /// Bottom status bar — key hints on the left, page tag pinned right.
 fn render_status_bar(frame: &mut Frame, area: Rect, selected_menu: usize) {
-    let block = colorfull_bordered_block(Some(Borders::TOP));
+    let block = colorfull_bordered_block(Some(Borders::TOP)).padding(Padding::horizontal(2));
     let inner = block.inner(area);
     frame.render_widget(block, area);
 
@@ -117,7 +137,6 @@ fn render_status_bar(frame: &mut Frame, area: Rect, selected_menu: usize) {
         Layout::horizontal([Constraint::Fill(1), Constraint::Length(6)]).areas(inner);
 
     let hints = Line::from(vec![
-        DEFAULT_PADDING.into(),
         "[↑↓]".red().bold(),
         " ".into(),
         "navegar".dim(),
@@ -132,16 +151,7 @@ fn render_status_bar(frame: &mut Frame, area: Rect, selected_menu: usize) {
     ]);
     frame.render_widget(Paragraph::new(hints), hints_area);
     frame.render_widget(
-        Paragraph::new(
-            format!(
-                "{}/{}{}",
-                selected_menu + 1,
-                Menu::ALL.len(),
-                DEFAULT_PADDING
-            )
-            .dim(),
-        )
-        .right_aligned(),
+        Paragraph::new(format!("{}/{}", selected_menu + 1, Menu::ALL.len(),).dim()).right_aligned(),
         page_area,
     );
 }
