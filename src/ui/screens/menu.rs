@@ -4,29 +4,21 @@ use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::Stylize;
 use ratatui::text::Line;
-use ratatui::widgets::{Paragraph, Wrap};
+use ratatui::widgets::{Borders, Paragraph, Wrap};
 
-use super::common::panel_block;
 use crate::app::Menu;
-use crate::contants::APP_TITLE;
-use crate::ui::screens::common::DEFAULT_PADDING;
+use crate::ui::screens::common::{DEFAULT_PADDING, colorfull_bordered_block, create_screen_block};
 
 pub(super) fn render(frame: &mut Frame, menu: &Menu) {
-    let [title_bar_layout, center_layout, status_layout] = Layout::vertical([
-        Constraint::Length(2), // title bar
+    let layout = create_screen_block(frame);
+
+    let [_, center_layout, status_layout] = Layout::vertical([
+        Constraint::Length(1),
         Constraint::Fill(1),   // center: menu | aviso
-        Constraint::Length(3), // status bar
+        Constraint::Length(2), // status bar
     ])
-    .areas(frame.area());
+    .areas(layout);
 
-    frame.render_widget(
-        Paragraph::new(APP_TITLE).red().bold().left_aligned(),
-        title_bar_layout,
-    );
-
-    // Two columns: the selectable menu (left) and the ATENÇÃO warning (right).
-    // Each column is its own fn that owns its inner layout — the screen fn just
-    // hands out `Rect`s. Same pattern as info.rs.
     let [menu_area, aviso_area] =
         Layout::horizontal([Constraint::Fill(6), Constraint::Fill(4)]).areas(center_layout);
 
@@ -117,7 +109,7 @@ fn render_aviso_column(frame: &mut Frame, area: Rect) {
 
 /// Bottom status bar — key hints on the left, page tag pinned right.
 fn render_status_bar(frame: &mut Frame, area: Rect, selected_menu: usize) {
-    let block = panel_block();
+    let block = colorfull_bordered_block(Some(Borders::TOP));
     let inner = block.inner(area);
     frame.render_widget(block, area);
 

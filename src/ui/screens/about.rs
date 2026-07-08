@@ -4,36 +4,31 @@ use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout};
 use ratatui::style::Stylize;
 use ratatui::text::{Line, Span, Text};
-use ratatui::widgets::{Paragraph, Wrap};
+use ratatui::widgets::{Borders, Paragraph, Wrap};
 
-use crate::contants::APP_TITLE;
 use crate::ui::screens::common::{
-    DEFAULT_PADDING, DEMON_ART, DEMON_ART_HEIGHT, DEMON_ART_WIDTH, NavTab, create_centered_rect,
-    panel_block, render_nav_strip, table_row,
+    DEFAULT_PADDING, DEMON_ART, DEMON_ART_HEIGHT, DEMON_ART_WIDTH, NavTab,
+    colorfull_bordered_block, create_centered_rect, create_screen_block, render_nav_strip,
+    table_row,
 };
 
 pub(super) fn render(frame: &mut Frame) {
+    let layout = create_screen_block(frame);
+
     let [
-        title_bar_layout,
         nav_layout,
         _empty_space,
         center_layout,
         footer_layout,
         status_layout,
     ] = Layout::vertical([
-        Constraint::Length(2), // title bar
-        Constraint::Length(2), // nav strip
+        Constraint::Length(4), // nav strip
         Constraint::Fill(1),   //empty space
         Constraint::Fill(3),   // center: two panels
         Constraint::Fill(1),
-        Constraint::Length(3), // status bar
+        Constraint::Length(2), // status bar
     ])
-    .areas(frame.area());
-
-    frame.render_widget(
-        Paragraph::new(APP_TITLE).red().bold().left_aligned(),
-        title_bar_layout,
-    );
+    .areas(layout);
 
     render_nav_strip(frame, nav_layout, NavTab::About);
 
@@ -88,7 +83,7 @@ pub(super) fn render(frame: &mut Frame) {
     frame.render_widget(text_para, text_block);
     frame.render_widget(Paragraph::new(rows), table_block);
 
-    let status_block = panel_block();
+    let status_block = colorfull_bordered_block(Some(Borders::TOP));
     let status_inner = status_block.inner(status_layout);
     frame.render_widget(status_block, status_layout);
 

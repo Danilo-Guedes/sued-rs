@@ -4,36 +4,34 @@ use ratatui::Frame;
 use ratatui::layout::{Constraint, Flex, Layout};
 use ratatui::style::Stylize;
 use ratatui::text::{Line, Span, Text};
-use ratatui::widgets::{Paragraph, Wrap};
+use ratatui::widgets::{Borders, Paragraph, Wrap};
 
-use crate::contants::APP_TITLE;
 use crate::ui::screens::common::{
-    DEFAULT_PADDING, SUED_BANNER, SUED_BANNER_HEIGHT, SUED_BANNER_WIDTH, create_centered_rect,
-    panel_block,
+    DEFAULT_PADDING, NavTab, SUED_BANNER, SUED_BANNER_HEIGHT, SUED_BANNER_WIDTH,
+    colorfull_bordered_block, create_centered_rect, create_screen_block, render_nav_strip,
 };
 
 pub(super) fn render(frame: &mut Frame) {
+    let layout = create_screen_block(frame);
+
     let [
-        title_bar_layout,
+        nav_layout,
         _,
         page_title_and_sub_layout,
         intro_text_layout,
         _,
         status_layout,
     ] = Layout::vertical([
-        Constraint::Length(2),  // title bar,
+        Constraint::Length(4),  // nav strip
         Constraint::Fill(1),    // empty
-        Constraint::Fill(1),    // page_title_and_sub
-        Constraint::Length(15), // intro_text_layout
+        Constraint::Fill(3),    // page_title_and_sub
+        Constraint::Length(20), // intro_text_layout
         Constraint::Fill(1),    // empty
-        Constraint::Length(3),  // status bar
+        Constraint::Length(2),  // status bar
     ])
-    .areas(frame.area());
+    .areas(layout);
 
-    frame.render_widget(
-        Paragraph::new(APP_TITLE).red().bold().left_aligned(),
-        title_bar_layout,
-    );
+    render_nav_strip(frame, nav_layout, NavTab::Intro);
 
     let [banner_area, _gap, subtitle_area] = Layout::vertical([
         Constraint::Length(SUED_BANNER_HEIGHT),
@@ -111,7 +109,7 @@ pub(super) fn render(frame: &mut Frame) {
     ]);
 
     frame.render_widget(
-        Paragraph::new(status_texts).block(panel_block()),
+        Paragraph::new(status_texts).block(colorfull_bordered_block(Some(Borders::TOP))),
         status_layout,
     );
 }

@@ -4,25 +4,21 @@ use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::Stylize;
 use ratatui::text::Line;
-use ratatui::widgets::{Block, Padding, Paragraph, Wrap};
+use ratatui::widgets::{Block, Borders, Padding, Paragraph, Wrap};
 
-use super::common::{panel_block, render_nav_strip, step_badge, table_row};
-use crate::contants::APP_TITLE;
-use crate::ui::screens::common::{DEFAULT_PADDING, NavTab};
+use super::common::{colorfull_bordered_block, render_nav_strip, step_badge, table_row};
+
+use crate::ui::screens::common::{DEFAULT_PADDING, NavTab, create_screen_block};
 
 pub(super) fn render(frame: &mut Frame) {
-    let [title_bar_layout, nav_layout, center_layout, status_layout] = Layout::vertical([
-        Constraint::Length(2), // title bar
-        Constraint::Length(2), // nav strip
-        Constraint::Fill(1),   // center: two panels
-        Constraint::Length(3), // status bar
-    ])
-    .areas(frame.area());
+    let layout = create_screen_block(frame);
 
-    frame.render_widget(
-        Paragraph::new(APP_TITLE).red().bold().left_aligned(),
-        title_bar_layout,
-    );
+    let [nav_layout, center_layout, status_layout] = Layout::vertical([
+        Constraint::Length(4), // nav strip
+        Constraint::Fill(1),   // center: two panels
+        Constraint::Length(2), // status bar
+    ])
+    .areas(layout);
 
     render_nav_strip(frame, nav_layout, NavTab::Info);
 
@@ -36,7 +32,7 @@ pub(super) fn render(frame: &mut Frame) {
     render_shortcuts_panel(frame, shortcuts_area);
 
     // Status bar: split the *inside* of one border into left hints + right page tag.
-    let status_block = panel_block();
+    let status_block = colorfull_bordered_block(Some(Borders::TOP));
     let status_inner = status_block.inner(status_layout);
     frame.render_widget(status_block, status_layout);
 
