@@ -3,8 +3,9 @@
 A horror-themed terminal (TUI) recreation of **SueD** — the 2000s Brazilian prank
 "oracle" (*Sua Última Esperança Divina* / "Deus ao contrário"), rebuilt in Rust.
 
-> ⚠️ **Status: early / work in progress.** This is the M0 scaffold. Follow the
-> milestones as they land.
+> 🩸 **Status: playable.** The full prank runs end-to-end — a navigable 5-screen
+> spooky TUI (intro · menu · question · info · about) over a unit-tested, I/O-free
+> prank engine. Audio, terror effects and config are the milestones still landing.
 
 ## What it is
 
@@ -20,6 +21,17 @@ underlying trick — a fake fortune-teller where the operator secretly supplies 
 answers — is far older than the software and is essentially pre-digital stage magic.
 `sued-rs` is a faithful, modern, cross-platform homage. It does **not** use any AI
 and does **not** connect to the network; the "oracle" is the person at the keyboard.
+
+## What works now
+
+- **The prank, end-to-end** — the hidden-mode (`;`) toggle, the decoy that "types
+  itself," and the reveal.
+- **The full spooky TUI** — five keyboard-navigable screens with a merged full-bleed
+  red frame, demon ASCII art and the SUED banner (arrows · Enter · Esc · Ctrl-C).
+- **A pure, tested core** — the trick logic lives in an I/O-free engine; 33 tests green.
+
+Still landing: looping dread audio + a jump-scare sting, terror effects (a char-by-char
+reveal, flicker, screen-shake), and config/CLI (themes, languages, `--no-sound`).
 
 ## Build & run
 
