@@ -3,8 +3,11 @@
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::style::{Color, Style, Stylize};
+use ratatui::symbols::merge::MergeStrategy;
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Padding, Paragraph};
+
+use crate::contants::APP_TITLE;
 
 pub(super) const DEFAULT_PADDING: &str = "   ";
 
@@ -50,8 +53,16 @@ pub(super) fn create_centered_rect(area: Rect, width: Constraint, height: Constr
 
 /// The shared accent-red panel frame, so every screen's border colour lives in
 /// one place (M5/M6 can swap the theme palette here).
-pub(super) fn panel_block() -> Block<'static> {
-    Block::bordered().border_style(Style::default().fg(Color::Red))
+pub(super) fn colorfull_bordered_block(border_type: Option<Borders>) -> Block<'static> {
+    let final_border_style = match border_type {
+        Some(border) => border,
+        None => Borders::all(),
+    };
+
+    Block::new()
+        .borders(final_border_style)
+        .border_style(Style::default().fg(Color::Red))
+        .merge_borders(MergeStrategy::Exact)
 }
 
 /// Accent "chip" for a step number: black glyphs on the accent colour.
@@ -99,7 +110,8 @@ pub(super) fn render_nav_strip(frame: &mut Frame, area: Rect, active: NavTab) {
     let block = Block::new()
         .borders(Borders::BOTTOM)
         .border_style(Style::default().fg(Color::Red))
-        .padding(Padding::new(1, 1, 0, 0));
+        .padding(Padding::new(1, 1, 1, 0));
+
     let inner = block.inner(area);
     frame.render_widget(block, area);
 
@@ -137,4 +149,13 @@ pub(super) fn render_nav_strip(frame: &mut Frame, area: Rect, active: NavTab) {
         DEFAULT_PADDING.into(),
     ]);
     frame.render_widget(Paragraph::new(session).right_aligned(), session_area);
+}
+
+pub(super) fn create_screen_block(frame: &mut Frame) -> Rect {
+    let outer_layout = colorfull_bordered_block(None).title(APP_TITLE);
+    let inner_layout = outer_layout.inner(frame.area());
+
+    frame.render_widget(outer_layout, frame.area());
+
+    inner_layout
 }

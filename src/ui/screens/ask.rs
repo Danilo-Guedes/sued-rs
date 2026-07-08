@@ -4,18 +4,19 @@ use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout};
 use ratatui::style::Stylize;
 use ratatui::text::{Line, Span, Text};
-use ratatui::widgets::{Block, Padding, Paragraph, Wrap};
+use ratatui::widgets::{Block, Borders, Padding, Paragraph, Wrap};
 
-use super::common::{create_centered_rect, panel_block, render_nav_strip};
-use crate::contants::APP_TITLE;
+use super::common::{colorfull_bordered_block, create_centered_rect, render_nav_strip};
 use crate::core::engine::Engine;
 use crate::ui::screens::common::{
-    DEFAULT_PADDING, DEMON_ART, DEMON_ART_HEIGHT, DEMON_ART_WIDTH, NavTab,
+    DEFAULT_PADDING, DEMON_ART, DEMON_ART_HEIGHT, DEMON_ART_WIDTH, NavTab, create_screen_block,
 };
 
 pub(super) fn render(frame: &mut Frame, engine: &Engine) {
+    let layout = create_screen_block(frame);
+
     let [
-        title_bar_layout,
+        _,
         nav_layout,
         sued_art_top_layout,
         sued_says_layout,
@@ -23,17 +24,15 @@ pub(super) fn render(frame: &mut Frame, engine: &Engine) {
         input_layout,
         status_layout,
     ] = Layout::vertical([
-        Constraint::Length(2), // title bar,
-        Constraint::Length(2), // nav strip
+        Constraint::Length(1), // empty,
+        Constraint::Length(4), // nav strip
         Constraint::Fill(3),   // sued_art
         Constraint::Fill(2),   // sued_says
         Constraint::Fill(3),   // sued_logs
         Constraint::Length(3), // input box
-        Constraint::Length(3), // status bar
+        Constraint::Length(2), // status bar
     ])
-    .areas(frame.area());
-
-    frame.render_widget(Paragraph::new(APP_TITLE).red().bold(), title_bar_layout);
+    .areas(layout);
 
     render_nav_strip(frame, nav_layout, NavTab::Ask);
 
@@ -77,7 +76,7 @@ pub(super) fn render(frame: &mut Frame, engine: &Engine) {
 
     let speak_widget = Paragraph::new(final_sued_words)
         .block(
-            panel_block()
+            colorfull_bordered_block(None)
                 .title(" SUED FALA ")
                 .padding(Padding::new(2, 2, 1, 1)),
         )
@@ -113,12 +112,12 @@ pub(super) fn render(frame: &mut Frame, engine: &Engine) {
 
     frame.render_widget(
         Paragraph::new(typed)
-            .block(panel_block().title(" input "))
+            .block(colorfull_bordered_block(None).title(" input "))
             .wrap(Wrap { trim: false }),
         input_layout,
     );
 
-    let status_block = panel_block();
+    let status_block = colorfull_bordered_block(Some(Borders::TOP));
     let status_inner = status_block.inner(status_layout);
     frame.render_widget(status_block, status_layout);
 
