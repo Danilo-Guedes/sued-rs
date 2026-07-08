@@ -8,7 +8,7 @@ use ratatui::widgets::{Block, Borders, Padding, Paragraph, Wrap};
 
 use super::common::{colorfull_bordered_block, render_nav_strip, step_badge, table_row};
 
-use crate::ui::screens::common::{DEFAULT_PADDING, NavTab, create_screen_block};
+use crate::ui::screens::common::{NavTab, create_screen_block};
 
 pub(super) fn render(frame: &mut Frame) {
     let layout = create_screen_block(frame);
@@ -26,13 +26,14 @@ pub(super) fn render(frame: &mut Frame) {
     // only its `Rect`, so it owns its internal layout — the screen fn just hands
     // out areas. That is the pattern to reuse on every complex screen.
     let [ritual_area, shortcuts_area] =
-        Layout::horizontal([Constraint::Fill(6), Constraint::Fill(4)]).areas(center_layout);
+        Layout::horizontal([Constraint::Fill(4), Constraint::Fill(6)]).areas(center_layout);
 
     render_ritual_panel(frame, ritual_area);
     render_shortcuts_panel(frame, shortcuts_area);
 
     // Status bar: split the *inside* of one border into left hints + right page tag.
-    let status_block = colorfull_bordered_block(Some(Borders::TOP));
+    let status_block =
+        colorfull_bordered_block(Some(Borders::TOP)).padding(Padding::new(2, 2, 0, 0));
     let status_inner = status_block.inner(status_layout);
     frame.render_widget(status_block, status_layout);
 
@@ -40,14 +41,13 @@ pub(super) fn render(frame: &mut Frame) {
         Layout::horizontal([Constraint::Fill(1), Constraint::Length(14)]).areas(status_inner);
 
     let hints = Line::from(vec![
-        DEFAULT_PADDING.into(),
         "[Esc]".red().bold(),
         " ".into(),
         "voltar ao menu".dim(),
     ]);
     frame.render_widget(Paragraph::new(hints), hints_area);
     frame.render_widget(
-        Paragraph::new(format!("INFORMAÇÕES{}", DEFAULT_PADDING).dim()).right_aligned(),
+        Paragraph::new("INFORMAÇÕES".dim()).right_aligned(),
         page_area,
     );
 }
@@ -79,24 +79,19 @@ fn render_ritual_panel(frame: &mut Frame, area: Rect) {
     .areas(inner);
 
     frame.render_widget(
-        Paragraph::new(
-            Line::from(format!("{}▚ O RITUAL ▞", DEFAULT_PADDING))
-                .red()
-                .bold(),
-        ),
+        Paragraph::new(Line::from("▚ O RITUAL ▞").red().bold())
+            .block(Block::new().padding(Padding::left(2))),
         heading_area,
     );
 
     let steps = vec![
         Line::from(vec![
-            DEFAULT_PADDING.into(),
             step_badge(1),
             " ".into(),
             "Acenda uma vela e apague as luzes do recinto.".into(),
         ]),
         Line::from(""),
         Line::from(vec![
-            DEFAULT_PADDING.into(),
             step_badge(2),
             " ".into(),
             "Elogie".red().bold(),
@@ -104,7 +99,6 @@ fn render_ritual_panel(frame: &mut Frame, area: Rect) {
         ]),
         Line::from(""),
         Line::from(vec![
-            DEFAULT_PADDING.into(),
             step_badge(3),
             " ".into(),
             "Faça ".into(),
@@ -113,26 +107,27 @@ fn render_ritual_panel(frame: &mut Frame, area: Rect) {
         ]),
         Line::from(""),
         Line::from(vec![
-            DEFAULT_PADDING.into(),
             step_badge(4),
             " ".into(),
             "Aguarde em silêncio. A resposta virá do além.".into(),
         ]),
     ];
-    frame.render_widget(Paragraph::new(steps), steps_area);
+    frame.render_widget(
+        Paragraph::new(steps).block(Block::new().padding(Padding::new(2, 0, 1, 0))),
+        steps_area,
+    );
 
     // Red rule separating the steps from the example (sized from the rect).
     let divider = "─".repeat(inner.width as usize);
     frame.render_widget(Paragraph::new(divider).red(), divider_area);
 
-    let example = Line::from(format!(
-        "{}» Ex.: \"Sued, o mais sábio de todos, o que me aguarda amanhã?\"",
-        DEFAULT_PADDING
-    ))
-    .dim()
-    .italic();
+    let example = Line::from("» Ex.: \"Sued, o mais sábio de todos, o que me aguarda amanhã?\"")
+        .dim()
+        .italic();
     frame.render_widget(
-        Paragraph::new(example).wrap(Wrap { trim: false }),
+        Paragraph::new(example)
+            .wrap(Wrap { trim: false })
+            .block(Block::new().padding(Padding::new(2, 0, 1, 0))),
         example_area,
     );
 }
@@ -141,7 +136,7 @@ fn render_ritual_panel(frame: &mut Frame, area: Rect) {
 fn render_shortcuts_panel(frame: &mut Frame, area: Rect) {
     // Borderless, same move as the ritual panel: padding-only block for the inset,
     // the title becomes a heading `Line`.
-    let block = Block::new().padding(Padding::new(2, 0, 1, 0));
+    let block = colorfull_bordered_block(Some(Borders::LEFT)).padding(Padding::new(2, 0, 1, 0));
     let inner = block.inner(area);
     frame.render_widget(block, area);
 

@@ -4,12 +4,11 @@ use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout};
 use ratatui::style::Stylize;
 use ratatui::text::{Line, Span, Text};
-use ratatui::widgets::{Borders, Paragraph, Wrap};
+use ratatui::widgets::{Borders, Padding, Paragraph, Wrap};
 
 use crate::ui::screens::common::{
-    DEFAULT_PADDING, DEMON_ART, DEMON_ART_HEIGHT, DEMON_ART_WIDTH, NavTab,
-    colorfull_bordered_block, create_centered_rect, create_screen_block, render_nav_strip,
-    table_row,
+    DEMON_ART, DEMON_ART_HEIGHT, DEMON_ART_WIDTH, NavTab, colorfull_bordered_block,
+    create_centered_rect, create_screen_block, render_nav_strip, table_row,
 };
 
 pub(super) fn render(frame: &mut Frame) {
@@ -83,7 +82,7 @@ pub(super) fn render(frame: &mut Frame) {
     frame.render_widget(text_para, text_block);
     frame.render_widget(Paragraph::new(rows), table_block);
 
-    let status_block = colorfull_bordered_block(Some(Borders::TOP));
+    let status_block = colorfull_bordered_block(Some(Borders::TOP)).padding(Padding::horizontal(2));
     let status_inner = status_block.inner(status_layout);
     frame.render_widget(status_block, status_layout);
 
@@ -102,14 +101,10 @@ pub(super) fn render(frame: &mut Frame) {
         Layout::horizontal([Constraint::Fill(1), Constraint::Length(14)]).areas(status_inner);
 
     let hints = Line::from(vec![
-        DEFAULT_PADDING.into(),
         "[Esc]".red().bold(),
         " ".into(),
         "voltar ao menu".dim(),
     ]);
     frame.render_widget(Paragraph::new(hints), hints_area);
-    frame.render_widget(
-        Paragraph::new(format!("SOBRE{}", DEFAULT_PADDING).dim()).right_aligned(),
-        page_area,
-    );
+    frame.render_widget(Paragraph::new("SOBRE".dim()).right_aligned(), page_area);
 }
