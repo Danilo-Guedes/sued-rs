@@ -25,8 +25,7 @@ pub const REVEAL_MS_PER_CHAR: u64 = 55;
 /// Hint: visible chars = `elapsed / REVEAL_MS_PER_CHAR`, then clamp to `total`.
 pub fn typewriter_len(elapsed: Duration, total: usize) -> usize {
     let visible_chars = elapsed.as_millis() as u64 / REVEAL_MS_PER_CHAR;
-    println!("{}", visible_chars);
-    visible_chars.clamp(0, total as u64) as usize
+    visible_chars.min(total as u64) as usize
 }
 
 #[cfg(test)]
