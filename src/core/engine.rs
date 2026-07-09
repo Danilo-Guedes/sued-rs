@@ -25,6 +25,7 @@ pub enum KeyPress {
     Esc,
     Up,
     Down,
+    F5,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -55,6 +56,7 @@ impl Engine {
             KeyPress::Esc => StateChange::None,
             KeyPress::Up => StateChange::None,
             KeyPress::Down => StateChange::None,
+            KeyPress::F5 => self.handle_f5_key(),
         }
     }
 
@@ -139,6 +141,11 @@ impl Engine {
                 self.visible_buffer.pop();
             }
         }
+        StateChange::None
+    }
+
+    fn handle_f5_key(&mut self) -> StateChange {
+        *self = Self::new(DECOY_STRING);
         StateChange::None
     }
 

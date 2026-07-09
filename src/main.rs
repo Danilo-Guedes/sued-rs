@@ -97,6 +97,7 @@ fn translate_key(app_state: &mut App, key: KeyEvent) -> AppFlow {
         KeyCode::Down => app_state.handle_key(KeyPress::Down),
         KeyCode::Up => app_state.handle_key(KeyPress::Up),
         KeyCode::Char(ch) => app_state.handle_key(KeyPress::Char(ch)),
+        KeyCode::F(5) => app_state.handle_key(KeyPress::F5),
         _ => AppFlow::Stay,
     }
 }

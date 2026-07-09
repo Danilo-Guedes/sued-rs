@@ -10,7 +10,7 @@
 
 use std::time::Instant;
 
-use crate::core::engine::{DECOY_STRING, Engine, KeyPress};
+use crate::core::engine::{DECOY_STRING, Engine, KeyPress, StateChange};
 
 #[derive(Default, Debug)]
 pub struct App {
@@ -120,7 +120,9 @@ impl App {
                 revealed_at,
             } => match key {
                 KeyPress::Enter => {
-                    engine.handle_key(KeyPress::Enter);
+                    if engine.handle_key(KeyPress::Enter) == StateChange::Revealed {
+                        *revealed_at = Some(Instant::now());
+                    }
                     AppFlow::Stay
                 }
                 KeyPress::Esc => {
@@ -129,6 +131,10 @@ impl App {
                 }
                 KeyPress::Backspace => {
                     engine.handle_key(KeyPress::Backspace);
+                    AppFlow::Stay
+                }
+                KeyPress::F5 => {
+                    engine.handle_key(KeyPress::F5);
                     AppFlow::Stay
                 }
                 other_char => {

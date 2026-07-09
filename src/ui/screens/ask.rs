@@ -1,5 +1,7 @@
 //! 03 · MODO PERGUNTA.
 
+use std::time::{Duration, Instant};
+
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout};
 use ratatui::style::Stylize;
@@ -8,11 +10,12 @@ use ratatui::widgets::{Block, Borders, Padding, Paragraph, Wrap};
 
 use super::common::{colorfull_bordered_block, create_centered_rect, render_nav_strip};
 use crate::core::engine::Engine;
+use crate::ui::effects::typewriter_len;
 use crate::ui::screens::common::{
     DEMON_ART, DEMON_ART_HEIGHT, DEMON_ART_WIDTH, NavTab, create_screen_block,
 };
 
-pub(super) fn render(frame: &mut Frame, engine: &Engine) {
+pub(super) fn render(frame: &mut Frame, engine: &Engine, revealed_at: Option<Instant>) {
     let layout = create_screen_block(frame);
 
     let [
@@ -68,7 +71,16 @@ pub(super) fn render(frame: &mut Frame, engine: &Engine) {
     ]);
 
     let final_sued_words = match engine.revealed() {
-        Some(answer) => Text::from(answer),
+        Some(answer) => {
+            let duration = match revealed_at {
+                Some(instant) => instant.elapsed(),
+                None => Duration::ZERO,
+            };
+            let total_boundary = answer.chars().count();
+            let n_to_be_revealed = typewriter_len(duration, total_boundary);
+            let revealed_answer: String = answer.chars().take(n_to_be_revealed).collect();
+            Text::from(revealed_answer)
+        }
         None => default_sued_text,
     };
 
@@ -124,6 +136,10 @@ pub(super) fn render(frame: &mut Frame, engine: &Engine) {
         "[Enter]".red().bold(),
         " ".into(),
         "perguntar".dim(),
+        "  ".into(),
+        "[F5]".red().bold(),
+        " ".into(),
+        "new question".dim(),
         "  ".into(),
         "[Esc]".red().bold(),
         " ".into(),

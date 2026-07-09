@@ -17,8 +17,8 @@ pub fn render(frame: &mut Frame, app: &App) {
         Screen::Menu => menu::render(frame, app.menu()),
         Screen::Asking {
             engine,
-            revealed_at: _,
-        } => ask::render(frame, engine),
+            revealed_at,
+        } => ask::render(frame, engine, *revealed_at),
         Screen::Info => info::render(frame),
         Screen::About => about::render(frame),
     }
