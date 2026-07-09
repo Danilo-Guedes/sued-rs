@@ -135,6 +135,7 @@ impl App {
                 }
                 KeyPress::F5 => {
                     engine.handle_key(KeyPress::F5);
+                    *revealed_at = None;
                     AppFlow::Stay
                 }
                 other_char => {
@@ -419,5 +420,49 @@ mod tests {
         ]);
         assert!(on_menu(&state));
         assert_eq!(selected(&state), MenuItem::Exit);
+    }
+
+    #[test]
+    fn f5_remounts_a_fresh_question_screen() {
+        // Keystrokes that open the question screen and dirty it: reveal a
+        // secret answer typed in Hidden mode.
+        let dirty = [
+            KeyPress::Enter,     // Intro → Menu
+            KeyPress::Enter,     // Menu → Asking (fresh)
+            KeyPress::Char(';'), // → Hidden
+            KeyPress::Char('4'),
+            KeyPress::Char('2'), // secret answer "42"
+            KeyPress::Enter,     // reveal
+        ];
+
+        // Precondition: after that sequence the screen really is dirty —
+        // otherwise a no-op F5 would pass this test for the wrong reason.
+        let dirtied = drive(&dirty);
+        match dirtied.screen {
+            Screen::Asking {
+                engine,
+                revealed_at,
+            } => {
+                assert!(engine.revealed().is_some(), "precondition: answer revealed");
+                assert!(revealed_at.is_some(), "precondition: reveal clock started");
+            }
+            other => panic!("expected Asking, got {other:?}"),
+        }
+
+        // Press F5 on top of that dirty state → a brand-new question session.
+        let mut keys = dirty.to_vec();
+        keys.push(KeyPress::F5);
+        let reset = drive(&keys);
+        match reset.screen {
+            Screen::Asking {
+                engine,
+                revealed_at,
+            } => {
+                assert_eq!(engine.visible_buffer(), "", "buffers cleared");
+                assert_eq!(engine.revealed(), None, "no revealed answer");
+                assert!(revealed_at.is_none(), "reveal clock reset");
+            }
+            other => panic!("expected a fresh Asking, got {other:?}"),
+        }
     }
 }
