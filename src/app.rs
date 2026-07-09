@@ -8,6 +8,8 @@
 
 #![allow(unused_variables)]
 
+use std::time::Instant;
+
 use crate::core::engine::{DECOY_STRING, Engine, KeyPress};
 
 #[derive(Default, Debug)]
@@ -21,7 +23,10 @@ pub enum Screen {
     #[default]
     Intro,
     Menu,
-    Asking(Engine),
+    Asking {
+        engine: Engine,
+        revealed_at: Option<Instant>,
+    },
     Info,
     About,
 }
@@ -82,7 +87,10 @@ impl App {
             Screen::Menu => match key {
                 KeyPress::Enter => match self.menu.index() {
                     0 => {
-                        self.screen = Screen::Asking(Engine::new(DECOY_STRING));
+                        self.screen = Screen::Asking {
+                            engine: Engine::new(DECOY_STRING),
+                            revealed_at: None,
+                        };
                         AppFlow::Stay
                     }
                     1 => {
@@ -107,7 +115,10 @@ impl App {
                 }
                 _ => AppFlow::Stay,
             },
-            Screen::Asking(engine) => match key {
+            Screen::Asking {
+                engine,
+                revealed_at,
+            } => match key {
                 KeyPress::Enter => {
                     engine.handle_key(KeyPress::Enter);
                     AppFlow::Stay
@@ -254,8 +265,11 @@ mod tests {
         assert_eq!(flow, AppFlow::Stay);
         match state.screen {
             // A brand-new prank session: nothing typed, nothing on screen yet.
-            Screen::Asking(engine) => assert_eq!(engine.visible_buffer(), ""),
-            other => panic!("expected Asking, got {other:?}"),
+            Screen::Asking {
+                engine,
+                revealed_at,
+            } => assert_eq!(engine.visible_buffer(), ""),
+            other => panic!("expected Asking {{ engine, revealed_at }}, got {other:?}"),
         }
     }
 
@@ -301,8 +315,11 @@ mod tests {
             KeyPress::Char('i'),
         ]);
         match state.screen {
-            Screen::Asking(engine) => assert_eq!(engine.visible_buffer(), "oi"),
-            other => panic!("expected Asking, got {other:?}"),
+            Screen::Asking {
+                engine,
+                revealed_at,
+            } => assert_eq!(engine.visible_buffer(), "oi"),
+            other => panic!("expected Asking {{ engine, revealed_ay }}, got {other:?}"),
         }
     }
 

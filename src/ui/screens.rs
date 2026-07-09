@@ -15,7 +15,10 @@ pub fn render(frame: &mut Frame, app: &App) {
     match app.screen() {
         Screen::Intro => intro::render(frame),
         Screen::Menu => menu::render(frame, app.menu()),
-        Screen::Asking(engine) => ask::render(frame, engine),
+        Screen::Asking {
+            engine,
+            revealed_at: _,
+        } => ask::render(frame, engine),
         Screen::Info => info::render(frame),
         Screen::About => about::render(frame),
     }
