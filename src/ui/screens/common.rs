@@ -7,7 +7,7 @@ use ratatui::symbols::merge::MergeStrategy;
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Padding, Paragraph};
 
-use crate::contants::APP_TITLE;
+use crate::constants::APP_TITLE;
 
 /// The demon face — verbatim quadrant-block art (11 rows), shown on the
 /// Pergunta + Sobre screens. Centre it by carving a Rect the *exact* size of the
