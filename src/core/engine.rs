@@ -465,4 +465,35 @@ mod tests {
         );
         assert_eq!(engine.decoy_cursor, 0);
     }
+
+    #[test]
+    fn f5_resets_the_engine_to_a_fresh_state() {
+        let mut engine = build_test_engine();
+
+        // Dirty every piece of state we can hold at once: Normal typing, then
+        // Hidden mode with a secret answer, then reveal it.
+        simulate_typing(&mut engine, "oi"); // Normal: visible "oi"
+        engine.handle_key(KeyPress::Char(';')); // → Hidden
+        simulate_typing(&mut engine, "42"); // secret answer + decoy advances
+        engine.handle_key(KeyPress::Enter); // reveal
+
+        // Precondition: prove the engine really is dirty before we reset it,
+        // otherwise a no-op reset would pass this test for the wrong reason.
+        assert_eq!(engine.mode, Mode::Hidden);
+        assert!(engine.revealed.is_some());
+        assert!(!engine.visible_buffer.is_empty());
+        assert_ne!(engine.decoy_cursor, 0);
+
+        let change = engine.handle_key(KeyPress::F5);
+
+        assert_eq!(
+            change,
+            StateChange::None,
+            "F5 is a silent reset — it reports no transition to the UI/audio layer"
+        );
+        assert_eq!(engine.mode, Mode::Normal, "mode returns to Normal");
+        assert_eq!(engine.revealed, None, "the revealed answer is cleared");
+        assert_eq!(engine.visible_buffer, "", "the visible buffer is cleared");
+        assert_eq!(engine.decoy_cursor, 0, "the decoy rewinds to the start");
+    }
 }
