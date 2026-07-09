@@ -49,7 +49,7 @@ impl MenuItem {
     pub fn label(&self) -> &'static str {
         match self {
             MenuItem::Ask => "PERGUNTAR AO ORÁCULO",
-            MenuItem::Info => "INFORMAÇÃO",
+            MenuItem::Info => "INFORMAÇÕES",
             MenuItem::About => "SOBRE O SUED",
             MenuItem::Exit => "SAIR",
         }
