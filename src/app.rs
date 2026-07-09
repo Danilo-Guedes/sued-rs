@@ -423,7 +423,7 @@ mod tests {
     }
 
     #[test]
-    fn f5_remounts_a_fresh_question_screen() {
+    fn f5_returns_the_question_screen_to_a_fresh_state() {
         // Keystrokes that open the question screen and dirty it: reveal a
         // secret answer typed in Hidden mode.
         let dirty = [
