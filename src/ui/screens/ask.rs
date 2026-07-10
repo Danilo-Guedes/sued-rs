@@ -10,7 +10,7 @@ use ratatui::widgets::{Block, Borders, Padding, Paragraph, Wrap};
 
 use super::common::{colorfull_bordered_block, create_centered_rect, render_nav_strip};
 use crate::core::engine::Engine;
-use crate::ui::effects::typewriter_len;
+use crate::ui::effects::typewriter_slice;
 use crate::ui::screens::common::{
     DEMON_ART, DEMON_ART_HEIGHT, DEMON_ART_WIDTH, NavTab, create_screen_block,
 };
@@ -65,32 +65,16 @@ pub(super) fn render(
         Constraint::Fill(1),
     );
 
+    let duration_elapsed = match revealed_at {
+        Some(instant) => instant.elapsed(),
+        None => Duration::ZERO,
+    };
+
     let final_sued_words = match engine.revealed() {
-        Some(answer) => {
-            let duration = match revealed_at {
-                Some(instant) => instant.elapsed(),
-                None => Duration::ZERO,
-            };
-            let total_boundary = answer.chars().count();
-            let n_to_be_revealed = typewriter_len(duration, total_boundary);
-            let revealed_answer: String = answer.chars().take(n_to_be_revealed).collect();
-            Text::from(revealed_answer)
-        }
+        Some(answer) => Text::from(typewriter_slice(answer, duration_elapsed)),
         None => {
             match denied_message {
-                Some(denied_str) => {
-                    let duration = match revealed_at {
-                        Some(instant) => instant.elapsed(),
-                        None => Duration::ZERO,
-                    };
-
-                    let total_boundary = denied_str.chars().count();
-                    let n_to_be_revealed = typewriter_len(duration, total_boundary);
-                    let revealed_denied_answer: String =
-                        denied_str.chars().take(n_to_be_revealed).collect();
-
-                    Text::from(revealed_denied_answer)
-                }
+                Some(denied_str) => Text::from(typewriter_slice(denied_str, duration_elapsed)),
                 None => {
                     Text::from(vec![
                         Line::from("Pergunte-me o que deseja saber, humano..."),

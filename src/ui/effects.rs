@@ -23,14 +23,21 @@ pub const REVEAL_MS_PER_CHAR: u64 = 55;
 ///
 /// TODO(Danilo, M4): implement me until the tests below go green.
 /// Hint: visible chars = `elapsed / REVEAL_MS_PER_CHAR`, then clamp to `total`.
-pub fn typewriter_len(elapsed: Duration, total: usize) -> usize {
+fn typewriter_len(elapsed: Duration, total: usize) -> usize {
     let visible_chars = elapsed.as_millis() as u64 / REVEAL_MS_PER_CHAR;
     visible_chars.min(total as u64) as usize
 }
 
+pub fn typewriter_slice(text: &str, duration: Duration) -> String {
+    let total_boundary = text.chars().count();
+    let n_to_be_revealed = typewriter_len(duration, total_boundary);
+    let releaved_text: String = text.chars().take(n_to_be_revealed).collect();
+    releaved_text
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{REVEAL_MS_PER_CHAR, typewriter_len};
+    use super::{REVEAL_MS_PER_CHAR, typewriter_len, typewriter_slice};
     use std::time::Duration;
 
     /// Elapsed time expressed as "n characters' worth" of reveal intervals.
@@ -67,5 +74,40 @@ mod tests {
     fn empty_answer_is_always_zero() {
         // Nothing to reveal, no matter how much time passes.
         assert_eq!(typewriter_len(after_chars(1000), 0), 0);
+    }
+
+    // ── typewriter_slice: the char-safe reveal helper both branches will share ──
+    // Same clock as `typewriter_len`, but hands back the actual visible prefix so
+    // `ask.rs` stops duplicating the `.chars().take(n).collect()` dance.
+
+    #[test]
+    fn slice_reveals_nothing_at_zero_elapsed() {
+        assert_eq!(typewriter_slice("abcdef", Duration::ZERO), "");
+    }
+
+    #[test]
+    fn slice_reveals_the_first_k_chars() {
+        // 3 intervals in → the first 3 characters, in order.
+        assert_eq!(typewriter_slice("abcdef", after_chars(3)), "abc");
+    }
+
+    #[test]
+    fn slice_reveals_the_whole_string_once_time_overflows() {
+        // Long after the crawl finished, we get the full text — never more.
+        assert_eq!(typewriter_slice("abc", after_chars(1000)), "abc");
+    }
+
+    #[test]
+    fn slice_of_empty_text_is_empty() {
+        assert_eq!(typewriter_slice("", after_chars(1000)), "");
+    }
+
+    #[test]
+    fn slice_counts_and_cuts_in_chars_not_bytes() {
+        // Regression: 'É' is two UTF-8 bytes, so a byte slice `&text[..1]` would
+        // panic mid-character. Revealing one char must yield "É", never a panic —
+        // and a later boundary must stay char-aligned.
+        assert_eq!(typewriter_slice("É42", after_chars(1)), "É");
+        assert_eq!(typewriter_slice("É42", after_chars(2)), "É4");
     }
 }

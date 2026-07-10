@@ -28,7 +28,7 @@ pub enum Screen {
     Menu,
     Asking {
         engine: Engine,
-        revealed_at: Option<Instant>,
+        replied_at: Option<Instant>,
         denied_message: Option<&'static str>,
     },
     Info,
@@ -93,7 +93,7 @@ impl App {
                     0 => {
                         self.screen = Screen::Asking {
                             engine: Engine::new(DECOY_STRING),
-                            revealed_at: None,
+                            replied_at: None,
                             denied_message: None,
                         };
                         AppFlow::Stay
@@ -122,7 +122,7 @@ impl App {
             },
             Screen::Asking {
                 engine,
-                revealed_at,
+                replied_at: revealed_at,
                 denied_message,
             } => match key {
                 KeyPress::Enter => {
@@ -153,6 +153,7 @@ impl App {
                 KeyPress::F5 => {
                     engine.handle_key(KeyPress::F5);
                     *revealed_at = None;
+                    *denied_message = None;
                     AppFlow::Stay
                 }
                 other_char => {
@@ -291,7 +292,7 @@ mod tests {
             // A brand-new prank session: nothing typed, nothing on screen yet.
             Screen::Asking {
                 engine,
-                revealed_at,
+                replied_at: revealed_at,
                 ..
             } => assert_eq!(engine.visible_buffer(), ""),
             other => panic!("expected Asking {{ engine, revealed_at }}, got {other:?}"),
@@ -342,7 +343,7 @@ mod tests {
         match state.screen {
             Screen::Asking {
                 engine,
-                revealed_at,
+                replied_at: revealed_at,
                 ..
             } => assert_eq!(engine.visible_buffer(), "oi"),
             other => panic!("expected Asking {{ engine, revealed_ay }}, got {other:?}"),
@@ -402,7 +403,7 @@ mod tests {
         match state.screen {
             Screen::Asking {
                 engine,
-                revealed_at,
+                replied_at: revealed_at,
                 denied_message,
             } => {
                 assert_eq!(engine.revealed(), Some("42"));
@@ -518,7 +519,7 @@ mod tests {
         match dirtied.screen {
             Screen::Asking {
                 engine,
-                revealed_at,
+                replied_at: revealed_at,
                 ..
             } => {
                 assert!(engine.revealed().is_some(), "precondition: answer revealed");
@@ -534,12 +535,57 @@ mod tests {
         match reset.screen {
             Screen::Asking {
                 engine,
-                revealed_at,
+                replied_at: revealed_at,
                 ..
             } => {
                 assert_eq!(engine.visible_buffer(), "", "buffers cleared");
                 assert_eq!(engine.revealed(), None, "no revealed answer");
                 assert!(revealed_at.is_none(), "reveal clock reset");
+            }
+            other => panic!("expected a fresh Asking, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn f5_clears_a_pending_denial() {
+        // Dirty the screen with a DENIAL this time (the reveal path is covered
+        // above): type a question in the open so answer_buffer stays empty, then
+        // Enter → Denied, which parks a taunt in `denied_message`.
+        let dirty = [
+            KeyPress::Enter, // Intro → Menu
+            KeyPress::Enter, // Menu → Asking (fresh)
+            KeyPress::Char('o'),
+            KeyPress::Char('i'), // a question typed in the open
+            KeyPress::Enter,     // empty answer → Denied
+        ];
+
+        // Precondition: the denial really parked a taunt — otherwise a no-op F5
+        // would pass this test for the wrong reason.
+        let dirtied = drive(&dirty);
+        match dirtied.screen {
+            Screen::Asking { denied_message, .. } => {
+                assert_eq!(
+                    denied_message,
+                    Some(DENIED_STRING),
+                    "precondition: the denial parked a taunt to clear"
+                );
+            }
+            other => panic!("expected Asking, got {other:?}"),
+        }
+
+        // F5 = "new question" → the taunt must be gone, not linger into the fresh
+        // session (else the SUED FALA box renders blank instead of the prompt).
+        let mut keys = dirty.to_vec();
+        keys.push(KeyPress::F5);
+        let reset = drive(&keys);
+        match reset.screen {
+            Screen::Asking {
+                replied_at: revealed_at,
+                denied_message,
+                ..
+            } => {
+                assert_eq!(denied_message, None, "F5 must clear the pending denial");
+                assert!(revealed_at.is_none(), "F5 resets the animation clock");
             }
             other => panic!("expected a fresh Asking, got {other:?}"),
         }
