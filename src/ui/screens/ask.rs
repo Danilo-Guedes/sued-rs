@@ -15,7 +15,12 @@ use crate::ui::screens::common::{
     DEMON_ART, DEMON_ART_HEIGHT, DEMON_ART_WIDTH, NavTab, create_screen_block,
 };
 
-pub(super) fn render(frame: &mut Frame, engine: &Engine, revealed_at: Option<Instant>) {
+pub(super) fn render(
+    frame: &mut Frame,
+    engine: &Engine,
+    revealed_at: Option<Instant>,
+    denied_message: Option<&'static str>,
+) {
     let layout = create_screen_block(frame);
 
     let [
@@ -60,16 +65,6 @@ pub(super) fn render(frame: &mut Frame, engine: &Engine, revealed_at: Option<Ins
         Constraint::Fill(1),
     );
 
-    let default_sued_text = Text::from(vec![
-        Line::from("Pergunte-me o que deseja saber, humano..."),
-        Line::from(""), // blank row for breathing space
-        Line::from(vec![
-            Span::raw("— elogie-me antes da pergunta, e ").dim(),
-            Span::raw("talvez").red(),
-            Span::raw(" eu responda.").dim(),
-        ]),
-    ]);
-
     let final_sued_words = match engine.revealed() {
         Some(answer) => {
             let duration = match revealed_at {
@@ -81,7 +76,34 @@ pub(super) fn render(frame: &mut Frame, engine: &Engine, revealed_at: Option<Ins
             let revealed_answer: String = answer.chars().take(n_to_be_revealed).collect();
             Text::from(revealed_answer)
         }
-        None => default_sued_text,
+        None => {
+            match denied_message {
+                Some(denied_str) => {
+                    let duration = match revealed_at {
+                        Some(instant) => instant.elapsed(),
+                        None => Duration::ZERO,
+                    };
+
+                    let total_boundary = denied_str.chars().count();
+                    let n_to_be_revealed = typewriter_len(duration, total_boundary);
+                    let revealed_denied_answer: String =
+                        denied_str.chars().take(n_to_be_revealed).collect();
+
+                    Text::from(revealed_denied_answer)
+                }
+                None => {
+                    Text::from(vec![
+                        Line::from("Pergunte-me o que deseja saber, humano..."),
+                        Line::from(""), // blank row for breathing space
+                        Line::from(vec![
+                            Span::raw("— elogie-me antes da pergunta, e ").dim(),
+                            Span::raw("talvez").red(),
+                            Span::raw(" eu responda.").dim(),
+                        ]),
+                    ])
+                }
+            }
+        }
     };
 
     let speak_widget = Paragraph::new(final_sued_words)
