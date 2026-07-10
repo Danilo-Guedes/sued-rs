@@ -6,8 +6,6 @@
 //! screen, `Screen::Asking` simply *owns* one `Engine` and forwards keys to it.
 //!
 
-#![allow(unused_variables)]
-
 use std::time::Instant;
 
 use crate::{
@@ -290,9 +288,7 @@ mod tests {
         assert_eq!(flow, AppFlow::Stay);
         match state.screen {
             // A brand-new prank session: nothing typed, nothing on screen yet.
-            Screen::Asking {
-                engine, replied_at, ..
-            } => assert_eq!(engine.visible_buffer(), ""),
+            Screen::Asking { engine, .. } => assert_eq!(engine.visible_buffer(), ""),
             other => panic!("expected Asking {{ engine, replied_at }}, got {other:?}"),
         }
     }
@@ -339,9 +335,7 @@ mod tests {
             KeyPress::Char('i'),
         ]);
         match state.screen {
-            Screen::Asking {
-                engine, replied_at, ..
-            } => assert_eq!(engine.visible_buffer(), "oi"),
+            Screen::Asking { engine, .. } => assert_eq!(engine.visible_buffer(), "oi"),
             other => panic!("expected Asking {{ engine, revealed_ay }}, got {other:?}"),
         }
     }
