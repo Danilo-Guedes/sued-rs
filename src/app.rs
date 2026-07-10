@@ -122,7 +122,7 @@ impl App {
             },
             Screen::Asking {
                 engine,
-                replied_at: revealed_at,
+                replied_at,
                 denied_message,
             } => match key {
                 KeyPress::Enter => {
@@ -131,11 +131,11 @@ impl App {
                     match state {
                         StateChange::Revealed => {
                             *denied_message = None;
-                            *revealed_at = Some(Instant::now());
+                            *replied_at = Some(Instant::now());
                         }
                         StateChange::Denied => {
                             *denied_message = Some(DENIED_STRING);
-                            *revealed_at = Some(Instant::now());
+                            *replied_at = Some(Instant::now());
                         }
                         _ => {}
                     }
@@ -152,7 +152,7 @@ impl App {
                 }
                 KeyPress::F5 => {
                     engine.handle_key(KeyPress::F5);
-                    *revealed_at = None;
+                    *replied_at = None;
                     *denied_message = None;
                     AppFlow::Stay
                 }
@@ -291,11 +291,9 @@ mod tests {
         match state.screen {
             // A brand-new prank session: nothing typed, nothing on screen yet.
             Screen::Asking {
-                engine,
-                replied_at: revealed_at,
-                ..
+                engine, replied_at, ..
             } => assert_eq!(engine.visible_buffer(), ""),
-            other => panic!("expected Asking {{ engine, revealed_at }}, got {other:?}"),
+            other => panic!("expected Asking {{ engine, replied_at }}, got {other:?}"),
         }
     }
 
@@ -342,9 +340,7 @@ mod tests {
         ]);
         match state.screen {
             Screen::Asking {
-                engine,
-                replied_at: revealed_at,
-                ..
+                engine, replied_at, ..
             } => assert_eq!(engine.visible_buffer(), "oi"),
             other => panic!("expected Asking {{ engine, revealed_ay }}, got {other:?}"),
         }
@@ -403,11 +399,11 @@ mod tests {
         match state.screen {
             Screen::Asking {
                 engine,
-                replied_at: revealed_at,
+                replied_at,
                 denied_message,
             } => {
                 assert_eq!(engine.revealed(), Some("42"));
-                assert!(revealed_at.is_some(), "the reveal clock started");
+                assert!(replied_at.is_some(), "the reveal clock started");
                 assert_eq!(denied_message, None, "a real reveal carries no denial");
             }
             other => panic!("expected Asking, got {other:?}"),
@@ -518,12 +514,10 @@ mod tests {
         let dirtied = drive(&dirty);
         match dirtied.screen {
             Screen::Asking {
-                engine,
-                replied_at: revealed_at,
-                ..
+                engine, replied_at, ..
             } => {
                 assert!(engine.revealed().is_some(), "precondition: answer revealed");
-                assert!(revealed_at.is_some(), "precondition: reveal clock started");
+                assert!(replied_at.is_some(), "precondition: reveal clock started");
             }
             other => panic!("expected Asking, got {other:?}"),
         }
@@ -534,13 +528,11 @@ mod tests {
         let reset = drive(&keys);
         match reset.screen {
             Screen::Asking {
-                engine,
-                replied_at: revealed_at,
-                ..
+                engine, replied_at, ..
             } => {
                 assert_eq!(engine.visible_buffer(), "", "buffers cleared");
                 assert_eq!(engine.revealed(), None, "no revealed answer");
-                assert!(revealed_at.is_none(), "reveal clock reset");
+                assert!(replied_at.is_none(), "reveal clock reset");
             }
             other => panic!("expected a fresh Asking, got {other:?}"),
         }
@@ -580,12 +572,12 @@ mod tests {
         let reset = drive(&keys);
         match reset.screen {
             Screen::Asking {
-                replied_at: revealed_at,
+                replied_at,
                 denied_message,
                 ..
             } => {
                 assert_eq!(denied_message, None, "F5 must clear the pending denial");
-                assert!(revealed_at.is_none(), "F5 resets the animation clock");
+                assert!(replied_at.is_none(), "F5 resets the animation clock");
             }
             other => panic!("expected a fresh Asking, got {other:?}"),
         }

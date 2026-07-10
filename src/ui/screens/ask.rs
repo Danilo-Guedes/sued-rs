@@ -18,7 +18,7 @@ use crate::ui::screens::common::{
 pub(super) fn render(
     frame: &mut Frame,
     engine: &Engine,
-    revealed_at: Option<Instant>,
+    replied_at: Option<Instant>,
     denied_message: Option<&'static str>,
 ) {
     let layout = create_screen_block(frame);
@@ -65,7 +65,7 @@ pub(super) fn render(
         Constraint::Fill(1),
     );
 
-    let duration_elapsed = match revealed_at {
+    let duration_elapsed = match replied_at {
         Some(instant) => instant.elapsed(),
         None => Duration::ZERO,
     };
