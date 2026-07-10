@@ -145,7 +145,9 @@ impl App {
                     AppFlow::Stay
                 }
                 KeyPress::Backspace => {
-                    engine.handle_key(KeyPress::Backspace);
+                    if replied_at.is_none() {
+                        engine.handle_key(KeyPress::Backspace);
+                    }
                     AppFlow::Stay
                 }
                 KeyPress::F5 => {
@@ -155,7 +157,9 @@ impl App {
                     AppFlow::Stay
                 }
                 other_char => {
-                    engine.handle_key(other_char);
+                    if replied_at.is_none() {
+                        engine.handle_key(other_char);
+                    }
                     AppFlow::Stay
                 }
             },
@@ -574,6 +578,92 @@ mod tests {
                 assert!(replied_at.is_none(), "F5 resets the animation clock");
             }
             other => panic!("expected a fresh Asking, got {other:?}"),
+        }
+    }
+
+    // ── Input locks once SUED has replied ────────────────────────────────────
+    // After the oracle speaks (a denial OR a reveal), plain keystrokes must stop
+    // reaching the input — only the hint-bar keys (Enter/F5/Esc/Ctrl-C) still act.
+
+    #[test]
+    fn keystrokes_are_ignored_after_a_denial() {
+        // Ask a question in the open → Denied. SUED has replied.
+        let until_reply = [
+            KeyPress::Enter, // Intro → Menu
+            KeyPress::Enter, // Menu → Asking
+            KeyPress::Char('o'),
+            KeyPress::Char('i'), // question → visible "oi"
+            KeyPress::Enter,     // empty answer → Denied (a reply)
+        ];
+
+        // Precondition: SUED really replied and the input still holds the question.
+        match drive(&until_reply).screen {
+            Screen::Asking {
+                engine,
+                denied_message,
+                ..
+            } => {
+                assert!(
+                    denied_message.is_some(),
+                    "precondition: SUED replied (denied)"
+                );
+                assert_eq!(engine.visible_buffer(), "oi");
+            }
+            other => panic!("expected Asking, got {other:?}"),
+        }
+
+        // Hammer more chars after the reply — they must be swallowed.
+        let mut keys = until_reply.to_vec();
+        keys.extend([KeyPress::Char('x'), KeyPress::Char('y')]);
+        match drive(&keys).screen {
+            Screen::Asking { engine, .. } => {
+                assert_eq!(
+                    engine.visible_buffer(),
+                    "oi",
+                    "keystrokes after a reply must not reach the input"
+                );
+            }
+            other => panic!("expected Asking, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn keystrokes_are_ignored_after_a_reveal() {
+        // The other reply path: reveal a hidden answer, then keep typing. The
+        // decoy prefix already on screen must not grow — compared against itself
+        // so the test doesn't hard-code the decoy's content.
+        let until_reply = [
+            KeyPress::Enter,
+            KeyPress::Enter,     // → Asking
+            KeyPress::Char(';'), // Hidden
+            KeyPress::Char('4'),
+            KeyPress::Char('2'), // secret answer "42"
+            KeyPress::Char(';'), // back to Normal
+            KeyPress::Enter,     // reveal (a reply)
+        ];
+
+        let visible_at_reply = match drive(&until_reply).screen {
+            Screen::Asking { engine, .. } => {
+                assert!(
+                    engine.revealed().is_some(),
+                    "precondition: SUED replied (revealed)"
+                );
+                engine.visible_buffer().to_string()
+            }
+            other => panic!("expected Asking, got {other:?}"),
+        };
+
+        let mut keys = until_reply.to_vec();
+        keys.extend([KeyPress::Char('x'), KeyPress::Char('y')]);
+        match drive(&keys).screen {
+            Screen::Asking { engine, .. } => {
+                assert_eq!(
+                    engine.visible_buffer(),
+                    visible_at_reply,
+                    "post-reveal keystrokes must not reach the input"
+                );
+            }
+            other => panic!("expected Asking, got {other:?}"),
         }
     }
 }
