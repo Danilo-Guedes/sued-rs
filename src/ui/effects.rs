@@ -35,15 +35,27 @@ pub fn typewriter_slice(text: &str, duration: Duration) -> String {
     revealed_text
 }
 
+pub const CURSOR_BLINK_MS: u64 = 500;
+
+pub fn cursor_on(elapsed: Duration) -> bool {
+    (elapsed.as_millis() as u64 / CURSOR_BLINK_MS) % 2 == 0
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{REVEAL_MS_PER_CHAR, typewriter_len, typewriter_slice};
+    use super::{CURSOR_BLINK_MS, REVEAL_MS_PER_CHAR, cursor_on, typewriter_len, typewriter_slice};
     use std::time::Duration;
 
     /// Elapsed time expressed as "n characters' worth" of reveal intervals.
     /// Deriving from the constant keeps the spec correct if we retune the speed.
     fn after_chars(n: u64) -> Duration {
         Duration::from_millis(n * REVEAL_MS_PER_CHAR)
+    }
+
+    /// Elapsed time expressed as "n blink phases' worth", derived from the
+    /// constant so the spec survives retuning the blink speed.
+    fn after_phases(n: u64) -> Duration {
+        Duration::from_millis(n * CURSOR_BLINK_MS)
     }
 
     #[test]
@@ -109,5 +121,46 @@ mod tests {
         // and a later boundary must stay char-aligned.
         assert_eq!(typewriter_slice("É42", after_chars(1)), "É");
         assert_eq!(typewriter_slice("É42", after_chars(2)), "É4");
+    }
+
+    // ── cursor_on: the blink phase, shared by the reveal/input/logs cursors ─────
+    // Pure like typewriter_len: hand it elapsed time, get back whether the cursor
+    // is currently lit. A *phase* is one on OR off stretch (CURSOR_BLINK_MS long);
+    // a full blink cycle is two phases. Lit on even phases, dark on odd.
+
+    #[test]
+    fn cursor_starts_visible() {
+        // At the very start of the first phase the cursor is lit.
+        assert!(cursor_on(Duration::ZERO));
+    }
+
+    #[test]
+    fn cursor_stays_on_through_the_first_phase() {
+        // Anywhere inside the first phase (before one full CURSOR_BLINK_MS) → on.
+        let mid_first_phase = Duration::from_millis(CURSOR_BLINK_MS / 2);
+        assert!(cursor_on(mid_first_phase));
+    }
+
+    #[test]
+    fn cursor_turns_off_in_the_second_phase() {
+        // One whole phase in, the cursor blinks off...
+        assert!(!cursor_on(after_phases(1)));
+        // ...and stays off for the rest of that phase.
+        let mid_second_phase = Duration::from_millis(CURSOR_BLINK_MS + CURSOR_BLINK_MS / 2);
+        assert!(!cursor_on(mid_second_phase));
+    }
+
+    #[test]
+    fn cursor_comes_back_on_after_a_full_cycle() {
+        // Two phases = one full blink cycle → lit again.
+        assert!(cursor_on(after_phases(2)));
+    }
+
+    #[test]
+    fn cursor_keeps_alternating() {
+        // Even phases on, odd phases off — the blink never desyncs over time.
+        assert!(!cursor_on(after_phases(3)));
+        assert!(cursor_on(after_phases(10)));
+        assert!(!cursor_on(after_phases(11)));
     }
 }
