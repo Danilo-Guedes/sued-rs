@@ -28,16 +28,27 @@ fn typewriter_len(elapsed: Duration, total: usize) -> usize {
     visible_chars.min(total as u64) as usize
 }
 
-pub fn typewriter_slice(text: &str, duration: Duration) -> String {
+fn typewriter_slice(text: &str, duration: Duration) -> String {
     let total_boundary = text.chars().count();
     let n_to_be_revealed = typewriter_len(duration, total_boundary);
     let revealed_text: String = text.chars().take(n_to_be_revealed).collect();
     revealed_text
 }
 
-pub const CURSOR_BLINK_MS: u64 = 500;
+pub fn typewriter_reveal(text: &str, elapsed: Duration) -> String {
+    let mut visible = typewriter_slice(text, elapsed);
+    let still_typing = visible.chars().count() < text.chars().count();
+    if still_typing && cursor_on(elapsed) {
+        visible.push(CURSOR_GLYPH);
+    }
+    visible
+}
 
-pub fn cursor_on(elapsed: Duration) -> bool {
+const CURSOR_BLINK_MS: u64 = 500;
+
+const CURSOR_GLYPH: char = '█';
+
+fn cursor_on(elapsed: Duration) -> bool {
     (elapsed.as_millis() as u64 / CURSOR_BLINK_MS).is_multiple_of(2)
 }
 

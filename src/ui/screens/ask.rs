@@ -10,7 +10,7 @@ use ratatui::widgets::{Block, Borders, Padding, Paragraph, Wrap};
 
 use super::common::{colorfull_bordered_block, create_centered_rect, render_nav_strip};
 use crate::core::engine::Engine;
-use crate::ui::effects::{cursor_on, typewriter_slice};
+use crate::ui::effects::typewriter_reveal;
 use crate::ui::screens::common::{
     DEMON_ART, DEMON_ART_HEIGHT, DEMON_ART_WIDTH, NavTab, create_screen_block,
 };
@@ -65,40 +65,16 @@ pub(super) fn render(
         Constraint::Fill(1),
     );
 
-    let duration_elapsed = match replied_at {
+    let elapsed_duration = match replied_at {
         Some(instant) => instant.elapsed(),
         None => Duration::ZERO,
     };
 
     let final_sued_words = match engine.revealed() {
-        Some(answer) => {
-            let mut visible = typewriter_slice(answer, duration_elapsed);
-            let still_typing = visible.chars().count() < answer.chars().count();
-
-            if still_typing {
-                let show_cursor = cursor_on(duration_elapsed);
-                if show_cursor {
-                    visible.push('█');
-                }
-            }
-
-            Text::from(visible)
-        }
+        Some(answer) => Text::from(typewriter_reveal(answer, elapsed_duration)),
         None => {
             match denied_message {
-                Some(denied_str) => {
-                    let mut visible = typewriter_slice(denied_str, duration_elapsed);
-                    let still_typing = visible.chars().count() < denied_str.chars().count();
-
-                    if still_typing {
-                        let show_cursor = cursor_on(duration_elapsed);
-                        if show_cursor {
-                            visible.push('█');
-                        }
-                    }
-
-                    Text::from(visible)
-                }
+                Some(denied_str) => Text::from(typewriter_reveal(denied_str, elapsed_duration)),
                 None => {
                     Text::from(vec![
                         Line::from("Pergunte-me o que deseja saber, humano..."),
