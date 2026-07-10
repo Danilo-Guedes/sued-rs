@@ -38,7 +38,7 @@ pub fn typewriter_slice(text: &str, duration: Duration) -> String {
 pub const CURSOR_BLINK_MS: u64 = 500;
 
 pub fn cursor_on(elapsed: Duration) -> bool {
-    (elapsed.as_millis() as u64 / CURSOR_BLINK_MS) % 2 == 0
+    (elapsed.as_millis() as u64 / CURSOR_BLINK_MS).is_multiple_of(2)
 }
 
 #[cfg(test)]
