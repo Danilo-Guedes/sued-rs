@@ -17,7 +17,7 @@ pub fn render(frame: &mut Frame, app: &App) {
         Screen::Menu => menu::render(frame, app.menu()),
         Screen::Asking {
             engine,
-            revealed_at,
+            replied_at: revealed_at,
             denied_message,
         } => ask::render(frame, engine, *revealed_at, *denied_message),
         Screen::Info => info::render(frame),
