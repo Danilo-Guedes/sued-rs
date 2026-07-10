@@ -18,7 +18,8 @@ pub fn render(frame: &mut Frame, app: &App) {
         Screen::Asking {
             engine,
             revealed_at,
-        } => ask::render(frame, engine, *revealed_at),
+            denied_message,
+        } => ask::render(frame, engine, *revealed_at, *denied_message),
         Screen::Info => info::render(frame),
         Screen::About => about::render(frame),
     }

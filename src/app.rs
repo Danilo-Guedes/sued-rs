@@ -10,7 +10,10 @@
 
 use std::time::Instant;
 
-use crate::core::engine::{DECOY_STRING, Engine, KeyPress, StateChange};
+use crate::{
+    constants::{DECOY_STRING, DENIED_STRING},
+    core::engine::{Engine, KeyPress, StateChange},
+};
 
 #[derive(Default, Debug)]
 pub struct App {
@@ -26,6 +29,7 @@ pub enum Screen {
     Asking {
         engine: Engine,
         revealed_at: Option<Instant>,
+        denied_message: Option<&'static str>,
     },
     Info,
     About,
@@ -90,6 +94,7 @@ impl App {
                         self.screen = Screen::Asking {
                             engine: Engine::new(DECOY_STRING),
                             revealed_at: None,
+                            denied_message: None,
                         };
                         AppFlow::Stay
                     }
@@ -118,11 +123,23 @@ impl App {
             Screen::Asking {
                 engine,
                 revealed_at,
+                denied_message,
             } => match key {
                 KeyPress::Enter => {
-                    if engine.handle_key(KeyPress::Enter) == StateChange::Revealed {
-                        *revealed_at = Some(Instant::now());
+                    let state = engine.handle_key(KeyPress::Enter);
+
+                    match state {
+                        StateChange::Revealed => {
+                            *denied_message = None;
+                            *revealed_at = Some(Instant::now());
+                        }
+                        StateChange::Denied => {
+                            *denied_message = Some(DENIED_STRING);
+                            *revealed_at = Some(Instant::now());
+                        }
+                        _ => {}
                     }
+
                     AppFlow::Stay
                 }
                 KeyPress::Esc => {
@@ -191,7 +208,7 @@ impl Menu {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::engine::KeyPress;
+    use crate::{constants::DENIED_STRING, core::engine::KeyPress};
 
     /// Replay a sequence of keystrokes from a fresh app, handing back the final
     /// state *and* the `AppFlow` returned by the last key (Stay/Quit).
@@ -275,6 +292,7 @@ mod tests {
             Screen::Asking {
                 engine,
                 revealed_at,
+                ..
             } => assert_eq!(engine.visible_buffer(), ""),
             other => panic!("expected Asking {{ engine, revealed_at }}, got {other:?}"),
         }
@@ -325,6 +343,7 @@ mod tests {
             Screen::Asking {
                 engine,
                 revealed_at,
+                ..
             } => assert_eq!(engine.visible_buffer(), "oi"),
             other => panic!("expected Asking {{ engine, revealed_ay }}, got {other:?}"),
         }
@@ -334,6 +353,64 @@ mod tests {
     fn question_esc_returns_to_menu() {
         let state = drive(&[KeyPress::Enter, KeyPress::Enter, KeyPress::Esc]);
         assert!(on_menu(&state));
+    }
+
+    // ── Denial: SUED rejects the uninitiated ─────────────────────────────────
+    // Someone who doesn't know the ';' trick types a question in the open, so the
+    // engine's `answer_buffer` stays empty and Enter yields `StateChange::Denied`.
+    // The app must then surface a denial *phrase* for the SUED FALA box — the
+    // taunt lives app-side (the engine only emits the event).
+
+    #[test]
+    fn enter_with_no_hidden_answer_shows_the_denial_phrase() {
+        let state = drive(&[
+            KeyPress::Enter, // Intro → Menu
+            KeyPress::Enter, // Menu → Asking
+            KeyPress::Char('o'),
+            KeyPress::Char('i'), // a question typed in the open
+            KeyPress::Enter,     // ask with an empty answer_buffer → Denied
+        ]);
+        match state.screen {
+            Screen::Asking {
+                engine,
+                denied_message,
+                ..
+            } => {
+                assert_eq!(
+                    denied_message,
+                    Some(DENIED_STRING),
+                    "a denial must surface SUED's taunt phrase for the UI to show"
+                );
+                assert_eq!(engine.revealed(), None, "a denial reveals no answer");
+            }
+            other => panic!("expected Asking, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn revealing_a_real_answer_carries_no_denial() {
+        // The mutually-exclusive case: a proper hidden answer reveals normally and
+        // must NOT also carry a denial phrase.
+        let state = drive(&[
+            KeyPress::Enter,
+            KeyPress::Enter,     // → Asking
+            KeyPress::Char(';'), // Hidden
+            KeyPress::Char('4'),
+            KeyPress::Char('2'), // secret answer "42"
+            KeyPress::Enter,     // reveal
+        ]);
+        match state.screen {
+            Screen::Asking {
+                engine,
+                revealed_at,
+                denied_message,
+            } => {
+                assert_eq!(engine.revealed(), Some("42"));
+                assert!(revealed_at.is_some(), "the reveal clock started");
+                assert_eq!(denied_message, None, "a real reveal carries no denial");
+            }
+            other => panic!("expected Asking, got {other:?}"),
+        }
     }
 
     // ── Static screens bounce back to the menu ───────────────────────────────
@@ -442,6 +519,7 @@ mod tests {
             Screen::Asking {
                 engine,
                 revealed_at,
+                ..
             } => {
                 assert!(engine.revealed().is_some(), "precondition: answer revealed");
                 assert!(revealed_at.is_some(), "precondition: reveal clock started");
@@ -457,6 +535,7 @@ mod tests {
             Screen::Asking {
                 engine,
                 revealed_at,
+                ..
             } => {
                 assert_eq!(engine.visible_buffer(), "", "buffers cleared");
                 assert_eq!(engine.revealed(), None, "no revealed answer");

@@ -1,5 +1,7 @@
 #![allow(dead_code)]
 
+use crate::constants::DECOY_STRING;
+
 #[derive(Debug)]
 pub struct Engine {
     mode: Mode,
@@ -34,6 +36,7 @@ pub enum StateChange {
     EnteredHidden,
     ExitedHidden,
     Revealed,
+    Denied,
 }
 
 impl Engine {
@@ -123,7 +126,7 @@ impl Engine {
 
     fn handle_enter_key(&mut self) -> StateChange {
         if self.answer_buffer.is_empty() {
-            StateChange::None
+            StateChange::Denied
         } else {
             self.revealed = Some(std::mem::take(&mut self.answer_buffer)); // mem::take take the current pointer in memory, letting a Default value in the old variable
             StateChange::Revealed
@@ -162,11 +165,10 @@ impl Engine {
     }
 }
 
-// simple in the beggining, after we want to do a multy language setup
-pub const DECOY_STRING: &str = "Sued, o maior oráculo de todos, dono da vedrdade e da sabedoria";
-
 #[cfg(test)]
 mod tests {
+    use crate::constants::DECOY_STRING;
+
     use super::*;
 
     fn build_test_engine() -> Engine {
@@ -322,20 +324,48 @@ mod tests {
     }
 
     #[test]
-    fn enter_with_empty_answer_is_a_noop() {
+    fn enter_with_empty_answer_is_denied() {
         let mut engine = build_test_engine();
 
         // Operator hits Enter without ever composing an answer.
         let change = engine.handle_key(KeyPress::Enter);
 
+        // A denial never populates the answer box — nothing is revealed...
         assert_eq!(
             engine.revealed, None,
-            "revealing an empty answer should do nothing"
+            "an empty answer must not put anything in `revealed`"
         );
+        // ...but SUED still *reacts*: it emits a denial the UI can turn into a
+        // taunt, instead of the old silent `None`.
         assert_eq!(
             change,
-            StateChange::None,
-            "Enter on an empty answer should report None"
+            StateChange::Denied,
+            "Enter on an empty answer should report Denied, not stay silent"
+        );
+    }
+
+    #[test]
+    fn enter_after_typing_a_question_in_normal_mode_is_denied() {
+        // The fail-safe: someone who doesn't know the ';' trick just types their
+        // question in the open and hits Enter. Normal-mode chars go to the
+        // *visible* buffer, so `answer_buffer` is still empty — SUED denies them.
+        let mut engine = build_test_engine();
+
+        simulate_typing(&mut engine, "quem é o melhor dev rust?");
+        let change = engine.handle_key(KeyPress::Enter);
+
+        assert_eq!(
+            change,
+            StateChange::Denied,
+            "a question typed in the open (empty answer_buffer) earns a denial"
+        );
+        assert_eq!(
+            engine.revealed, None,
+            "denial reveals nothing — there was no hidden answer"
+        );
+        assert_eq!(
+            engine.visible_buffer, "quem é o melhor dev rust?",
+            "the denial must not erase what the mortal typed"
         );
     }
 
