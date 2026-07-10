@@ -31,8 +31,8 @@ fn typewriter_len(elapsed: Duration, total: usize) -> usize {
 pub fn typewriter_slice(text: &str, duration: Duration) -> String {
     let total_boundary = text.chars().count();
     let n_to_be_revealed = typewriter_len(duration, total_boundary);
-    let releaved_text: String = text.chars().take(n_to_be_revealed).collect();
-    releaved_text
+    let revealed_text: String = text.chars().take(n_to_be_revealed).collect();
+    revealed_text
 }
 
 #[cfg(test)]
