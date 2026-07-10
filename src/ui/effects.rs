@@ -11,7 +11,11 @@ use std::time::Duration;
 /// Milliseconds of elapsed time per revealed character (~18 cps — ominous crawl).
 /// Tunable: larger = slower. The tests derive their timings from this constant,
 /// so retuning the speed here won't break the spec.
-pub const REVEAL_MS_PER_CHAR: u64 = 55;
+const REVEAL_MS_PER_CHAR: u64 = 55;
+
+const CURSOR_BLINK_MS: u64 = 400;
+
+const CURSOR_GLYPH: char = '█';
 
 /// How many characters of the answer should be visible after `elapsed` time has
 /// passed since the reveal began, clamped to `total`.
@@ -44,17 +48,16 @@ pub fn typewriter_reveal(text: &str, elapsed: Duration) -> String {
     visible
 }
 
-const CURSOR_BLINK_MS: u64 = 500;
-
-const CURSOR_GLYPH: char = '█';
-
 fn cursor_on(elapsed: Duration) -> bool {
     (elapsed.as_millis() as u64 / CURSOR_BLINK_MS).is_multiple_of(2)
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{CURSOR_BLINK_MS, REVEAL_MS_PER_CHAR, cursor_on, typewriter_len, typewriter_slice};
+    use super::{
+        CURSOR_BLINK_MS, CURSOR_GLYPH, REVEAL_MS_PER_CHAR, cursor_on, typewriter_len,
+        typewriter_reveal, typewriter_slice,
+    };
     use std::time::Duration;
 
     /// Elapsed time expressed as "n characters' worth" of reveal intervals.
@@ -173,5 +176,61 @@ mod tests {
         assert!(!cursor_on(after_phases(3)));
         assert!(cursor_on(after_phases(10)));
         assert!(!cursor_on(after_phases(11)));
+    }
+
+    // ── typewriter_reveal: the slice + a blinking cursor while the crawl runs ────
+    // Ties the two clocks together. Expressed against `typewriter_slice` so the
+    // assertions survive retuning either speed — we pin the *rule* (slice, plus a
+    // cursor iff still-typing AND on an on-phase), not hard-coded prefixes.
+
+    #[test]
+    fn reveal_shows_a_lone_cursor_at_the_very_start() {
+        // elapsed 0: nothing sliced yet, but the crawl is underway → a lone cursor
+        // blinks (design choice: the block shows from the start, chars stream past).
+        assert_eq!(
+            typewriter_reveal("abc", Duration::ZERO),
+            CURSOR_GLYPH.to_string()
+        );
+    }
+
+    #[test]
+    fn reveal_drops_the_cursor_once_fully_revealed() {
+        // The invariant that matters most: a finished answer must NOT keep a
+        // cursor blinking at its tail.
+        assert_eq!(typewriter_reveal("abc", after_chars(1000)), "abc");
+    }
+
+    #[test]
+    fn reveal_of_empty_text_is_empty_and_uncursored() {
+        assert_eq!(typewriter_reveal("", after_chars(1000)), "");
+    }
+
+    #[test]
+    fn reveal_appends_the_cursor_mid_crawl_on_an_on_phase() {
+        // 2 chars in (phase 0 → lit) and still typing → slice + the cursor glyph.
+        let text = "abcdef";
+        let elapsed = after_chars(2);
+        assert!(
+            typewriter_slice(text, elapsed).chars().count() < text.chars().count(),
+            "fixture must be mid-crawl for this to mean anything"
+        );
+        let expected = format!("{}{CURSOR_GLYPH}", typewriter_slice(text, elapsed));
+        assert_eq!(typewriter_reveal(text, elapsed), expected);
+    }
+
+    #[test]
+    fn reveal_hides_the_cursor_mid_crawl_on_an_off_phase() {
+        // One blink phase in the cursor is dark, so even mid-crawl the reveal is
+        // *just* the slice — no glyph. The long text keeps us still-typing then.
+        let text = "abcdefghijklmnopqrst";
+        let elapsed = after_phases(1);
+        assert!(
+            typewriter_slice(text, elapsed).chars().count() < text.chars().count(),
+            "fixture must be mid-crawl for the off-phase check to be meaningful"
+        );
+        assert_eq!(
+            typewriter_reveal(text, elapsed),
+            typewriter_slice(text, elapsed)
+        );
     }
 }
