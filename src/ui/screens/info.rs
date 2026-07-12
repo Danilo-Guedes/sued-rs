@@ -26,7 +26,7 @@ pub(super) fn render(frame: &mut Frame) {
     // only its `Rect`, so it owns its internal layout — the screen fn just hands
     // out areas. That is the pattern to reuse on every complex screen.
     let [ritual_area, shortcuts_area] =
-        Layout::horizontal([Constraint::Fill(4), Constraint::Fill(6)]).areas(center_layout);
+        Layout::horizontal([Constraint::Fill(6), Constraint::Fill(4)]).areas(center_layout);
 
     render_ritual_panel(frame, ritual_area);
     render_shortcuts_panel(frame, shortcuts_area);
