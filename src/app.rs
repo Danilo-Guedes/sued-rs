@@ -13,10 +13,11 @@ use crate::{
     core::engine::{Engine, KeyPress, StateChange},
 };
 
-#[derive(Default, Debug)]
+#[derive(Debug)]
 pub struct App {
     screen: Screen,
     menu: Menu,
+    started_at: Instant,
 }
 
 #[derive(Default, Debug)]
@@ -74,7 +75,11 @@ impl Menu {
 
 impl App {
     pub fn new() -> Self {
-        App::default()
+        App {
+            screen: Screen::default(),
+            menu: Menu::default(),
+            started_at: Instant::now(),
+        }
     }
     pub fn handle_key(&mut self, key: KeyPress) -> AppFlow {
         match &mut self.screen {
@@ -185,6 +190,10 @@ impl App {
 
     pub fn menu(&self) -> &Menu {
         &self.menu
+    }
+
+    pub fn started_at(&self) -> &Instant {
+        &self.started_at
     }
 }
 
