@@ -23,14 +23,9 @@ const FLASH_MS: u64 = 400;
 
 const MAX_INTENSITY: u64 = 255;
 
-/// Fraction of frames whose demon dips below full brightness — the flicker
-/// "rate." Keep it SMALL: most frames must stay full, or per-frame rolls at
-/// ~20 fps read as TV static instead of an occasional haunted dip.
-const FLICKER_CHANCE: f32 = 0.12;
+const FLICKER_CHANCE: f32 = 0.06;
 
-/// The darkest red a flicker reaches (deepest dip). Lower → closer to a full
-/// blink-out; `u8::MAX` (255) above it is full brightness.
-const MIN_FLICKER_VALUE: u8 = 60;
+const MIN_FLICKER_VALUE: u8 = 160;
 
 /// How many characters of the answer should be visible after `elapsed` time has
 /// passed since the reveal began, clamped to `total`.
@@ -84,9 +79,10 @@ pub fn flash_intensity(elapsed: Duration) -> u8 {
 
 ///a method that accept a rand f32 as arg values and map to a u8 in a scale of [MIN_FLICKER_VALUE(60)..256]
 /// using the FLICKER_CHANGE(0.12) as a yearly return logic
-/// where roll > FLICKER_CHANCE return u8::MAX
+/// where roll > FLICKER_CHANCE return u8::MAX (256)
+/// only percentages bellow FLICKER_CHANGE will actually dim you text
 /// use this returned value as a dim scale color to simulate flickering
-fn flicker_intensity(roll: f32) -> u8 {
+pub fn flicker_intensity(roll: f32) -> u8 {
     if roll >= FLICKER_CHANCE {
         return u8::MAX;
     }
