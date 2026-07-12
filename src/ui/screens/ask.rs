@@ -4,13 +4,13 @@ use std::time::{Duration, Instant};
 
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout};
-use ratatui::style::Stylize;
+use ratatui::style::{Color, Stylize};
 use ratatui::text::{Line, Span, Text};
 use ratatui::widgets::{Block, Borders, Padding, Paragraph, Wrap};
 
 use super::common::{colorfull_bordered_block, create_centered_rect, render_nav_strip};
 use crate::core::engine::Engine;
-use crate::ui::effects::typewriter_reveal;
+use crate::ui::effects::{CURSOR_CHAR, cursor_on, flash_intensity, typewriter_reveal};
 use crate::ui::screens::common::{
     DEMON_ART, DEMON_ART_HEIGHT, DEMON_ART_WIDTH, NavTab, create_screen_block,
 };
@@ -20,6 +20,7 @@ pub(super) fn render(
     engine: &Engine,
     replied_at: Option<Instant>,
     denied_message: Option<&'static str>,
+    started_at: &Instant,
 ) {
     let layout = create_screen_block(frame);
 
@@ -90,9 +91,18 @@ pub(super) fn render(
         }
     };
 
+    let flash_effect = replied_at.map_or(0, |t| flash_intensity(t.elapsed()));
+
+    let flash_bg = if flash_effect > 0 {
+        Color::Rgb(flash_effect, 0, 0)
+    } else {
+        Color::Reset
+    };
+
     let speak_widget = Paragraph::new(final_sued_words)
         .block(
             colorfull_bordered_block(None)
+                .bg(flash_bg)
                 .title(" SUED FALA ")
                 .padding(Padding::new(2, 2, 1, 1)),
         )
@@ -119,9 +129,16 @@ pub(super) fn render(
         sued_logs_layout,
     );
 
+    let rendered_cursor = if replied_at.is_none() && cursor_on(started_at.elapsed()) {
+        Span::raw(CURSOR_CHAR.to_string()).red()
+    } else {
+        Span::raw("")
+    };
+
     let typed = Text::from(vec![Line::from(vec![
         " ▶ ".red().bold(),
         Span::raw(engine.visible_buffer()).white(),
+        rendered_cursor,
     ])]);
 
     frame.render_widget(

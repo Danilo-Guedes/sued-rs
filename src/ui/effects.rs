@@ -15,7 +15,7 @@ const REVEAL_MS_PER_CHAR: u64 = 55;
 
 const CURSOR_BLINK_MS: u64 = 400;
 
-const CURSOR_GLYPH: char = '█';
+pub const CURSOR_CHAR: char = '█';
 
 /// Lifetime of the red reveal-flash. Intensity fades from full to dark across
 /// this window; tunable like the others (larger = the flash lingers).
@@ -49,24 +49,19 @@ pub fn typewriter_reveal(text: &str, elapsed: Duration) -> String {
     let mut visible = typewriter_slice(text, elapsed);
     let still_typing = visible.chars().count() < text.chars().count();
     if still_typing && cursor_on(elapsed) {
-        visible.push(CURSOR_GLYPH);
+        visible.push(CURSOR_CHAR);
     }
     visible
 }
 
-fn cursor_on(elapsed: Duration) -> bool {
+pub fn cursor_on(elapsed: Duration) -> bool {
     (elapsed.as_millis() as u64 / CURSOR_BLINK_MS).is_multiple_of(2)
 }
 
-/// Red-flash intensity: `255` (fully red) at the instant of reveal, fading
-/// linearly to `0` as `elapsed` reaches `FLASH_MS`, then staying `0` forever.
-///
-/// Pure and total like `typewriter_len` — hand it an elapsed `Duration`, get a
-/// `u8` back. It returns a plain intensity byte, **not** a `Color`, so this
-/// module stays free of any   import; the render boundary maps the byte
-/// to `Color::Rgb(i, 0, 0)`.
-///
-fn flash_intensity(elapsed: Duration) -> u8 {
+/// returns a intensity number from 0 to MAX_INTENSITY [255]
+/// using FLASH_MS [400] as base divider
+/// it'll be used to create flash ui effects
+pub fn flash_intensity(elapsed: Duration) -> u8 {
     let elapsed_ms = elapsed.as_millis() as u64;
 
     if elapsed_ms >= FLASH_MS {
@@ -81,7 +76,7 @@ fn flash_intensity(elapsed: Duration) -> u8 {
 #[cfg(test)]
 mod tests {
     use super::{
-        CURSOR_BLINK_MS, CURSOR_GLYPH, FLASH_MS, REVEAL_MS_PER_CHAR, cursor_on, flash_intensity,
+        CURSOR_BLINK_MS, CURSOR_CHAR, FLASH_MS, REVEAL_MS_PER_CHAR, cursor_on, flash_intensity,
         typewriter_len, typewriter_reveal, typewriter_slice,
     };
     use std::time::Duration;
@@ -215,7 +210,7 @@ mod tests {
         // blinks (design choice: the block shows from the start, chars stream past).
         assert_eq!(
             typewriter_reveal("abc", Duration::ZERO),
-            CURSOR_GLYPH.to_string()
+            CURSOR_CHAR.to_string()
         );
     }
 
@@ -240,7 +235,7 @@ mod tests {
             typewriter_slice(text, elapsed).chars().count() < text.chars().count(),
             "fixture must be mid-crawl for this to mean anything"
         );
-        let expected = format!("{}{CURSOR_GLYPH}", typewriter_slice(text, elapsed));
+        let expected = format!("{}{CURSOR_CHAR}", typewriter_slice(text, elapsed));
         assert_eq!(typewriter_reveal(text, elapsed), expected);
     }
 
@@ -259,16 +254,6 @@ mod tests {
             typewriter_slice(text, elapsed)
         );
     }
-
-    // ── flash_intensity: the red reveal-flash, a pure fn of elapsed time ────────
-    // Same shape as the reveal/cursor clocks — hand it elapsed time, get back a
-    // 0..=255 red-intensity byte. `255` = fully red (render maps it to
-    // `Rgb(255, 0, 0)`), `0` = no flash. Rules are derived from `FLASH_MS`, never
-    // magic numbers, so retuning the flash speed can't break the spec.
-    //
-    // NOTE: the "must not glow before a question is asked" case is NOT here — that
-    // lives at the render boundary (map `replied_at: None` → 0, do NOT feed the
-    // shared `Duration::ZERO`). No unit test can catch it; verify by running.
 
     /// Elapsed time expressed as the fraction `num/den` of one flash lifetime,
     /// derived from the constant so the spec survives retuning the flash speed.

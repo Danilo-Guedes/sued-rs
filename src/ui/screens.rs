@@ -19,7 +19,13 @@ pub fn render(frame: &mut Frame, app: &App) {
             engine,
             replied_at,
             denied_message,
-        } => ask::render(frame, engine, *replied_at, *denied_message),
+        } => ask::render(
+            frame,
+            engine,
+            *replied_at,
+            *denied_message,
+            app.started_at(),
+        ),
         Screen::Info => info::render(frame),
         Screen::About => about::render(frame),
     }
