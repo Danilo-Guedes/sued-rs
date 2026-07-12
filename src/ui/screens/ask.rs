@@ -22,6 +22,8 @@ pub(super) fn render(
     denied_message: Option<&'static str>,
     started_at: &Instant,
 ) {
+    let time_elapsed_from_the_start_at = started_at.elapsed();
+
     let layout = create_screen_block(frame);
 
     let [
@@ -110,6 +112,12 @@ pub(super) fn render(
 
     frame.render_widget(speak_widget, speak_layout);
 
+    let underline_cursor = if cursor_on(time_elapsed_from_the_start_at) {
+        Span::raw("_").dim()
+    } else {
+        Span::raw("")
+    };
+
     let default_logs_text = Text::from(vec![
         Line::from(vec![
             Span::raw(">").red(),
@@ -120,7 +128,8 @@ pub(super) fn render(
         Line::from(vec![
             Span::raw(">").red(),
             Span::raw(" "),
-            Span::raw("aguardando oferenda do mortal_").dim(),
+            Span::raw("aguardando oferenda do mortal").dim(),
+            underline_cursor,
         ]),
     ]);
 
@@ -129,7 +138,7 @@ pub(super) fn render(
         sued_logs_layout,
     );
 
-    let rendered_cursor = if replied_at.is_none() && cursor_on(started_at.elapsed()) {
+    let rendered_cursor = if replied_at.is_none() && cursor_on(time_elapsed_from_the_start_at) {
         Span::raw(CURSOR_CHAR.to_string()).red()
     } else {
         Span::raw("")
