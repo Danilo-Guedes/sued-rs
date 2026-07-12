@@ -10,7 +10,9 @@ use ratatui::widgets::{Block, Borders, Padding, Paragraph, Wrap};
 
 use super::common::{colorfull_bordered_block, create_centered_rect, render_nav_strip};
 use crate::core::engine::Engine;
-use crate::ui::effects::{CURSOR_CHAR, cursor_on, flash_intensity, typewriter_reveal};
+use crate::ui::effects::{
+    CURSOR_CHAR, cursor_on, flash_intensity, flicker_intensity, typewriter_reveal,
+};
 use crate::ui::screens::common::{
     DEMON_ART, DEMON_ART_HEIGHT, DEMON_ART_WIDTH, NavTab, create_screen_block,
 };
@@ -52,9 +54,11 @@ pub(super) fn render(
     ])
     .areas(sued_art_top_layout);
 
+    let random_flicker_value = flicker_intensity(rand::random());
+
     // demon ASCII art will fill this area next (no border, per design)
     frame.render_widget(
-        Paragraph::new(DEMON_ART).red(),
+        Paragraph::new(DEMON_ART).fg(Color::Rgb(random_flicker_value, 0, 0)),
         create_centered_rect(
             center_art_rect,
             Constraint::Length(DEMON_ART_WIDTH),

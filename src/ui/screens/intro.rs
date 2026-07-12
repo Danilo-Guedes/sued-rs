@@ -2,10 +2,11 @@
 
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Flex, Layout};
-use ratatui::style::Stylize;
+use ratatui::style::{Color, Stylize};
 use ratatui::text::{Line, Span, Text};
 use ratatui::widgets::{Borders, Padding, Paragraph, Wrap};
 
+use crate::ui::effects::flicker_intensity;
 use crate::ui::screens::common::{
     NavTab, SUED_BANNER, SUED_BANNER_HEIGHT, SUED_BANNER_WIDTH, colorfull_bordered_block,
     create_centered_rect, create_screen_block, render_nav_strip,
@@ -46,7 +47,15 @@ pub(super) fn render(frame: &mut Frame) {
         Constraint::Length(SUED_BANNER_WIDTH),
         Constraint::Length(SUED_BANNER_HEIGHT),
     );
-    frame.render_widget(Paragraph::new(SUED_BANNER).red().bold(), banner_rect);
+
+    let random_flicker_value = flicker_intensity(rand::random());
+
+    frame.render_widget(
+        Paragraph::new(SUED_BANNER)
+            .fg(Color::Rgb(random_flicker_value, 0, 0))
+            .bold(),
+        banner_rect,
+    );
 
     frame.render_widget(
         Paragraph::new("SUA ÚLTIMA ESPERANÇA DIVINA".dim()).centered(),

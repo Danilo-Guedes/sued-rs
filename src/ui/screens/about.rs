@@ -2,10 +2,11 @@
 
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout};
-use ratatui::style::Stylize;
+use ratatui::style::{Color, Stylize};
 use ratatui::text::{Line, Span, Text};
 use ratatui::widgets::{Borders, Padding, Paragraph, Wrap};
 
+use crate::ui::effects::flicker_intensity;
 use crate::ui::screens::common::{
     DEMON_ART, DEMON_ART_HEIGHT, DEMON_ART_WIDTH, NavTab, colorfull_bordered_block,
     create_centered_rect, create_screen_block, render_nav_strip, table_row,
@@ -44,7 +45,12 @@ pub(super) fn render(frame: &mut Frame) {
         Constraint::Length(DEMON_ART_HEIGHT),
     );
 
-    frame.render_widget(Paragraph::new(DEMON_ART).red(), art_rect);
+    let random_flicker_value = flicker_intensity(rand::random());
+
+    frame.render_widget(
+        Paragraph::new(DEMON_ART).fg(Color::Rgb(random_flicker_value, 0, 0)),
+        art_rect,
+    );
 
     // Right column: lore text + spec table. Build both, then size their rects by
     // *content* — the lore's wrapped height comes from `line_count(width)` so it can
