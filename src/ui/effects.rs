@@ -17,6 +17,12 @@ const CURSOR_BLINK_MS: u64 = 400;
 
 const CURSOR_GLYPH: char = '█';
 
+/// Lifetime of the red reveal-flash. Intensity fades from full to dark across
+/// this window; tunable like the others (larger = the flash lingers).
+const FLASH_MS: u64 = 400;
+
+const MAX_INTENSITY: u64 = 255;
+
 /// How many characters of the answer should be visible after `elapsed` time has
 /// passed since the reveal began, clamped to `total`.
 ///
@@ -52,11 +58,31 @@ fn cursor_on(elapsed: Duration) -> bool {
     (elapsed.as_millis() as u64 / CURSOR_BLINK_MS).is_multiple_of(2)
 }
 
+/// Red-flash intensity: `255` (fully red) at the instant of reveal, fading
+/// linearly to `0` as `elapsed` reaches `FLASH_MS`, then staying `0` forever.
+///
+/// Pure and total like `typewriter_len` — hand it an elapsed `Duration`, get a
+/// `u8` back. It returns a plain intensity byte, **not** a `Color`, so this
+/// module stays free of any   import; the render boundary maps the byte
+/// to `Color::Rgb(i, 0, 0)`.
+///
+fn flash_intensity(elapsed: Duration) -> u8 {
+    let elapsed_ms = elapsed.as_millis() as u64;
+
+    if elapsed_ms >= FLASH_MS {
+        return 0;
+    }
+
+    let faded = elapsed_ms * MAX_INTENSITY / FLASH_MS;
+
+    (MAX_INTENSITY - faded) as u8
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
-        CURSOR_BLINK_MS, CURSOR_GLYPH, REVEAL_MS_PER_CHAR, cursor_on, typewriter_len,
-        typewriter_reveal, typewriter_slice,
+        CURSOR_BLINK_MS, CURSOR_GLYPH, FLASH_MS, REVEAL_MS_PER_CHAR, cursor_on, flash_intensity,
+        typewriter_len, typewriter_reveal, typewriter_slice,
     };
     use std::time::Duration;
 
@@ -232,5 +258,68 @@ mod tests {
             typewriter_reveal(text, elapsed),
             typewriter_slice(text, elapsed)
         );
+    }
+
+    // ── flash_intensity: the red reveal-flash, a pure fn of elapsed time ────────
+    // Same shape as the reveal/cursor clocks — hand it elapsed time, get back a
+    // 0..=255 red-intensity byte. `255` = fully red (render maps it to
+    // `Rgb(255, 0, 0)`), `0` = no flash. Rules are derived from `FLASH_MS`, never
+    // magic numbers, so retuning the flash speed can't break the spec.
+    //
+    // NOTE: the "must not glow before a question is asked" case is NOT here — that
+    // lives at the render boundary (map `replied_at: None` → 0, do NOT feed the
+    // shared `Duration::ZERO`). No unit test can catch it; verify by running.
+
+    /// Elapsed time expressed as the fraction `num/den` of one flash lifetime,
+    /// derived from the constant so the spec survives retuning the flash speed.
+    fn flash_fraction(num: u64, den: u64) -> Duration {
+        Duration::from_millis(FLASH_MS * num / den)
+    }
+
+    #[test]
+    fn flash_peaks_at_the_instant_of_reveal() {
+        // elapsed 0 = the reveal *just* fired → fully red. (This is the same ZERO
+        // an ungated `None` would pass in — hence the render-boundary note above.)
+        assert_eq!(flash_intensity(Duration::ZERO), 255);
+    }
+
+    #[test]
+    fn flash_is_dark_once_its_lifetime_elapses() {
+        // Exactly one FLASH_MS in, the flash has fully faded.
+        assert_eq!(flash_intensity(Duration::from_millis(FLASH_MS)), 0);
+    }
+
+    #[test]
+    fn flash_stays_dark_long_after() {
+        // Well past the lifetime it never wraps or underflows back to bright.
+        assert_eq!(flash_intensity(Duration::from_millis(FLASH_MS * 10)), 0);
+    }
+
+    #[test]
+    fn flash_is_partway_between_peak_and_dark_mid_fade() {
+        // Halfway through the lifetime it's genuinely fading: dimmer than the peak
+        // but not yet out. We pin the *rule* (strictly between), not the exact
+        // byte — integer division lands it on 128, not the ~127 you'd eyeball.
+        let mid = flash_intensity(flash_fraction(1, 2));
+        assert!(
+            mid > 0 && mid < 255,
+            "mid-fade intensity was {mid}, want 0 < x < 255"
+        );
+    }
+
+    #[test]
+    fn flash_fades_monotonically() {
+        // Never brightens as time moves forward. Non-increasing (NOT strictly
+        // decreasing): integer division makes the curve plateau for a millisecond
+        // or two between steps, which is fine.
+        let samples: Vec<u8> = (0..=4)
+            .map(|k| flash_intensity(flash_fraction(k, 4)))
+            .collect();
+        for pair in samples.windows(2) {
+            assert!(
+                pair[0] >= pair[1],
+                "flash brightened over time: {samples:?}"
+            );
+        }
     }
 }
