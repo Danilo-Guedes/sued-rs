@@ -158,7 +158,7 @@ fn render_shortcuts_panel(frame: &mut Frame, area: Rect) {
     let rows = vec![
         table_row("[Enter]", "perguntar / confirmar", KEY_WIDTH),
         table_row("[↑ ↓]", "navegar o menu", KEY_WIDTH),
-        table_row("[Tab]", "alternar menu", KEY_WIDTH),
+        table_row("[F5]", "nova pergunta", KEY_WIDTH),
         table_row("[Esc]", "voltar", KEY_WIDTH),
         table_row("[Ctrl-C]", "encerrar sessão", KEY_WIDTH),
     ];
