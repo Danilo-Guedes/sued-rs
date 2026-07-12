@@ -23,6 +23,15 @@ const FLASH_MS: u64 = 400;
 
 const MAX_INTENSITY: u64 = 255;
 
+/// Fraction of frames whose demon dips below full brightness — the flicker
+/// "rate." Keep it SMALL: most frames must stay full, or per-frame rolls at
+/// ~20 fps read as TV static instead of an occasional haunted dip.
+const FLICKER_CHANCE: f32 = 0.12;
+
+/// The darkest red a flicker reaches (deepest dip). Lower → closer to a full
+/// blink-out; `u8::MAX` (255) above it is full brightness.
+const MIN_FLICKER_VALUE: u8 = 60;
+
 /// How many characters of the answer should be visible after `elapsed` time has
 /// passed since the reveal began, clamped to `total`.
 ///
@@ -73,11 +82,31 @@ pub fn flash_intensity(elapsed: Duration) -> u8 {
     (MAX_INTENSITY - faded) as u8
 }
 
+///a method that accept a rand f32 as arg values and map to a u8 in a scale of [MIN_FLICKER_VALUE(60)..256]
+/// using the FLICKER_CHANGE(0.12) as a yearly return logic
+/// where roll > FLICKER_CHANCE return u8::MAX
+/// use this returned value as a dim scale color to simulate flickering
+fn flicker_intensity(roll: f32) -> u8 {
+    if roll >= FLICKER_CHANCE {
+        return u8::MAX;
+    }
+
+    // how far UP from the floor toward full brightness is this roll?
+    let brightness_fraction = roll / FLICKER_CHANCE;
+
+    // Room between the deepest dip and full brightness (255 − 60 = 195).
+    let range_above_floor = u8::MAX as f32 - MIN_FLICKER_VALUE as f32;
+
+    // Start at the floor, climb `brightness_fraction` of the way up that range.
+    (MIN_FLICKER_VALUE as f32 + brightness_fraction * range_above_floor) as u8
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
-        CURSOR_BLINK_MS, CURSOR_CHAR, FLASH_MS, REVEAL_MS_PER_CHAR, cursor_on, flash_intensity,
-        typewriter_len, typewriter_reveal, typewriter_slice,
+        CURSOR_BLINK_MS, CURSOR_CHAR, FLASH_MS, FLICKER_CHANCE, MIN_FLICKER_VALUE,
+        REVEAL_MS_PER_CHAR, cursor_on, flash_intensity, flicker_intensity, typewriter_len,
+        typewriter_reveal, typewriter_slice,
     };
     use std::time::Duration;
 
@@ -304,6 +333,54 @@ mod tests {
             assert!(
                 pair[0] >= pair[1],
                 "flash brightened over time: {samples:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn flicker_is_full_brightness_at_or_above_the_chance() {
+        // The common case: the vast majority of rolls leave the demon fully lit.
+        assert_eq!(flicker_intensity(FLICKER_CHANCE), u8::MAX);
+        assert_eq!(flicker_intensity(0.5), u8::MAX);
+        assert_eq!(flicker_intensity(0.999), u8::MAX);
+    }
+
+    #[test]
+    fn flicker_hits_the_floor_at_roll_zero() {
+        // The deepest possible dip is the floor — a flicker never goes darker.
+        assert_eq!(flicker_intensity(0.0), MIN_FLICKER_VALUE);
+    }
+
+    #[test]
+    fn flicker_dim_band_sits_between_floor_and_full() {
+        // A roll inside the dim band is a partial dip: dimmer than full, no darker
+        // than the floor. Mid-band roll so it's safely interior, not on an edge.
+        let dim = flicker_intensity(FLICKER_CHANCE * 0.5);
+        assert!(
+            dim > MIN_FLICKER_VALUE && dim < u8::MAX,
+            "dim-band intensity was {dim}, want {MIN_FLICKER_VALUE} < x < {}",
+            u8::MAX
+        );
+    }
+
+    #[test]
+    fn flicker_intensity_never_decreases_as_the_roll_rises() {
+        // Brighter roll → brighter (or equal) demon: no inversions across the dim
+        // band and on into full brightness. Non-increasing would be a bug.
+        let rolls = [
+            0.0,
+            FLICKER_CHANCE * 0.25,
+            FLICKER_CHANCE * 0.5,
+            FLICKER_CHANCE * 0.75,
+            FLICKER_CHANCE,
+            0.5,
+            0.99,
+        ];
+        let intensities: Vec<u8> = rolls.iter().map(|&r| flicker_intensity(r)).collect();
+        for pair in intensities.windows(2) {
+            assert!(
+                pair[0] <= pair[1],
+                "flicker intensity dropped as the roll rose: {intensities:?}"
             );
         }
     }
