@@ -29,7 +29,7 @@ const MIN_FLICKER_VALUE: u8 = 160;
 
 // SHAKE CONSTANTS
 
-const SHAKE_MS: u64 = 500;
+const SHAKE_MS: u64 = 700;
 
 const SHAKE_MAX_CELLS: i16 = 2;
 
@@ -110,7 +110,7 @@ pub fn shake_offset(elapsed: Duration, roll_x: f32, roll_y: f32) -> (i16, i16) {
     }
 
     //how much has passed
-    let faded = elapesed_in_ms * SHAKE_MAX_CELLS as u64 / SHAKE_MS as u64;
+    let faded = elapesed_in_ms * SHAKE_MAX_CELLS as u64 / SHAKE_MS;
     // how much is left to hit max_cell
     let left = SHAKE_MAX_CELLS as u64 - faded;
 
