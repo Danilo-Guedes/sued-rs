@@ -3,7 +3,7 @@
 use std::time::{Duration, Instant};
 
 use ratatui::Frame;
-use ratatui::layout::{Constraint, Layout};
+use ratatui::layout::{Constraint, Layout, Offset};
 use ratatui::style::{Color, Stylize};
 use ratatui::text::{Line, Span, Text};
 use ratatui::widgets::{Block, Borders, Padding, Paragraph, Wrap};
@@ -11,7 +11,7 @@ use ratatui::widgets::{Block, Borders, Padding, Paragraph, Wrap};
 use super::common::{colorfull_bordered_block, create_centered_rect, render_nav_strip};
 use crate::core::engine::Engine;
 use crate::ui::effects::{
-    CURSOR_CHAR, cursor_on, flash_intensity, flicker_intensity, typewriter_reveal,
+    CURSOR_CHAR, cursor_on, flash_intensity, flicker_intensity, shake_offset, typewriter_reveal,
 };
 use crate::ui::screens::common::{
     DEMON_ART, DEMON_ART_HEIGHT, DEMON_ART_WIDTH, NavTab, create_screen_block,
@@ -56,14 +56,29 @@ pub(super) fn render(
 
     let random_flicker_value = flicker_intensity(rand::random());
 
+    let demon_rect = create_centered_rect(
+        center_art_rect,
+        Constraint::Length(DEMON_ART_WIDTH),
+        Constraint::Length(DEMON_ART_HEIGHT),
+    );
+
+    let screen = frame.area();
+
+    let (x_offset, y_offset) = replied_at.map_or((0, 0), |t| {
+        shake_offset(t.elapsed(), rand::random(), rand::random())
+    });
+
+    let demon_rect = demon_rect
+        .offset(Offset {
+            x: x_offset as i32,
+            y: y_offset as i32,
+        })
+        .intersection(screen);
+
     // demon ASCII art will fill this area next (no border, per design)
     frame.render_widget(
         Paragraph::new(DEMON_ART).fg(Color::Rgb(random_flicker_value, 0, 0)),
-        create_centered_rect(
-            center_art_rect,
-            Constraint::Length(DEMON_ART_WIDTH),
-            Constraint::Length(DEMON_ART_HEIGHT),
-        ),
+        demon_rect,
     );
 
     let speak_layout = create_centered_rect(
