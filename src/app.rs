@@ -220,7 +220,7 @@ impl Menu {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{constants::DENIED_STRING, core::engine::KeyPress};
+    use crate::{audio::AudioCue, constants::DENIED_STRING, core::engine::KeyPress};
 
     /// Replay a sequence of keystrokes from a fresh app, handing back the final
     /// state *and* the `AppFlow` returned by the last key (Stay/Quit).
@@ -673,5 +673,68 @@ mod tests {
             }
             other => panic!("expected Asking, got {other:?}"),
         }
+    }
+
+    // ── Audio cues: SUED's reply queues a one-shot sound ─────────────────────
+    // The engine emits Revealed/Denied; the App turns that into an `AudioCue`
+    // the loop drains and plays ONCE (playing it every frame would machine-gun
+    // the sting). The App only *decides* the cue — it never touches kira, so
+    // these stay pure. `take_cue(&mut self) -> Option<AudioCue>` drains it.
+
+    #[test]
+    fn a_reveal_queues_the_sting_cue() {
+        let mut state = drive(&[
+            KeyPress::Enter,
+            KeyPress::Enter,     // → Asking
+            KeyPress::Char(';'), // Hidden
+            KeyPress::Char('4'),
+            KeyPress::Char('2'), // secret answer "42"
+            KeyPress::Enter,     // reveal
+        ]);
+        assert_eq!(state.take_cue(), Some(AudioCue::Sting));
+    }
+
+    #[test]
+    fn a_denial_queues_the_mock_cue() {
+        let mut state = drive(&[
+            KeyPress::Enter,
+            KeyPress::Enter, // → Asking
+            KeyPress::Char('o'),
+            KeyPress::Char('i'), // a question typed in the open
+            KeyPress::Enter,     // empty answer → Denied
+        ]);
+        assert_eq!(state.take_cue(), Some(AudioCue::Mock));
+    }
+
+    #[test]
+    fn take_cue_drains_so_the_sound_fires_once() {
+        let mut state = drive(&[
+            KeyPress::Enter,
+            KeyPress::Enter,
+            KeyPress::Char(';'),
+            KeyPress::Char('4'),
+            KeyPress::Enter, // reveal
+        ]);
+        assert_eq!(
+            state.take_cue(),
+            Some(AudioCue::Sting),
+            "the first drain gets the cue"
+        );
+        assert_eq!(
+            state.take_cue(),
+            None,
+            "the second drain is empty — a reply plays its sound exactly once"
+        );
+    }
+
+    #[test]
+    fn plain_typing_queues_no_cue() {
+        let mut state = drive(&[
+            KeyPress::Enter,
+            KeyPress::Enter,
+            KeyPress::Char('o'),
+            KeyPress::Char('i'), // typed a question, but no Enter yet
+        ]);
+        assert_eq!(state.take_cue(), None, "no reply yet → nothing to play");
     }
 }
