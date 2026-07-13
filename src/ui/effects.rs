@@ -17,15 +17,21 @@ const CURSOR_BLINK_MS: u64 = 400;
 
 pub const CURSOR_CHAR: char = '█';
 
-/// Lifetime of the red reveal-flash. Intensity fades from full to dark across
-/// this window; tunable like the others (larger = the flash lingers).
 const FLASH_MS: u64 = 400;
+
+// FLICKER CONSTANTS
 
 const MAX_INTENSITY: u64 = 255;
 
 const FLICKER_CHANCE: f32 = 0.06;
 
 const MIN_FLICKER_VALUE: u8 = 160;
+
+// SHAKE CONSTANTS
+
+const SHAKE_MS: u64 = 500;
+
+const SHAKE_MAX_CELLS: i16 = 2;
 
 /// How many characters of the answer should be visible after `elapsed` time has
 /// passed since the reveal began, clamped to `total`.
@@ -97,12 +103,31 @@ pub fn flicker_intensity(roll: f32) -> u8 {
     (MIN_FLICKER_VALUE as f32 + brightness_fraction * range_above_floor) as u8
 }
 
+pub fn shake_offset(elapsed: Duration, roll_x: f32, roll_y: f32) -> (i16, i16) {
+    let elapesed_in_ms = elapsed.as_millis() as u64;
+    if elapesed_in_ms >= SHAKE_MS {
+        return (0, 0);
+    }
+
+    //how much has passed
+    let faded = elapesed_in_ms * SHAKE_MAX_CELLS as u64 / SHAKE_MS as u64;
+    // how much is left to hit max_cell
+    let left = SHAKE_MAX_CELLS as u64 - faded;
+
+    // `roll * 2 - 1` maps the [0,1) roll to a signed [-1,+1] direction/strength,
+    // then `* left` scales it into the current [-left, +left] cell range.
+    let x_offset = (roll_x * 2.0 - 1.0) * left as f32;
+    let y_offset = (roll_y * 2.0 - 1.0) * left as f32;
+
+    (x_offset as i16, y_offset as i16)
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
         CURSOR_BLINK_MS, CURSOR_CHAR, FLASH_MS, FLICKER_CHANCE, MIN_FLICKER_VALUE,
-        REVEAL_MS_PER_CHAR, cursor_on, flash_intensity, flicker_intensity, typewriter_len,
-        typewriter_reveal, typewriter_slice,
+        REVEAL_MS_PER_CHAR, SHAKE_MAX_CELLS, SHAKE_MS, cursor_on, flash_intensity,
+        flicker_intensity, shake_offset, typewriter_len, typewriter_reveal, typewriter_slice,
     };
     use std::time::Duration;
 
@@ -379,5 +404,100 @@ mod tests {
                 "flicker intensity dropped as the roll rose: {intensities:?}"
             );
         }
+    }
+
+    // ── shake_offset: the reveal jolt — flash's decay ⊗ flicker's randomness ────
+    // Pure like the rest: `elapsed` drives the decaying amplitude, and the two
+    // rolls (from `rand` at the edge) place us inside `[-amp, +amp]` per axis. We
+    // pin the *rules* — center = still, peak = full, settles to nothing, decays,
+    // bounded, axes independent — not frame-exact offsets.
+
+    /// Elapsed time as the fraction `num/den` of one shake lifetime, derived from
+    /// the constant so the spec survives retuning the shake speed.
+    fn shake_fraction(num: u64, den: u64) -> Duration {
+        Duration::from_millis(SHAKE_MS * num / den)
+    }
+
+    #[test]
+    fn shake_is_centered_for_the_neutral_roll() {
+        // A roll of 0.5 sits dead-center of [-amp, +amp] (`0.5 * 2 - 1 == 0`), so
+        // that axis never moves — even at the very peak of the shake.
+        assert_eq!(shake_offset(Duration::ZERO, 0.5, 0.5), (0, 0));
+    }
+
+    #[test]
+    fn shake_reaches_full_amplitude_at_the_instant_of_reveal() {
+        // elapsed 0 = peak amplitude. The extreme rolls hit the corners of the
+        // jolt: 0.0 → the full negative throw, 1.0 → the full positive throw.
+        assert_eq!(
+            shake_offset(Duration::ZERO, 0.0, 0.0),
+            (-SHAKE_MAX_CELLS, -SHAKE_MAX_CELLS)
+        );
+        assert_eq!(
+            shake_offset(Duration::ZERO, 1.0, 1.0),
+            (SHAKE_MAX_CELLS, SHAKE_MAX_CELLS)
+        );
+    }
+
+    #[test]
+    fn shake_settles_to_nothing_once_its_lifetime_elapses() {
+        // Exactly one SHAKE_MS in, the jolt is spent — dead still for ANY roll...
+        assert_eq!(
+            shake_offset(Duration::from_millis(SHAKE_MS), 0.0, 1.0),
+            (0, 0)
+        );
+        // ...and long after it never wraps or underflows back to life. That guard
+        // is the flash lesson again — the one bug the happy-path tests can't see.
+        assert_eq!(shake_offset(shake_fraction(10, 1), 0.0, 1.0), (0, 0));
+    }
+
+    #[test]
+    fn shake_amplitude_decays_from_its_peak() {
+        // The same extreme roll, later in the window → a strictly smaller throw.
+        // This is the whole point: the shake calms instead of rattling forever.
+        let peak = shake_offset(Duration::ZERO, 1.0, 1.0).0;
+        let midway = shake_offset(shake_fraction(1, 2), 1.0, 1.0).0;
+        assert!(
+            midway.abs() < peak.abs(),
+            "midway throw {midway} was not smaller than the peak {peak}"
+        );
+    }
+
+    #[test]
+    fn shake_never_throws_further_than_the_max() {
+        // Across the whole roll range and the whole lifetime, neither axis ever
+        // exceeds SHAKE_MAX_CELLS in magnitude — the shifted Rect stays sane.
+        let rolls = [0.0, 0.25, 0.5, 0.75, 1.0];
+        for num in 0..=4 {
+            for &rx in &rolls {
+                for &ry in &rolls {
+                    let (dx, dy) = shake_offset(shake_fraction(num, 4), rx, ry);
+                    assert!(
+                        dx.abs() <= SHAKE_MAX_CELLS && dy.abs() <= SHAKE_MAX_CELLS,
+                        "offset ({dx},{dy}) exceeded max {SHAKE_MAX_CELLS}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn shake_decays_monotonically() {
+        // Hold the roll at the positive extreme and walk time forward: the throw
+        // never grows. Non-increasing (integer truncation makes it plateau).
+        let throws: Vec<i16> = (0..=4)
+            .map(|k| shake_offset(shake_fraction(k, 4), 1.0, 0.5).0)
+            .collect();
+        for pair in throws.windows(2) {
+            assert!(pair[0] >= pair[1], "shake grew over time: {throws:?}");
+        }
+    }
+
+    #[test]
+    fn shake_axes_are_independent() {
+        // roll_x drives dx and only dx; roll_y drives dy and only dy. A neutral
+        // roll on one axis keeps it still while the other throws to full.
+        assert_eq!(shake_offset(Duration::ZERO, 1.0, 0.5), (SHAKE_MAX_CELLS, 0));
+        assert_eq!(shake_offset(Duration::ZERO, 0.5, 1.0), (0, SHAKE_MAX_CELLS));
     }
 }
