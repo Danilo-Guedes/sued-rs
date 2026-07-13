@@ -128,7 +128,7 @@ impl Engine {
         if self.answer_buffer.is_empty() {
             StateChange::Denied
         } else {
-            self.revealed = Some(std::mem::take(&mut self.answer_buffer)); // mem::take take the current pointer in memory, letting a Default value in the old variable
+            self.revealed = Some(std::mem::take(&mut self.answer_buffer));
             StateChange::Revealed
         }
     }
@@ -152,7 +152,6 @@ impl Engine {
         StateChange::None
     }
 
-    //////GETTERS
     pub fn visible_buffer(&self) -> &str {
         &self.visible_buffer
     }
@@ -161,7 +160,7 @@ impl Engine {
         self.revealed.as_deref()
     }
     pub fn mode(&self) -> Mode {
-        self.mode // mode implements copy trait
+        self.mode
     }
 }
 

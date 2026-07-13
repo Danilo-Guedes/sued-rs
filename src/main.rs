@@ -1,8 +1,8 @@
 //! sued-rs — a horror-themed terminal recreation of the SueD prank oracle.
 //!
-//! **M2 scaffold.** Terminal lifecycle (RAII guard) + the tick loop live here;
-//! the ratatui draw code lives in [`ui::screens`]. The pure prank logic is in
-//! [`core::engine`] and stays untouched. See `../plan/PLAN.md` §D (M2).
+//! Terminal lifecycle (RAII guard) + the tick loop live here; the ratatui draw
+//! code lives in [`ui::screens`]. The pure prank logic is in [`core::engine`]
+//! and stays untouched.
 #![allow(dead_code)]
 
 mod app;
@@ -31,13 +31,12 @@ use crate::app::{App, AppFlow};
 use crate::core::engine::KeyPress;
 
 /// How long each tick waits for input before redrawing. ~50ms ≈ 20 fps — smooth
-/// enough for the animations coming in M3/M4, cheap enough to idle on.
+/// enough for the animations, cheap enough to idle on.
 const TICK: Duration = Duration::from_millis(50);
 
 /// Owns the terminal's "loud" state: raw mode + the alternate screen. Acquired
 /// on `new`, released on `Drop` — so the terminal is always restored, even on a
-/// panic or an early `?` return. (Same RAII idea as M1's guard, now owning two
-/// resources instead of one.)
+/// panic or an early `?` return.
 struct TerminalGuard;
 
 impl TerminalGuard {
@@ -65,7 +64,7 @@ fn main() -> Result<()> {
 }
 
 /// The tick loop: redraw every frame, only `read()` when there's actually input.
-/// Blocking on `read()` (M1) would freeze any animation between keystrokes.
+/// Blocking on `read()` would freeze any animation between keystrokes.
 fn run(terminal: &mut Terminal<CrosstermBackend<Stdout>>, app_state: &mut App) -> Result<()> {
     loop {
         // 1. DRAW — ratatui diffs against the last frame and writes only what changed.
