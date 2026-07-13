@@ -442,10 +442,9 @@ mod tests {
         assert!(on_menu(&state));
     }
 
-    // ── NEW: menu selection PERSISTS across a sub-screen visit ────────────────
+    // ── Menu selection PERSISTS across a sub-screen visit ─────────────────────
     // The whole point of hoisting `index` to the app struct: the cursor is
     // app-level state, so leaving the menu and returning must NOT reset it to 0.
-    // These are the tests that go red on the *behaviour* (not just the types).
 
     #[test]
     fn info_esc_preserves_menu_selection() {

@@ -40,9 +40,6 @@ const SHAKE_MAX_CELLS: i16 = 2;
 /// `Duration` and it tells you the visible-char count. That is what makes it
 /// unit-testable; the only impure bit (reading the real clock via
 /// `Instant::elapsed()`) stays out at the render boundary.
-///
-/// TODO(Danilo, M4): implement me until the tests below go green.
-/// Hint: visible chars = `elapsed / REVEAL_MS_PER_CHAR`, then clamp to `total`.
 fn typewriter_len(elapsed: Duration, total: usize) -> usize {
     let visible_chars = elapsed.as_millis() as u64 / REVEAL_MS_PER_CHAR;
     visible_chars.min(total as u64) as usize

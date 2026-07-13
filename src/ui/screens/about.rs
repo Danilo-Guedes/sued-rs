@@ -1,4 +1,4 @@
-//! 05 · SOBRE O SUED. (placeholder — content still to be built)
+//! 05 · SOBRE O SUED.
 
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout};
