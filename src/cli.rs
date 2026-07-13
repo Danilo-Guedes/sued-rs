@@ -4,7 +4,10 @@
 use clap::Parser;
 
 #[derive(Parser, Debug)]
-#[command(name = "sued-rs", about = "SueD, o oráculo — a horror-themed prank oracle for your terminal.")]
+#[command(
+    name = "sued-rs",
+    about = "SueD, o oráculo — a horror-themed prank oracle for your terminal."
+)]
 pub struct Args {
     /// Run with no audio at all (overrides the `audio` build feature).
     #[arg(long)]
