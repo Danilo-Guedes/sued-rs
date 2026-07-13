@@ -6,6 +6,9 @@
 //! in an audio build. kira owns its own realtime audio thread, so nothing here
 //! spawns threads — we just hand it sounds to play.
 
+#[cfg(feature = "audio")]
+use kira::{AudioManager, sound::static_sound::StaticSoundData};
+
 /// A one-shot sound triggered by a state change. `App` queues one; `main` drains
 /// it each tick and plays it. **Not** feature-gated — the pure app logic decides
 /// *which* sound to play without ever depending on kira, so it stays testable.
@@ -48,20 +51,49 @@ impl Audio {
 //     one-shot each (no loop). Keep the manager handle alive on `self`.
 #[cfg(feature = "audio")]
 pub struct Audio {
-    // TODO(Danilo): manager + loaded sounds live here.
+    manager: AudioManager,
+    ambience_sound: StaticSoundData,
+    laugh_sound: StaticSoundData,
+    jump_scare_sound: StaticSoundData,
 }
 
 #[cfg(feature = "audio")]
 impl Audio {
     pub fn new(_enabled: bool) -> anyhow::Result<Self> {
-        todo!("M3: create the kira AudioManager (when enabled) + load the sounds")
+        use kira::{
+            AudioManager, AudioManagerSettings, DefaultBackend,
+            sound::static_sound::StaticSoundData,
+        };
+
+        let audio_manager = AudioManager::<DefaultBackend>::new(AudioManagerSettings::default())?;
+
+        let ambience_sound = StaticSoundData::from_file("../assets/ambience.ogg")?;
+        let laugh_sound = StaticSoundData::from_file("../assets/laugh.ogg")?;
+        let jump_scare_sound = StaticSoundData::from_file("../assets/jump_scare.ogg")?;
+
+        Ok(Audio {
+            manager: audio_manager,
+            ambience_sound,
+            laugh_sound,
+            jump_scare_sound,
+        })
     }
 
     pub fn start_ambience(&mut self) {
-        todo!("M3: play assets/ambience.ogg on a loop")
+        loop {
+            let amb_sound = self.ambience_sound.clone();
+            let _ = self.manager.play(amb_sound);
+        }
     }
 
-    pub fn play(&mut self, _cue: AudioCue) {
-        todo!("M3: match the cue → play the sting / laugh one-shot")
+    pub fn play(&mut self, audio_cue: AudioCue) {
+        match audio_cue {
+            AudioCue::Mock => {
+                let _ = self.manager.play(self.laugh_sound.clone());
+            }
+            AudioCue::Sting => {
+                let _ = self.manager.play(self.laugh_sound.clone());
+            }
+        }
     }
 }

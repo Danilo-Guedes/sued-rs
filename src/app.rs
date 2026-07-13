@@ -9,6 +9,7 @@
 use std::time::Instant;
 
 use crate::{
+    audio::AudioCue,
     constants::{DECOY_STRING, DENIED_STRING},
     core::engine::{Engine, KeyPress, StateChange},
 };
@@ -194,6 +195,16 @@ impl App {
 
     pub fn started_at(&self) -> &Instant {
         &self.started_at
+    }
+
+    fn take_cue(&self) -> Option<AudioCue> {
+        match &self.screen {
+            Screen::Asking { engine, .. } => match engine.revealed() {
+                Some(_) => Some(AudioCue::Sting),
+                None => Some(AudioCue::Mock),
+            },
+            _ => None,
+        }
     }
 }
 
@@ -683,7 +694,7 @@ mod tests {
 
     #[test]
     fn a_reveal_queues_the_sting_cue() {
-        let mut state = drive(&[
+        let state = drive(&[
             KeyPress::Enter,
             KeyPress::Enter,     // → Asking
             KeyPress::Char(';'), // Hidden
@@ -696,7 +707,7 @@ mod tests {
 
     #[test]
     fn a_denial_queues_the_mock_cue() {
-        let mut state = drive(&[
+        let state = drive(&[
             KeyPress::Enter,
             KeyPress::Enter, // → Asking
             KeyPress::Char('o'),
@@ -708,7 +719,7 @@ mod tests {
 
     #[test]
     fn take_cue_drains_so_the_sound_fires_once() {
-        let mut state = drive(&[
+        let state = drive(&[
             KeyPress::Enter,
             KeyPress::Enter,
             KeyPress::Char(';'),
@@ -729,7 +740,7 @@ mod tests {
 
     #[test]
     fn plain_typing_queues_no_cue() {
-        let mut state = drive(&[
+        let state = drive(&[
             KeyPress::Enter,
             KeyPress::Enter,
             KeyPress::Char('o'),
