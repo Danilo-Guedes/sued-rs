@@ -139,7 +139,7 @@ pub(super) fn render_nav_strip(frame: &mut Frame, area: Rect, active: NavTab) {
 
     // Session badge — static placeholder for now; wire it to real state later.
     let session = Line::from(vec![
-        "sessão #666 ".dim(),
+        "sessão #999 ".dim(),
         "· ".dim(),
         "●".red(),
         " online".dim(),

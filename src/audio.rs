@@ -10,7 +10,9 @@
 use std::io::Cursor;
 
 #[cfg(feature = "audio")]
-use kira::{AudioManager, sound::static_sound::StaticSoundData};
+use kira::{
+    AudioManager, AudioManagerSettings, DefaultBackend, sound::static_sound::StaticSoundData,
+};
 
 /// A one-shot sound triggered by a state change. `App` queues one; `main` drains
 /// it each tick and plays it. **Not** feature-gated — the pure app logic decides
@@ -40,20 +42,8 @@ impl Audio {
     pub fn play(&mut self, _cue: AudioCue) {}
 }
 
-// ── Real build: `--features audio` ──────────────────────────────────────────
-// TODO(Danilo, M3): wire kira in here (the bodies are `todo!()` for you). You
-// read the 0.12 docs — the shape we agreed:
-//   * fields: a `kira::AudioManager` + the three loaded `StaticSoundData`
-//     (ambience looped, sting, laugh) — load from `assets/*.ogg`.
-//     `include_bytes!` them or read at startup; your call.
-//   * new(enabled): if `!enabled`, still return a valid *silent* `Audio`
-//     (skip building the manager) so `--no-sound` works in an audio build;
-//     otherwise create the manager and load the sounds.
-//   * start_ambience: play the ambience `StaticSoundData` with a loop region.
-//   * play(cue): `match cue { Sting => play sting, Mock => play laugh }` — a
-//     one-shot each (no loop). Keep the manager handle alive on `self`.
 #[cfg(feature = "audio")]
-pub struct Audio {
+struct Player {
     manager: AudioManager,
     ambience_sound: StaticSoundData,
     laugh_sound: StaticSoundData,
@@ -61,12 +51,16 @@ pub struct Audio {
 }
 
 #[cfg(feature = "audio")]
+pub struct Audio {
+    player: Option<Player>,
+}
+
+#[cfg(feature = "audio")]
 impl Audio {
-    pub fn new(_enabled: bool) -> anyhow::Result<Self> {
-        use kira::{
-            AudioManager, AudioManagerSettings, DefaultBackend,
-            sound::static_sound::StaticSoundData,
-        };
+    pub fn new(audio_enabled: bool) -> anyhow::Result<Self> {
+        if !audio_enabled {
+            return Ok(Audio { player: None });
+        }
 
         let audio_manager = AudioManager::<DefaultBackend>::new(AudioManagerSettings::default())?;
 
@@ -77,27 +71,66 @@ impl Audio {
         let jump_scare_sound =
             StaticSoundData::from_cursor(Cursor::new(include_bytes!("../assets/jump_scare.ogg")))?;
 
-        Ok(Audio {
+        let player = Player {
             manager: audio_manager,
             ambience_sound,
             laugh_sound,
             jump_scare_sound,
+        };
+
+        Ok(Audio {
+            player: Some(player),
         })
     }
 
     pub fn start_ambience(&mut self) {
-        let sound = self.ambience_sound.clone().loop_region(..);
-        let _ = self.manager.play(sound);
+        let Some(player) = &mut self.player else {
+            return;
+        };
+
+        let sound = player.ambience_sound.clone().loop_region(..);
+        let _ = player.manager.play(sound);
     }
 
     pub fn play(&mut self, audio_cue: AudioCue) {
+        let Some(player) = &mut self.player else {
+            return;
+        };
+
         match audio_cue {
             AudioCue::Laugh => {
-                let _ = self.manager.play(self.laugh_sound.clone());
+                let _ = player.manager.play(player.laugh_sound.clone());
             }
             AudioCue::JumpScare => {
-                let _ = self.manager.play(self.jump_scare_sound.clone());
+                let _ = player.manager.play(player.jump_scare_sound.clone());
             }
         }
+    }
+}
+
+// Only meaningful in an audio build: the stub `Audio` is unconditionally silent
+// and has no `player` to inspect. There is deliberately no `new(true)` test —
+// that one needs a real sound card, which CI doesn't have.
+#[cfg(all(test, feature = "audio"))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_disabled_audio_holds_no_player() {
+        let audio = Audio::new(false).expect("a silent Audio must build on a box with no sound");
+
+        assert!(
+            audio.player.is_none(),
+            "--no-sound must not open the audio device at all"
+        );
+    }
+
+    #[test]
+    fn a_silent_audio_stays_quiet_instead_of_panicking() {
+        let mut audio = Audio::new(false).unwrap();
+
+        audio.start_ambience();
+        audio.play(AudioCue::JumpScare);
+        audio.play(AudioCue::Laugh);
     }
 }
