@@ -67,9 +67,9 @@ impl Audio {
 
         let audio_manager = AudioManager::<DefaultBackend>::new(AudioManagerSettings::default())?;
 
-        let ambience_sound = StaticSoundData::from_file("../assets/ambience.ogg")?;
-        let laugh_sound = StaticSoundData::from_file("../assets/laugh.ogg")?;
-        let jump_scare_sound = StaticSoundData::from_file("../assets/jump_scare.ogg")?;
+        let ambience_sound = StaticSoundData::from_file("assets/ambience.ogg")?;
+        let laugh_sound = StaticSoundData::from_file("assets/laugh.ogg")?;
+        let jump_scare_sound = StaticSoundData::from_file("assets/jump_scare.ogg")?;
 
         Ok(Audio {
             manager: audio_manager,
@@ -90,7 +90,7 @@ impl Audio {
                 let _ = self.manager.play(self.laugh_sound.clone());
             }
             AudioCue::JumpScare => {
-                let _ = self.manager.play(self.laugh_sound.clone());
+                let _ = self.manager.play(self.jump_scare_sound.clone());
             }
         }
     }

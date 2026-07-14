@@ -90,9 +90,10 @@ fn run(
                 // Windows fires Press AND Release; only act on Press, or every key doubles.
                 if key.kind == KeyEventKind::Press {
                     let flow = translate_key(app_state, key);
-                    // TODO(next): once `App::take_cue()` is green, play the queued
-                    // reveal/denial sound here:
-                    //   if let Some(cue) = app_state.take_cue() { audio.play(cue); }
+
+                    if let Some(cue) = app_state.take_cue() {
+                        audio.play(cue);
+                    }
                     if flow == AppFlow::Quit {
                         return Ok(());
                     }
