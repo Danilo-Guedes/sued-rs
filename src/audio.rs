@@ -7,6 +7,9 @@
 //! spawns threads — we just hand it sounds to play.
 
 #[cfg(feature = "audio")]
+use std::io::Cursor;
+
+#[cfg(feature = "audio")]
 use kira::{AudioManager, sound::static_sound::StaticSoundData};
 
 /// A one-shot sound triggered by a state change. `App` queues one; `main` drains
@@ -67,9 +70,12 @@ impl Audio {
 
         let audio_manager = AudioManager::<DefaultBackend>::new(AudioManagerSettings::default())?;
 
-        let ambience_sound = StaticSoundData::from_file("assets/ambience.ogg")?;
-        let laugh_sound = StaticSoundData::from_file("assets/laugh.ogg")?;
-        let jump_scare_sound = StaticSoundData::from_file("assets/jump_scare.ogg")?;
+        let ambience_sound =
+            StaticSoundData::from_cursor(Cursor::new(include_bytes!("../assets/ambience.ogg")))?;
+        let laugh_sound =
+            StaticSoundData::from_cursor(Cursor::new(include_bytes!("../assets/laugh.ogg")))?;
+        let jump_scare_sound =
+            StaticSoundData::from_cursor(Cursor::new(include_bytes!("../assets/jump_scare.ogg")))?;
 
         Ok(Audio {
             manager: audio_manager,
