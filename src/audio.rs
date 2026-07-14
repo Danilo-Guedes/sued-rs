@@ -14,10 +14,10 @@ use kira::{AudioManager, sound::static_sound::StaticSoundData};
 /// *which* sound to play without ever depending on kira, so it stays testable.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AudioCue {
-    /// SUED reveals the answer — the jump-scare sting (`assets/sting.ogg`).
-    Sting,
+    /// SUED reveals the answer — the jump-scare sting (`assets/jump_scare.ogg`).
+    JumpScare,
     /// SUED denies the uninitiated — demonic laughter (`assets/laugh.ogg`).
-    Mock,
+    Laugh,
 }
 
 // ── Silent build: no `audio` feature (or `--no-sound`) ──────────────────────
@@ -80,18 +80,16 @@ impl Audio {
     }
 
     pub fn start_ambience(&mut self) {
-        loop {
-            let amb_sound = self.ambience_sound.clone();
-            let _ = self.manager.play(amb_sound);
-        }
+        let sound = self.ambience_sound.clone().loop_region(..);
+        let _ = self.manager.play(sound);
     }
 
     pub fn play(&mut self, audio_cue: AudioCue) {
         match audio_cue {
-            AudioCue::Mock => {
+            AudioCue::Laugh => {
                 let _ = self.manager.play(self.laugh_sound.clone());
             }
-            AudioCue::Sting => {
+            AudioCue::JumpScare => {
                 let _ = self.manager.play(self.laugh_sound.clone());
             }
         }
