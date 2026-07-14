@@ -1,28 +1,79 @@
-//! User preferences, loaded from `sued.json` via `serde` + `serde_json` (M5).
+//! `sued.json` — SueD's preferences file.
 //!
-//! **Config is preferences, not content.** The decoy/denial pools deliberately
-//! do NOT live here — they're app content baked into the binary (and keyed by
-//! language once i18n lands), so a user can't empty a pool and break the prank.
-//! What's here is only what someone would reasonably want to tune: theme,
-//! volume, flicker.
+//! Both the file and every key in it are optional. With no `sued.json` on disk
+//! SueD runs on its defaults, so you only need to write down the settings you
+//! actually want to change:
 //!
-//! `Default` holds today's hardcoded behaviour, so the app runs identically with
-//! no `sued.json` on disk at all.
-//
-// TODO(Danilo, M5): implement to the API the tests below pin —
-//   * `Config { theme: Theme, audio_volume: u8, flicker: bool }`
-//     with `#[serde(default)]` on the STRUCT (not per-field), so any missing
-//     key falls back to `Default`.
-//   * `impl Default for Config` = Sangue / 100 / true.
-//   * `enum Theme { Sangue, Ambar, Fosforo }`, `#[serde(rename_all = "lowercase")]`,
-//     `#[default] Sangue`.
-//   * `from_json` / `to_json` — pure, where the logic lives.
-//   * `load` / `save` — thin filesystem edge. `load` forgives ONLY `NotFound`.
-//
+//! ```json
+//! {
+//!   "theme": "sangue",
+//!   "audio_volume": 100,
+//!   "flicker": true
+//! }
+//! ```
+//!
+//! - **`theme`** — `"sangue"` (default), `"ambar"`, or `"fosforo"`.
+//! - **`audio_volume`** — `0`–`100`. `0` is silence.
+//! - **`flicker`** — `true` (default) lets the horror flicker; `false` holds it
+//!   steady, which also helps if flickering bothers your eyes.
+//!
+//! A missing file is normal and silent. A file that *exists* but is malformed,
+//! or that names a key SueD doesn't recognise, is a hard error — SueD would
+//! rather stop and say so than ignore your settings and leave you wondering
+//! why nothing changed.
+//!
+//! The incantations SueD types and the insults it throws back aren't set here;
+//! they belong to the oracle, not to you.
+
 // Volume is a 0–100 PERCENT here on purpose. kira speaks decibels
 // (`Decibels(0.0)` = full, `Decibels(-60.0)` = silence), so the percent→dB
 // mapping belongs at the audio edge, not in the config file. Passing a raw
 // fraction to kira compiles and is wrong: `.volume(0.5)` means +0.5 dB ≈ 106%.
+
+use std::{fs, path::Path};
+
+use anyhow::Context;
+use serde::{Deserialize, Serialize};
+
+use crate::ui::theme::Theme;
+
+#[derive(Debug, Deserialize, Serialize, PartialEq)]
+#[serde(default, deny_unknown_fields)]
+pub struct Config {
+    theme: Theme,
+    audio_volume: u8,
+    flicker: bool,
+}
+
+impl Config {
+    pub fn from_json(conf_str: &str) -> Result<Self, serde_json::Error> {
+        serde_json::from_str(conf_str)
+    }
+
+    pub fn load(path: &Path) -> anyhow::Result<Self> {
+        match fs::read_to_string(path) {
+            Ok(text) => {
+                Self::from_json(&text).with_context(|| format!("parsing {}", path.display()))
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Self::default()),
+            Err(e) => Err(e).with_context(|| format!("reading {}", path.display())),
+        }
+    }
+
+    pub fn to_json(&self) -> Result<String, serde_json::Error> {
+        serde_json::to_string_pretty(self)
+    }
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Config {
+            theme: Theme::Sangue,
+            audio_volume: 100,
+            flicker: true,
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -96,6 +147,19 @@ mod tests {
         assert!(
             result.is_err(),
             "a theme we don't have must fail loudly, not silently pick one"
+        );
+    }
+
+    #[test]
+    fn an_unknown_key_is_rejected() {
+        // Serde IGNORES unknown fields unless told otherwise, so this typo
+        // parses happily and `audio_volume` stays 100 — the user's edit
+        // vanishes with no message. Same silent failure we refused elsewhere.
+        let result = Config::from_json(r#"{ "audio_volumee": 40 }"#);
+
+        assert!(
+            result.is_err(),
+            "a misspelled key must fail loudly, not leave the user wondering why nothing changed"
         );
     }
 
