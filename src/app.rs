@@ -19,6 +19,7 @@ pub struct App {
     screen: Screen,
     menu: Menu,
     started_at: Instant,
+    pending_cue: Option<AudioCue>,
 }
 
 #[derive(Default, Debug)]
@@ -80,6 +81,7 @@ impl App {
             screen: Screen::default(),
             menu: Menu::default(),
             started_at: Instant::now(),
+            pending_cue: None,
         }
     }
     pub fn handle_key(&mut self, key: KeyPress) -> AppFlow {
@@ -136,10 +138,12 @@ impl App {
                         StateChange::Revealed => {
                             *denied_message = None;
                             *replied_at = Some(Instant::now());
+                            self.pending_cue = Some(AudioCue::JumpScare);
                         }
                         StateChange::Denied => {
                             *denied_message = Some(DENIED_STRING);
                             *replied_at = Some(Instant::now());
+                            self.pending_cue = Some(AudioCue::Laugh);
                         }
                         _ => {}
                     }
@@ -160,6 +164,7 @@ impl App {
                     engine.handle_key(KeyPress::F5);
                     *replied_at = None;
                     *denied_message = None;
+                    self.pending_cue = None;
                     AppFlow::Stay
                 }
                 other_char => {
@@ -197,14 +202,8 @@ impl App {
         &self.started_at
     }
 
-    fn take_cue(&self) -> Option<AudioCue> {
-        match &self.screen {
-            Screen::Asking { engine, .. } => match engine.revealed() {
-                Some(_) => Some(AudioCue::Sting),
-                None => Some(AudioCue::Mock),
-            },
-            _ => None,
-        }
+    fn take_cue(&mut self) -> Option<AudioCue> {
+        self.pending_cue.take()
     }
 }
 
@@ -694,7 +693,7 @@ mod tests {
 
     #[test]
     fn a_reveal_queues_the_sting_cue() {
-        let state = drive(&[
+        let mut state = drive(&[
             KeyPress::Enter,
             KeyPress::Enter,     // → Asking
             KeyPress::Char(';'), // Hidden
@@ -702,24 +701,24 @@ mod tests {
             KeyPress::Char('2'), // secret answer "42"
             KeyPress::Enter,     // reveal
         ]);
-        assert_eq!(state.take_cue(), Some(AudioCue::Sting));
+        assert_eq!(state.take_cue(), Some(AudioCue::JumpScare));
     }
 
     #[test]
     fn a_denial_queues_the_mock_cue() {
-        let state = drive(&[
+        let mut state = drive(&[
             KeyPress::Enter,
             KeyPress::Enter, // → Asking
             KeyPress::Char('o'),
             KeyPress::Char('i'), // a question typed in the open
             KeyPress::Enter,     // empty answer → Denied
         ]);
-        assert_eq!(state.take_cue(), Some(AudioCue::Mock));
+        assert_eq!(state.take_cue(), Some(AudioCue::Laugh));
     }
 
     #[test]
     fn take_cue_drains_so_the_sound_fires_once() {
-        let state = drive(&[
+        let mut state = drive(&[
             KeyPress::Enter,
             KeyPress::Enter,
             KeyPress::Char(';'),
@@ -728,7 +727,7 @@ mod tests {
         ]);
         assert_eq!(
             state.take_cue(),
-            Some(AudioCue::Sting),
+            Some(AudioCue::JumpScare),
             "the first drain gets the cue"
         );
         assert_eq!(
@@ -740,7 +739,7 @@ mod tests {
 
     #[test]
     fn plain_typing_queues_no_cue() {
-        let state = drive(&[
+        let mut state = drive(&[
             KeyPress::Enter,
             KeyPress::Enter,
             KeyPress::Char('o'),
