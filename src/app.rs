@@ -202,7 +202,7 @@ impl App {
         &self.started_at
     }
 
-    fn take_cue(&mut self) -> Option<AudioCue> {
+    pub fn take_cue(&mut self) -> Option<AudioCue> {
         self.pending_cue.take()
     }
 }
