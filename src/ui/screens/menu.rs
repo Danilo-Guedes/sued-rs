@@ -33,7 +33,7 @@ fn render_menu_column(frame: &mut Frame, area: Rect, menu: &Menu) {
     // while the full-width selection bar simply clips instead of shoving the whole
     // list down a row.
     let [list_area, hint_area] =
-        Layout::vertical([Constraint::Length(8), Constraint::Fill(1)]).areas(area);
+        Layout::vertical([Constraint::Length(9), Constraint::Fill(1)]).areas(area);
 
     let width = list_area.width as usize;
     let mut lines: Vec<Line> = vec![

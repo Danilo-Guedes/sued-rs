@@ -88,10 +88,17 @@ pub(super) enum NavTab {
     Ask,
     Info,
     About,
+    Config,
 }
 
 impl NavTab {
-    const ALL: [NavTab; 4] = [NavTab::Intro, NavTab::Ask, NavTab::Info, NavTab::About];
+    const ALL: [NavTab; 5] = [
+        NavTab::Intro,
+        NavTab::Ask,
+        NavTab::Info,
+        NavTab::About,
+        NavTab::Config,
+    ];
 
     fn label(self) -> &'static str {
         match self {
@@ -99,6 +106,7 @@ impl NavTab {
             NavTab::Ask => "Pergunta",
             NavTab::Info => "Informações",
             NavTab::About => "Sobre",
+            NavTab::Config => "Config",
         }
     }
 }
