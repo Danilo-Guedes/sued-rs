@@ -6,10 +6,10 @@ use ratatui::style::Stylize;
 use ratatui::text::Line;
 use ratatui::widgets::{Block, Borders, Padding, Paragraph, Wrap};
 
-use crate::app::Menu;
+use crate::app::MenuIndex;
 use crate::ui::screens::common::{colorfull_bordered_block, create_screen_block};
 
-pub(super) fn render(frame: &mut Frame, menu: &Menu) {
+pub(super) fn render(frame: &mut Frame, menu: &MenuIndex) {
     let layout = create_screen_block(frame);
 
     let [center_layout, status_layout] = Layout::vertical([
@@ -27,7 +27,7 @@ pub(super) fn render(frame: &mut Frame, menu: &Menu) {
 }
 
 /// Left column — heading, the selectable list, a divider and a hint.
-fn render_menu_column(frame: &mut Frame, area: Rect, menu: &Menu) {
+fn render_menu_column(frame: &mut Frame, area: Rect, menu: &MenuIndex) {
     // Split a fixed block (heading + list + divider, no wrap) from the hint below
     // (which *does* wrap). Keeping them in separate rects lets the long hint reflow
     // while the full-width selection bar simply clips instead of shoving the whole
@@ -42,7 +42,7 @@ fn render_menu_column(frame: &mut Frame, area: Rect, menu: &Menu) {
         Line::from(""),
     ];
 
-    for (idx, item) in Menu::ALL.iter().enumerate() {
+    for (idx, item) in MenuIndex::ALL.iter().enumerate() {
         let label = item.label();
         if idx == menu.index() {
             // Full-width accent bar. A background only paints the cells that hold a
@@ -151,7 +151,8 @@ fn render_status_bar(frame: &mut Frame, area: Rect, selected_menu: usize) {
     ]);
     frame.render_widget(Paragraph::new(hints), hints_area);
     frame.render_widget(
-        Paragraph::new(format!("{}/{}", selected_menu + 1, Menu::ALL.len(),).dim()).right_aligned(),
+        Paragraph::new(format!("{}/{}", selected_menu + 1, MenuIndex::ALL.len(),).dim())
+            .right_aligned(),
         page_area,
     );
 }

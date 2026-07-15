@@ -17,9 +17,10 @@ use crate::{
 #[derive(Debug)]
 pub struct App {
     screen: Screen,
-    menu: Menu,
+    menu: MenuIndex,
     started_at: Instant,
     pending_cue: Option<AudioCue>,
+    config_index: ConfigMenu,
 }
 
 #[derive(Default, Debug)]
@@ -44,7 +45,7 @@ pub enum AppFlow {
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
-pub enum MenuItem {
+pub enum MenuOption {
     Ask,
     Info,
     About,
@@ -52,30 +53,53 @@ pub enum MenuItem {
     Exit,
 }
 
-impl MenuItem {
+impl MenuOption {
     pub fn label(&self) -> &'static str {
         match self {
-            MenuItem::Ask => "PERGUNTAR AO ORÁCULO",
-            MenuItem::Info => "INFORMAÇÕES",
-            MenuItem::About => "SOBRE O SUED",
-            MenuItem::Config => "CONFIGURAÇÃO",
-            MenuItem::Exit => "SAIR",
+            MenuOption::Ask => "PERGUNTAR AO ORÁCULO",
+            MenuOption::Info => "INFORMAÇÕES",
+            MenuOption::About => "SOBRE O SUED",
+            MenuOption::Config => "CONFIGURAÇÃO",
+            MenuOption::Exit => "SAIR",
         }
     }
 }
 
 #[derive(Debug, Default)]
-pub struct Menu {
-    index: usize,
+pub struct MenuIndex {
+    selected: usize,
 }
 
-impl Menu {
-    pub const ALL: [MenuItem; 5] = [
-        MenuItem::Ask,
-        MenuItem::Info,
-        MenuItem::About,
-        MenuItem::Config,
-        MenuItem::Exit,
+impl MenuIndex {
+    pub const ALL: [MenuOption; 5] = [
+        MenuOption::Ask,
+        MenuOption::Info,
+        MenuOption::About,
+        MenuOption::Config,
+        MenuOption::Exit,
+    ];
+}
+
+#[derive(Debug, PartialEq, Clone, Copy, Default)]
+pub enum ConfigOption {
+    #[default]
+    Theme,
+    Animations,
+    Volume,
+    Language,
+}
+
+#[derive(Debug, Default)]
+pub struct ConfigMenu {
+    selected: usize,
+}
+
+impl ConfigMenu {
+    pub const ALL: [ConfigOption; 4] = [
+        ConfigOption::Theme,
+        ConfigOption::Animations,
+        ConfigOption::Volume,
+        ConfigOption::Language,
     ];
 }
 
@@ -83,9 +107,10 @@ impl App {
     pub fn new() -> Self {
         App {
             screen: Screen::default(),
-            menu: Menu::default(),
+            menu: MenuIndex::default(),
             started_at: Instant::now(),
             pending_cue: None,
+            config_index: ConfigMenu::default(),
         }
     }
     pub fn handle_key(&mut self, key: KeyPress) -> AppFlow {
@@ -99,8 +124,8 @@ impl App {
                 _ => AppFlow::Stay,
             },
             Screen::Menu => match key {
-                KeyPress::Enter => match self.menu.index() {
-                    0 => {
+                KeyPress::Enter => match MenuIndex::ALL[self.menu.index()] {
+                    MenuOption::Ask => {
                         self.screen = Screen::Asking {
                             engine: Engine::new(DECOY_STRING),
                             replied_at: None,
@@ -108,20 +133,19 @@ impl App {
                         };
                         AppFlow::Stay
                     }
-                    1 => {
+                    MenuOption::Info => {
                         self.screen = Screen::Info;
                         AppFlow::Stay
                     }
-                    2 => {
+                    MenuOption::About => {
                         self.screen = Screen::About;
                         AppFlow::Stay
                     }
-                    3 => {
+                    MenuOption::Config => {
                         self.screen = Screen::Config;
                         AppFlow::Stay
                     }
-                    4 => AppFlow::Quit,
-                    _ => AppFlow::Stay,
+                    MenuOption::Exit => AppFlow::Quit,
                 },
                 KeyPress::Esc => AppFlow::Quit,
                 KeyPress::Up => {
@@ -198,9 +222,18 @@ impl App {
             },
             Screen::Config => match key {
                 KeyPress::Enter => todo!(),
-                KeyPress::Esc => todo!(),
-                KeyPress::Up => todo!(),
-                KeyPress::Down => todo!(),
+                KeyPress::Esc => {
+                    self.screen = Screen::Menu;
+                    AppFlow::Stay
+                }
+                KeyPress::Up => {
+                    self.config_index.move_config_menu_up();
+                    AppFlow::Stay
+                }
+                KeyPress::Down => {
+                    self.config_index.move_config_menu_down();
+                    AppFlow::Stay
+                }
                 KeyPress::Left => todo!(),
                 KeyPress::Right => todo!(),
                 _ => AppFlow::Stay,
@@ -211,7 +244,7 @@ impl App {
         &self.screen
     }
 
-    pub fn menu(&self) -> &Menu {
+    pub fn menu(&self) -> &MenuIndex {
         &self.menu
     }
 
@@ -224,23 +257,43 @@ impl App {
     }
 }
 
-impl Menu {
+impl MenuIndex {
     pub fn new() -> Self {
         Self::default()
     }
 
     pub fn move_menu_down(&mut self) {
         let menu_size = Self::ALL.len();
-        self.index = (self.index + 1) % menu_size;
+        self.selected = (self.selected + 1) % menu_size;
     }
 
     pub fn move_menu_up(&mut self) {
         let menu_size = Self::ALL.len();
-        self.index = (self.index + menu_size - 1) % menu_size;
+        self.selected = (self.selected + menu_size - 1) % menu_size;
     }
 
     pub fn index(&self) -> usize {
-        self.index
+        self.selected
+    }
+}
+
+impl ConfigMenu {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn move_config_menu_down(&mut self) {
+        let menu_size = Self::ALL.len();
+        self.selected = (self.selected + 1) % menu_size;
+    }
+
+    pub fn move_config_menu_up(&mut self) {
+        let menu_size = Self::ALL.len();
+        self.selected = (self.selected + menu_size - 1) % menu_size;
+    }
+
+    pub fn index(&self) -> usize {
+        self.selected
     }
 }
 
@@ -264,8 +317,8 @@ mod tests {
         drive_flow(keys).0
     }
 
-    fn selected(state: &App) -> MenuItem {
-        Menu::ALL[state.menu().index()]
+    fn selected(state: &App) -> MenuOption {
+        MenuIndex::ALL[state.menu().index()]
     }
 
     fn on_menu(state: &App) -> bool {
@@ -283,7 +336,7 @@ mod tests {
     fn intro_enter_opens_menu_on_first_item() {
         let state = drive(&[KeyPress::Enter]);
         assert!(on_menu(&state));
-        assert_eq!(selected(&state), MenuItem::Ask);
+        assert_eq!(selected(&state), MenuOption::Ask);
     }
 
     #[test]
@@ -297,7 +350,7 @@ mod tests {
     #[test]
     fn menu_down_advances_selection() {
         let state = drive(&[KeyPress::Enter, KeyPress::Down]);
-        assert_eq!(selected(&state), MenuItem::Info);
+        assert_eq!(selected(&state), MenuOption::Info);
     }
 
     #[test]
@@ -311,14 +364,14 @@ mod tests {
             KeyPress::Down,
             KeyPress::Down,
         ]);
-        assert_eq!(selected(&state), MenuItem::Ask);
+        assert_eq!(selected(&state), MenuOption::Ask);
     }
 
     #[test]
     fn menu_up_wraps_to_last_item() {
         // From the first item, Up lands on Sair.
         let state = drive(&[KeyPress::Enter, KeyPress::Up]);
-        assert_eq!(selected(&state), MenuItem::Exit);
+        assert_eq!(selected(&state), MenuOption::Exit);
     }
 
     // ── Menu selection (Enter routes per item) ───────────────────────────────
@@ -486,7 +539,7 @@ mod tests {
         assert!(on_menu(&state));
         assert_eq!(
             selected(&state),
-            MenuItem::Info,
+            MenuOption::Info,
             "returning from Info must keep the cursor on Info, not reset to Ask"
         );
     }
@@ -502,7 +555,7 @@ mod tests {
             KeyPress::Esc,
         ]);
         assert!(on_menu(&state));
-        assert_eq!(selected(&state), MenuItem::About);
+        assert_eq!(selected(&state), MenuOption::About);
     }
 
     #[test]
@@ -511,7 +564,7 @@ mod tests {
         // so a future menu reorder can't silently break the round-trip.
         let state = drive(&[KeyPress::Enter, KeyPress::Enter, KeyPress::Esc]);
         assert!(on_menu(&state));
-        assert_eq!(selected(&state), MenuItem::Ask);
+        assert_eq!(selected(&state), MenuOption::Ask);
     }
 
     #[test]
@@ -528,7 +581,7 @@ mod tests {
             KeyPress::Down,  // → Sair (4)
         ]);
         assert!(on_menu(&state));
-        assert_eq!(selected(&state), MenuItem::Exit);
+        assert_eq!(selected(&state), MenuOption::Exit);
     }
 
     #[test]

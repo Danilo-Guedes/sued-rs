@@ -11,6 +11,7 @@ mod cli;
 mod config;
 mod constants;
 mod core;
+mod language;
 mod ui;
 
 use std::io::{Stdout, stdout};
