@@ -19,9 +19,9 @@ use kira::{
 /// *which* sound to play without ever depending on kira, so it stays testable.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AudioCue {
-    /// SUED reveals the answer — the jump-scare sting (`assets/jump_scare.ogg`).
+    /// SUED denies the uninitiated — the jump-scare sting (`assets/jump_scare.ogg`).
     JumpScare,
-    /// SUED denies the uninitiated — demonic laughter (`assets/laugh.ogg`).
+    /// SUED reveals the answer — demonic laughter (`assets/laugh.ogg`).
     Laugh,
 }
 
