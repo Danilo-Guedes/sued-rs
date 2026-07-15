@@ -40,14 +40,14 @@ use crate::{language::Language, ui::theme::Theme};
 
 #[derive(Debug, Deserialize, Serialize, PartialEq)]
 #[serde(default, deny_unknown_fields)]
-pub struct Config {
+pub struct Configuration {
     theme: Theme,
     audio_volume: u8,
     animations: bool,
     language: Language,
 }
 
-impl Config {
+impl Configuration {
     pub fn from_json(conf_str: &str) -> Result<Self, serde_json::Error> {
         serde_json::from_str(conf_str)
     }
@@ -67,9 +67,9 @@ impl Config {
     }
 }
 
-impl Default for Config {
+impl Default for Configuration {
     fn default() -> Self {
-        Config {
+        Configuration {
             theme: Theme::Sangue,
             audio_volume: 80,
             animations: true,
@@ -84,7 +84,7 @@ mod tests {
 
     #[test]
     fn defaults_match_todays_hardcoded_behaviour() {
-        let config = Config::default();
+        let config = Configuration::default();
 
         assert_eq!(config.theme, Theme::Sangue);
         assert_eq!(config.audio_volume, 80);
@@ -96,14 +96,14 @@ mod tests {
     fn an_empty_json_object_yields_every_default() {
         // This is what `#[serde(default)]` on the struct buys: `{}` is a valid,
         // complete config. Without it, serde rejects every missing key.
-        let config = Config::from_json("{}").expect("`{}` must be a valid config");
+        let config = Configuration::from_json("{}").expect("`{}` must be a valid config");
 
-        assert_eq!(config, Config::default());
+        assert_eq!(config, Configuration::default());
     }
 
     #[test]
     fn a_partial_config_defaults_only_the_missing_fields() {
-        let config = Config::from_json(r#"{ "theme": "ambar" }"#)
+        let config = Configuration::from_json(r#"{ "theme": "ambar" }"#)
             .expect("a config naming one field must parse");
 
         assert_eq!(
@@ -119,7 +119,7 @@ mod tests {
     fn a_full_config_parses_every_field() {
         let json = r#"{ "theme": "fosforo", "audio_volume": 40, "animations": false, "language": "ptbr" }"#;
 
-        let config = Config::from_json(json).expect("a complete config must parse");
+        let config = Configuration::from_json(json).expect("a complete config must parse");
 
         assert_eq!(config.theme, Theme::Fosforo);
         assert_eq!(config.audio_volume, 40);
@@ -138,7 +138,7 @@ mod tests {
         ] {
             let json = format!(r#"{{ "theme": "{name}" }}"#);
 
-            let config = Config::from_json(&json)
+            let config = Configuration::from_json(&json)
                 .unwrap_or_else(|e| panic!("theme {name:?} must parse, got: {e}"));
 
             assert_eq!(config.theme, expected, "theme {name:?} parsed wrong");
@@ -147,7 +147,7 @@ mod tests {
 
     #[test]
     fn an_unknown_theme_is_rejected() {
-        let result = Config::from_json(r#"{ "theme": "roxo" }"#);
+        let result = Configuration::from_json(r#"{ "theme": "roxo" }"#);
 
         assert!(
             result.is_err(),
@@ -160,7 +160,7 @@ mod tests {
         // Serde IGNORES unknown fields unless told otherwise, so this typo
         // parses happily and `audio_volume` stays 80 — the user's edit
         // vanishes with no message. Same silent failure we refused elsewhere.
-        let result = Config::from_json(r#"{ "audio_volumee": 40 }"#);
+        let result = Configuration::from_json(r#"{ "audio_volumee": 40 }"#);
 
         assert!(
             result.is_err(),
@@ -170,7 +170,7 @@ mod tests {
 
     #[test]
     fn malformed_json_is_rejected() {
-        let result = Config::from_json("{ this is not json");
+        let result = Configuration::from_json("{ this is not json");
 
         assert!(
             result.is_err(),
@@ -180,7 +180,7 @@ mod tests {
 
     #[test]
     fn a_config_survives_a_json_round_trip() {
-        let original = Config {
+        let original = Configuration {
             theme: Theme::Fosforo,
             audio_volume: 25,
             animations: false,
@@ -188,7 +188,7 @@ mod tests {
         };
 
         let json = original.to_json().expect("a config must serialize");
-        let parsed = Config::from_json(&json).expect("our own output must parse back");
+        let parsed = Configuration::from_json(&json).expect("our own output must parse back");
 
         assert_eq!(parsed, original, "a round trip must not lose anything");
     }
@@ -203,8 +203,8 @@ mod tests {
             "this test needs a path that truly doesn't exist"
         );
 
-        let config = Config::load(missing).expect("a missing file must NOT be an error");
+        let config = Configuration::load(missing).expect("a missing file must NOT be an error");
 
-        assert_eq!(config, Config::default());
+        assert_eq!(config, Configuration::default());
     }
 }

@@ -10,6 +10,7 @@ use std::time::Instant;
 
 use crate::{
     audio::AudioCue,
+    config::Configuration,
     constants::{DECOY_STRING, DENIED_STRING},
     core::engine::{Engine, KeyPress, StateChange},
 };
@@ -35,7 +36,9 @@ pub enum Screen {
     },
     Info,
     About,
-    Config,
+    Config {
+        draft: Configuration,
+    },
 }
 
 #[derive(Debug, PartialEq)]
@@ -142,7 +145,9 @@ impl App {
                         AppFlow::Stay
                     }
                     MenuOption::Config => {
-                        self.screen = Screen::Config;
+                        self.screen = Screen::Config {
+                            draft: Configuration::default(),
+                        };
                         AppFlow::Stay
                     }
                     MenuOption::Exit => AppFlow::Quit,
@@ -220,7 +225,7 @@ impl App {
                 }
                 _ => AppFlow::Stay,
             },
-            Screen::Config => match key {
+            Screen::Config { draft: _ } => match key {
                 KeyPress::Enter => todo!(),
                 KeyPress::Esc => {
                     self.screen = Screen::Menu;
