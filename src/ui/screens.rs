@@ -3,6 +3,7 @@
 mod about;
 mod ask;
 mod common;
+mod config;
 mod info;
 mod intro;
 mod menu;
@@ -28,5 +29,6 @@ pub fn render(frame: &mut Frame, app: &App) {
         ),
         Screen::Info => info::render(frame),
         Screen::About => about::render(frame),
+        Screen::Config => config::render(frame),
     }
 }

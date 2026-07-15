@@ -34,6 +34,7 @@ pub enum Screen {
     },
     Info,
     About,
+    Config,
 }
 
 #[derive(Debug, PartialEq)]
@@ -47,6 +48,7 @@ pub enum MenuItem {
     Ask,
     Info,
     About,
+    Config,
     Exit,
 }
 
@@ -56,6 +58,7 @@ impl MenuItem {
             MenuItem::Ask => "PERGUNTAR AO ORÁCULO",
             MenuItem::Info => "INFORMAÇÕES",
             MenuItem::About => "SOBRE O SUED",
+            MenuItem::Config => "CONFIGURAÇÃO",
             MenuItem::Exit => "SAIR",
         }
     }
@@ -67,10 +70,11 @@ pub struct Menu {
 }
 
 impl Menu {
-    pub const ALL: [MenuItem; 4] = [
+    pub const ALL: [MenuItem; 5] = [
         MenuItem::Ask,
         MenuItem::Info,
         MenuItem::About,
+        MenuItem::Config,
         MenuItem::Exit,
     ];
 }
@@ -112,7 +116,11 @@ impl App {
                         self.screen = Screen::About;
                         AppFlow::Stay
                     }
-                    3 => AppFlow::Quit,
+                    3 => {
+                        self.screen = Screen::Config;
+                        AppFlow::Stay
+                    }
+                    4 => AppFlow::Quit,
                     _ => AppFlow::Stay,
                 },
                 KeyPress::Esc => AppFlow::Quit,
@@ -186,6 +194,15 @@ impl App {
                     self.screen = Screen::Menu;
                     AppFlow::Stay
                 }
+                _ => AppFlow::Stay,
+            },
+            Screen::Config => match key {
+                KeyPress::Enter => todo!(),
+                KeyPress::Esc => todo!(),
+                KeyPress::Up => todo!(),
+                KeyPress::Down => todo!(),
+                KeyPress::Left => todo!(),
+                KeyPress::Right => todo!(),
                 _ => AppFlow::Stay,
             },
         }
@@ -285,9 +302,10 @@ mod tests {
 
     #[test]
     fn menu_down_wraps_past_last_item() {
-        // Perguntar → Informacoes → Sobre → Sair → back to Perguntar.
+        // Perguntar → Informacoes → Sobre → Config → Sair → back to Perguntar.
         let state = drive(&[
             KeyPress::Enter,
+            KeyPress::Down,
             KeyPress::Down,
             KeyPress::Down,
             KeyPress::Down,
@@ -506,7 +524,8 @@ mod tests {
             KeyPress::Down,  // Sobre (2)
             KeyPress::Enter, // into Sobre
             KeyPress::Esc,   // back to Menu, still at 2
-            KeyPress::Down,  // → Sair (3)
+            KeyPress::Down,  // → Config (3)
+            KeyPress::Down,  // → Sair (4)
         ]);
         assert!(on_menu(&state));
         assert_eq!(selected(&state), MenuItem::Exit);

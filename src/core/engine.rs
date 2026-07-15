@@ -28,6 +28,8 @@ pub enum KeyPress {
     Up,
     Down,
     F5,
+    Left,
+    Right,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -59,6 +61,8 @@ impl Engine {
             KeyPress::Esc => StateChange::None,
             KeyPress::Up => StateChange::None,
             KeyPress::Down => StateChange::None,
+            KeyPress::Left => StateChange::None,
+            KeyPress::Right => StateChange::None,
             KeyPress::F5 => self.handle_f5_key(),
         }
     }
