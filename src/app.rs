@@ -138,12 +138,12 @@ impl App {
                         StateChange::Revealed => {
                             *denied_message = None;
                             *replied_at = Some(Instant::now());
-                            self.pending_cue = Some(AudioCue::JumpScare);
+                            self.pending_cue = Some(AudioCue::Laugh);
                         }
                         StateChange::Denied => {
                             *denied_message = Some(DENIED_STRING);
                             *replied_at = Some(Instant::now());
-                            self.pending_cue = Some(AudioCue::Laugh);
+                            self.pending_cue = Some(AudioCue::JumpScare);
                         }
                         _ => {}
                     }
@@ -685,14 +685,8 @@ mod tests {
         }
     }
 
-    // ── Audio cues: SUED's reply queues a one-shot sound ─────────────────────
-    // The engine emits Revealed/Denied; the App turns that into an `AudioCue`
-    // the loop drains and plays ONCE (playing it every frame would machine-gun
-    // the sting). The App only *decides* the cue — it never touches kira, so
-    // these stay pure. `take_cue(&mut self) -> Option<AudioCue>` drains it.
-
     #[test]
-    fn a_reveal_queues_the_sting_cue() {
+    fn a_reveal_queues_the_laugh_cue() {
         let mut state = drive(&[
             KeyPress::Enter,
             KeyPress::Enter,     // → Asking
@@ -701,11 +695,11 @@ mod tests {
             KeyPress::Char('2'), // secret answer "42"
             KeyPress::Enter,     // reveal
         ]);
-        assert_eq!(state.take_cue(), Some(AudioCue::JumpScare));
+        assert_eq!(state.take_cue(), Some(AudioCue::Laugh));
     }
 
     #[test]
-    fn a_denial_queues_the_mock_cue() {
+    fn a_denial_queues_the_jump_scare_cue() {
         let mut state = drive(&[
             KeyPress::Enter,
             KeyPress::Enter, // → Asking
@@ -713,7 +707,7 @@ mod tests {
             KeyPress::Char('i'), // a question typed in the open
             KeyPress::Enter,     // empty answer → Denied
         ]);
-        assert_eq!(state.take_cue(), Some(AudioCue::Laugh));
+        assert_eq!(state.take_cue(), Some(AudioCue::JumpScare));
     }
 
     #[test]
@@ -727,7 +721,7 @@ mod tests {
         ]);
         assert_eq!(
             state.take_cue(),
-            Some(AudioCue::JumpScare),
+            Some(AudioCue::Laugh),
             "the first drain gets the cue"
         );
         assert_eq!(
