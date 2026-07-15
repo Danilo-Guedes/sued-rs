@@ -20,7 +20,7 @@ pub struct App {
     menu: MenuIndex,
     started_at: Instant,
     pending_cue: Option<AudioCue>,
-    config_index: ConfigMenu,
+    configuration: ConfigIndex,
 }
 
 #[derive(Default, Debug)]
@@ -90,11 +90,11 @@ pub enum ConfigOption {
 }
 
 #[derive(Debug, Default)]
-pub struct ConfigMenu {
+pub struct ConfigIndex {
     selected: usize,
 }
 
-impl ConfigMenu {
+impl ConfigIndex {
     pub const ALL: [ConfigOption; 4] = [
         ConfigOption::Theme,
         ConfigOption::Animations,
@@ -110,7 +110,7 @@ impl App {
             menu: MenuIndex::default(),
             started_at: Instant::now(),
             pending_cue: None,
-            config_index: ConfigMenu::default(),
+            configuration: ConfigIndex::default(),
         }
     }
     pub fn handle_key(&mut self, key: KeyPress) -> AppFlow {
@@ -227,11 +227,11 @@ impl App {
                     AppFlow::Stay
                 }
                 KeyPress::Up => {
-                    self.config_index.move_config_menu_up();
+                    self.configuration.move_config_menu_up();
                     AppFlow::Stay
                 }
                 KeyPress::Down => {
-                    self.config_index.move_config_menu_down();
+                    self.configuration.move_config_menu_down();
                     AppFlow::Stay
                 }
                 KeyPress::Left => todo!(),
@@ -277,7 +277,7 @@ impl MenuIndex {
     }
 }
 
-impl ConfigMenu {
+impl ConfigIndex {
     pub fn new() -> Self {
         Self::default()
     }
