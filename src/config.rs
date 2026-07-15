@@ -7,14 +7,15 @@
 //! ```json
 //! {
 //!   "theme": "sangue",
-//!   "audio_volume": 100,
-//!   "flicker": true
+//!   "audio_volume": 80,
+//!   "animations": true,
+//!   "language": "ptbr"
 //! }
 //! ```
 //!
 //! - **`theme`** — `"sangue"` (default), `"ambar"`, or `"fosforo"`.
 //! - **`audio_volume`** — `0`–`100`. `0` is silence.
-//! - **`flicker`** — `true` (default) lets the horror flicker; `false` holds it
+//! - **`animations`** — `true` (default) lets the horror flicker, flash, shake effects; `false` holds it
 //!   steady, which also helps if flickering bothers your eyes.
 //!
 //! A missing file is normal and silent. A file that *exists* but is malformed,
@@ -35,14 +36,15 @@ use std::{fs, path::Path};
 use anyhow::Context;
 use serde::{Deserialize, Serialize};
 
-use crate::ui::theme::Theme;
+use crate::{language::Language, ui::theme::Theme};
 
 #[derive(Debug, Deserialize, Serialize, PartialEq)]
 #[serde(default, deny_unknown_fields)]
 pub struct Config {
     theme: Theme,
     audio_volume: u8,
-    flicker: bool,
+    animations: bool,
+    language: Language,
 }
 
 impl Config {
@@ -69,8 +71,9 @@ impl Default for Config {
     fn default() -> Self {
         Config {
             theme: Theme::Sangue,
-            audio_volume: 100,
-            flicker: true,
+            audio_volume: 80,
+            animations: true,
+            language: Language::PtBr,
         }
     }
 }
@@ -84,8 +87,9 @@ mod tests {
         let config = Config::default();
 
         assert_eq!(config.theme, Theme::Sangue);
-        assert_eq!(config.audio_volume, 100);
-        assert!(config.flicker);
+        assert_eq!(config.audio_volume, 80);
+        assert_eq!(config.language, Language::PtBr);
+        assert!(config.animations);
     }
 
     #[test]
@@ -107,19 +111,20 @@ mod tests {
             Theme::Ambar,
             "the named field must be honoured"
         );
-        assert_eq!(config.audio_volume, 100, "an unnamed field must fall back");
-        assert!(config.flicker, "an unnamed field must fall back");
+        assert_eq!(config.audio_volume, 80, "an unnamed field must fall back");
+        assert!(config.animations, "an unnamed field must fall back");
     }
 
     #[test]
     fn a_full_config_parses_every_field() {
-        let json = r#"{ "theme": "fosforo", "audio_volume": 40, "flicker": false }"#;
+        let json = r#"{ "theme": "fosforo", "audio_volume": 40, "animations": false, "language": "ptbr" }"#;
 
         let config = Config::from_json(json).expect("a complete config must parse");
 
         assert_eq!(config.theme, Theme::Fosforo);
         assert_eq!(config.audio_volume, 40);
-        assert!(!config.flicker);
+        assert!(!config.animations);
+        assert_eq!(config.language, Language::PtBr)
     }
 
     #[test]
@@ -153,7 +158,7 @@ mod tests {
     #[test]
     fn an_unknown_key_is_rejected() {
         // Serde IGNORES unknown fields unless told otherwise, so this typo
-        // parses happily and `audio_volume` stays 100 — the user's edit
+        // parses happily and `audio_volume` stays 80 — the user's edit
         // vanishes with no message. Same silent failure we refused elsewhere.
         let result = Config::from_json(r#"{ "audio_volumee": 40 }"#);
 
@@ -178,7 +183,8 @@ mod tests {
         let original = Config {
             theme: Theme::Fosforo,
             audio_volume: 25,
-            flicker: false,
+            animations: false,
+            language: Language::default(),
         };
 
         let json = original.to_json().expect("a config must serialize");
