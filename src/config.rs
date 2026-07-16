@@ -39,6 +39,7 @@ use serde::{Deserialize, Serialize};
 use crate::{app::ConfigOption, language::Language, ui::theme::Theme};
 
 const MAX_ALLOWED_VOLUME: u8 = 100;
+const VOLUME_STEP: u8 = 10;
 
 #[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(default, deny_unknown_fields)]
@@ -79,7 +80,10 @@ impl Configuration {
                 self.animations = !self.animations();
             }
             ConfigOption::Volume => {
-                let new_vol = self.audio_volume.saturating_add(10).min(MAX_ALLOWED_VOLUME);
+                let new_vol = self
+                    .audio_volume
+                    .saturating_add(VOLUME_STEP)
+                    .min(MAX_ALLOWED_VOLUME);
                 self.audio_volume = new_vol;
             }
             ConfigOption::Language => {
@@ -102,7 +106,7 @@ impl Configuration {
                 self.animations = !self.animations();
             }
             ConfigOption::Volume => {
-                let new_vol = self.audio_volume.saturating_sub(10);
+                let new_vol = self.audio_volume.saturating_sub(VOLUME_STEP);
                 self.audio_volume = new_vol;
             }
             ConfigOption::Language => {
