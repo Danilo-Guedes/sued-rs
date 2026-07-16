@@ -112,7 +112,7 @@ impl Configuration {
             ConfigOption::Language => {
                 let language_options_size = Language::ALL.len();
                 let new_language_idx =
-                    (self.language_index() + language_options_size - 1) * language_options_size;
+                    (self.language_index() + language_options_size - 1) % language_options_size;
                 self.language = Language::ALL[new_language_idx]
             }
         }

@@ -228,7 +228,6 @@ impl App {
                 _ => AppFlow::Stay,
             },
             Screen::Config => match key {
-                KeyPress::Enter => todo!(),
                 KeyPress::Esc => {
                     self.screen = Screen::Menu;
                     AppFlow::Stay
@@ -986,6 +985,39 @@ mod tests {
         assert!(
             !app.config().animations(),
             "and the cursor still advanced to animações"
+        );
+    }
+
+    #[test]
+    fn left_on_idioma_wraps_to_the_last_language() {
+        // The mirror of the Right test — and the case my first spec FORGOT, which
+        // is exactly how a bug could hide on the Left-only path.
+        let app = on_config(&[
+            KeyPress::Down,
+            KeyPress::Down,
+            KeyPress::Down,
+            KeyPress::Left,
+        ]);
+        assert_eq!(
+            app.config().language(),
+            Language::EsEs,
+            "PT-BR ← wraps to ES-ES"
+        );
+    }
+
+    #[test]
+    fn enter_on_the_config_screen_does_nothing() {
+        // Under immediate-apply there is nothing to commit, so Enter must be inert:
+        // not a panic, and not a navigation away.
+        let app = on_config(&[KeyPress::Enter]);
+        assert!(
+            matches!(app.screen(), Screen::Config),
+            "Enter must not leave the config screen"
+        );
+        assert_eq!(
+            app.config(),
+            Configuration::default(),
+            "Enter must not alter any setting"
         );
     }
 }
