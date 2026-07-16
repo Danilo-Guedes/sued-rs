@@ -79,7 +79,7 @@ impl Configuration {
                 self.animations = !self.animations();
             }
             ConfigOption::Volume => {
-                let new_vol = (self.audio_volume() + 10).min(MAX_ALLOWED_VOLUME);
+                let new_vol = self.audio_volume.saturating_add(10).min(MAX_ALLOWED_VOLUME);
                 self.audio_volume = new_vol;
             }
             ConfigOption::Language => {
