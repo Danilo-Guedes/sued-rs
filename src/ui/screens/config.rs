@@ -52,8 +52,6 @@ pub(super) fn render(frame: &mut Frame) {
         _gap_below_rows,
         divider_area,
         _gap_below_divider,
-        hint_area,
-        _gap_below_hint,
         confirm_area,
     ] = Layout::vertical([
         Constraint::Length(1), // ▓ CONFIGURAÇÃO ▓
@@ -62,10 +60,8 @@ pub(super) fn render(frame: &mut Frame) {
         Constraint::Length(7), // 4 rows + a blank line between each
         Constraint::Fill(1),
         Constraint::Length(1), // red divider
-        Constraint::Length(1),
-        Constraint::Length(1), // navigation hint
         Constraint::Fill(2),
-        Constraint::Length(1), // post-save confirmation
+        Constraint::Length(1), // the oracle's standing confirmation
     ])
     .areas(form_area);
 
@@ -103,15 +99,6 @@ pub(super) fn render(frame: &mut Frame) {
     let divider = "─".repeat(divider_area.width as usize);
     frame.render_widget(Paragraph::new(divider).red(), divider_area);
 
-    let hint = Line::from(vec![
-        "» use as ".dim(),
-        "[↑↓]".red().bold(),
-        " para navegar e ".dim(),
-        "[Enter]".red().bold(),
-        " para salvar as alterações.".dim(),
-    ]);
-    frame.render_widget(Paragraph::new(hint), hint_area);
-
     frame.render_widget(
         Paragraph::new(
             Line::from("† suas escolhas foram registradas no além †")
@@ -128,20 +115,25 @@ pub(super) fn render(frame: &mut Frame) {
     frame.render_widget(status_block, status_layout);
 
     // The page tag is right-aligned, so its Rect only has to be as wide as the
-    // word itself — the other screens reserve 14 for "INFORMAÇÕES". Taking just
-    // what "CONFIG" needs hands the slack to the hints, which is what keeps this
-    // screen's two-shortcut hint from truncating at 80 columns.
+    // word itself — sized to "CONFIG" the way the menu sizes its own to "1/4",
+    // rather than copying the 14 the other screens reserve for "INFORMAÇÕES".
     let [hints_area, page_area] =
         Layout::horizontal([Constraint::Fill(1), Constraint::Length(8)]).areas(status_inner);
 
+    // No `[Enter]`: changes apply on the keypress, so there is nothing to commit.
+    // A "salvar"/"cancelar" hint here would promise a step the app doesn't have.
     let hints = Line::from(vec![
-        "[Enter]".red().bold(),
+        "[↑↓]".red().bold(),
         " ".into(),
-        "salvar alterações".dim(),
+        "navegar".dim(),
+        "    ".into(),
+        "[↔]".red().bold(),
+        " ".into(),
+        "alterar".dim(),
         "    ".into(),
         "[Esc]".red().bold(),
         " ".into(),
-        "cancelar alterações e voltar".dim(),
+        "voltar".dim(),
     ]);
     frame.render_widget(Paragraph::new(hints), hints_area);
     frame.render_widget(Paragraph::new("CONFIG".dim()).right_aligned(), page_area);
