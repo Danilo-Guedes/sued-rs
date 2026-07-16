@@ -69,7 +69,7 @@ impl Configuration {
         serde_json::to_string_pretty(&self)
     }
 
-    pub fn handle_right_click(&mut self, selected_config: ConfigOption) {
+    pub fn select_next(&mut self, selected_config: ConfigOption) {
         match selected_config {
             ConfigOption::Theme => {
                 let theme_options_size = Theme::ALL.len();
@@ -94,7 +94,7 @@ impl Configuration {
         }
     }
 
-    pub fn handle_left_click(&mut self, selected_config: ConfigOption) {
+    pub fn select_prev(&mut self, selected_config: ConfigOption) {
         match selected_config {
             ConfigOption::Theme => {
                 let theme_options_size = Theme::ALL.len();
