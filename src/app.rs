@@ -10,7 +10,7 @@ use std::time::Instant;
 
 use crate::{
     audio::AudioCue,
-    config::Configuration,
+    config::{ConfigOption, Configuration, Direction},
     constants::{DECOY_STRING, DENIED_STRING},
     core::engine::{Engine, KeyPress, StateChange},
 };
@@ -80,15 +80,6 @@ impl MenuIndex {
         MenuOption::Config,
         MenuOption::Exit,
     ];
-}
-
-#[derive(Debug, PartialEq, Clone, Copy, Default)]
-pub enum ConfigOption {
-    #[default]
-    Theme,
-    Animations,
-    Volume,
-    Language,
 }
 
 #[derive(Debug, Default)]
@@ -242,12 +233,12 @@ impl App {
                 }
                 KeyPress::Left => {
                     self.config_object
-                        .select_prev(self.config_navigation.selected());
+                        .step(self.config_navigation.selected(), Direction::Previous);
                     AppFlow::Stay
                 }
                 KeyPress::Right => {
                     self.config_object
-                        .select_next(self.config_navigation.selected());
+                        .step(self.config_navigation.selected(), Direction::Next);
                     AppFlow::Stay
                 }
                 _ => AppFlow::Stay,

@@ -36,10 +36,30 @@ use std::{fs, path::Path};
 use anyhow::Context;
 use serde::{Deserialize, Serialize};
 
-use crate::{app::ConfigOption, language::Language, ui::theme::Theme};
+use crate::{language::Language, ui::theme::Theme};
 
 const MAX_ALLOWED_VOLUME: u8 = 100;
 const VOLUME_STEP: u8 = 10;
+
+/// The tunable settings, one per row on the config screen. It lives here rather
+/// than in the app shell because it enumerates *this* struct's own fields — and
+/// keeping it beside `Configuration` is what lets `config` avoid importing `app`,
+/// which imports `config` right back (a module cycle).
+#[derive(Debug, PartialEq, Clone, Copy, Default)]
+pub enum ConfigOption {
+    #[default]
+    Theme,
+    Animations,
+    Volume,
+    Language,
+}
+
+/// Which way `[←]` / `[→]` steps through a row's options.
+#[derive(Debug, Clone, Copy)]
+pub enum Direction {
+    Previous,
+    Next,
+}
 
 #[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(default, deny_unknown_fields)]
@@ -69,51 +89,19 @@ impl Configuration {
         serde_json::to_string_pretty(&self)
     }
 
-    pub fn select_next(&mut self, selected_config: ConfigOption) {
-        match selected_config {
-            ConfigOption::Theme => {
-                let theme_options_size = Theme::ALL.len();
-                let new_opt_idx = (self.theme_index() + 1) % theme_options_size;
-                self.theme = Theme::ALL[new_opt_idx];
-            }
-            ConfigOption::Animations => {
-                self.animations = !self.animations();
-            }
+    pub fn step(&mut self, row: ConfigOption, dir: Direction) {
+        match row {
+            ConfigOption::Theme => self.theme = cycle(&Theme::ALL, self.theme, dir),
+            ConfigOption::Language => self.language = cycle(&Language::ALL, self.language, dir),
+            ConfigOption::Animations => self.animations = !self.animations,
             ConfigOption::Volume => {
-                let new_vol = self
-                    .audio_volume
-                    .saturating_add(VOLUME_STEP)
-                    .min(MAX_ALLOWED_VOLUME);
-                self.audio_volume = new_vol;
-            }
-            ConfigOption::Language => {
-                let language_options_size = Language::ALL.len();
-                let new_language_idx = (self.language_index() + 1) % language_options_size;
-                self.language = Language::ALL[new_language_idx]
-            }
-        }
-    }
-
-    pub fn select_prev(&mut self, selected_config: ConfigOption) {
-        match selected_config {
-            ConfigOption::Theme => {
-                let theme_options_size = Theme::ALL.len();
-                let new_opt_idx =
-                    (self.theme_index() + theme_options_size - 1) % theme_options_size;
-                self.theme = Theme::ALL[new_opt_idx];
-            }
-            ConfigOption::Animations => {
-                self.animations = !self.animations();
-            }
-            ConfigOption::Volume => {
-                let new_vol = self.audio_volume.saturating_sub(VOLUME_STEP);
-                self.audio_volume = new_vol;
-            }
-            ConfigOption::Language => {
-                let language_options_size = Language::ALL.len();
-                let new_language_idx =
-                    (self.language_index() + language_options_size - 1) % language_options_size;
-                self.language = Language::ALL[new_language_idx]
+                self.audio_volume = match dir {
+                    Direction::Next => self
+                        .audio_volume
+                        .saturating_add(VOLUME_STEP)
+                        .min(MAX_ALLOWED_VOLUME),
+                    Direction::Previous => self.audio_volume.saturating_sub(VOLUME_STEP),
+                }
             }
         }
     }
@@ -122,10 +110,6 @@ impl Configuration {
 
     pub fn theme(&self) -> Theme {
         self.theme
-    }
-
-    pub fn theme_index(&self) -> usize {
-        self.theme() as usize
     }
 
     pub fn audio_volume(&self) -> u8 {
@@ -139,10 +123,19 @@ impl Configuration {
     pub fn language(&self) -> Language {
         self.language
     }
+}
 
-    pub fn language_index(&self) -> usize {
-        self.language() as usize
-    }
+fn cycle<T: Copy + PartialEq>(all: &[T], current: T, dir: Direction) -> T {
+    let len = all.len();
+    let idx = all
+        .iter()
+        .position(|&x| x == current)
+        .expect("a value is always one of its own ALL variants");
+    let stepped = match dir {
+        Direction::Next => (idx + 1) % len,
+        Direction::Previous => (idx + len - 1) % len,
+    };
+    all[stepped]
 }
 
 impl Default for Configuration {
