@@ -8,3 +8,7 @@ pub enum Theme {
     Ambar,
     Fosforo,
 }
+
+impl Theme {
+    pub const ALL: [Theme; 3] = [Theme::Sangue, Theme::Ambar, Theme::Fosforo];
+}
