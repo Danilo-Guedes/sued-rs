@@ -39,7 +39,6 @@ use serde::{Deserialize, Serialize};
 use crate::{app::ConfigOption, language::Language, ui::theme::Theme};
 
 const MAX_ALLOWED_VOLUME: u8 = 100;
-const MIN_ALLOWED_VOLUME: u8 = 0;
 
 #[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(default, deny_unknown_fields)]
@@ -71,17 +70,11 @@ impl Configuration {
 
     pub fn handle_right_click(&mut self, selected_config: ConfigOption) {
         match selected_config {
-            ConfigOption::Theme => match self.theme() {
-                Theme::Sangue => {
-                    self.theme = Theme::Ambar;
-                }
-                Theme::Ambar => {
-                    self.theme = Theme::Fosforo;
-                }
-                Theme::Fosforo => {
-                    self.theme = Theme::Sangue;
-                }
-            },
+            ConfigOption::Theme => {
+                let theme_options_size = Theme::ALL.len();
+                let new_opt_idx = (self.theme_index() + 1) % theme_options_size;
+                self.theme = Theme::ALL[new_opt_idx];
+            }
             ConfigOption::Animations => {
                 self.animations = !self.animations();
             }
@@ -89,39 +82,35 @@ impl Configuration {
                 let new_vol = (self.audio_volume() + 10).min(MAX_ALLOWED_VOLUME);
                 self.audio_volume = new_vol;
             }
-            ConfigOption::Language => match self.language() {
-                Language::PtBr => self.language = Language::EnUs,
-                Language::EnUs => self.language = Language::EsEs,
-                Language::EsEs => self.language = Language::PtBr,
-            },
+            ConfigOption::Language => {
+                let language_options_size = Language::ALL.len();
+                let new_language_idx = (self.language_index() + 1) % language_options_size;
+                self.language = Language::ALL[new_language_idx]
+            }
         }
     }
 
     pub fn handle_left_click(&mut self, selected_config: ConfigOption) {
         match selected_config {
-            ConfigOption::Theme => match self.theme() {
-                Theme::Sangue => {
-                    self.theme = Theme::Fosforo;
-                }
-                Theme::Ambar => {
-                    self.theme = Theme::Sangue;
-                }
-                Theme::Fosforo => {
-                    self.theme = Theme::Ambar;
-                }
-            },
+            ConfigOption::Theme => {
+                let theme_options_size = Theme::ALL.len();
+                let new_opt_idx =
+                    (self.theme_index() + theme_options_size - 1) % theme_options_size;
+                self.theme = Theme::ALL[new_opt_idx];
+            }
             ConfigOption::Animations => {
                 self.animations = !self.animations();
             }
             ConfigOption::Volume => {
-                let new_vol = (self.audio_volume() as i8 - 10).max(MIN_ALLOWED_VOLUME as i8) as u8;
+                let new_vol = self.audio_volume.saturating_sub(10);
                 self.audio_volume = new_vol;
             }
-            ConfigOption::Language => match self.language() {
-                Language::PtBr => self.language = Language::EsEs,
-                Language::EnUs => self.language = Language::PtBr,
-                Language::EsEs => self.language = Language::EnUs,
-            },
+            ConfigOption::Language => {
+                let language_options_size = Language::ALL.len();
+                let new_language_idx =
+                    (self.language_index() + language_options_size - 1) * language_options_size;
+                self.language = Language::ALL[new_language_idx]
+            }
         }
     }
 
@@ -129,6 +118,10 @@ impl Configuration {
 
     pub fn theme(&self) -> Theme {
         self.theme
+    }
+
+    pub fn theme_index(&self) -> usize {
+        self.theme() as usize
     }
 
     pub fn audio_volume(&self) -> u8 {
@@ -141,6 +134,10 @@ impl Configuration {
 
     pub fn language(&self) -> Language {
         self.language
+    }
+
+    pub fn language_index(&self) -> usize {
+        self.language() as usize
     }
 }
 

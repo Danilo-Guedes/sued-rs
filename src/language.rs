@@ -8,3 +8,7 @@ pub enum Language {
     EnUs,
     EsEs,
 }
+
+impl Language {
+    pub const ALL: [Language; 3] = [Language::PtBr, Language::EnUs, Language::EsEs];
+}
