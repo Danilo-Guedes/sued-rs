@@ -21,7 +21,8 @@ pub struct App {
     menu: MenuIndex,
     started_at: Instant,
     pending_cue: Option<AudioCue>,
-    configuration: ConfigIndex,
+    config_navigation: ConfigIndex,
+    config_object: Configuration,
 }
 
 #[derive(Default, Debug)]
@@ -36,9 +37,7 @@ pub enum Screen {
     },
     Info,
     About,
-    Config {
-        draft: Configuration,
-    },
+    Config,
 }
 
 #[derive(Debug, PartialEq)]
@@ -104,6 +103,10 @@ impl ConfigIndex {
         ConfigOption::Volume,
         ConfigOption::Language,
     ];
+
+    fn selected(&self) -> ConfigOption {
+        ConfigIndex::ALL[self.selected]
+    }
 }
 
 impl App {
@@ -113,7 +116,8 @@ impl App {
             menu: MenuIndex::default(),
             started_at: Instant::now(),
             pending_cue: None,
-            configuration: ConfigIndex::default(),
+            config_navigation: ConfigIndex::default(),
+            config_object: Configuration::default(),
         }
     }
     pub fn handle_key(&mut self, key: KeyPress) -> AppFlow {
@@ -145,9 +149,7 @@ impl App {
                         AppFlow::Stay
                     }
                     MenuOption::Config => {
-                        self.screen = Screen::Config {
-                            draft: Configuration::default(),
-                        };
+                        self.screen = Screen::Config;
                         AppFlow::Stay
                     }
                     MenuOption::Exit => AppFlow::Quit,
@@ -225,22 +227,30 @@ impl App {
                 }
                 _ => AppFlow::Stay,
             },
-            Screen::Config { draft: _ } => match key {
+            Screen::Config => match key {
                 KeyPress::Enter => todo!(),
                 KeyPress::Esc => {
                     self.screen = Screen::Menu;
                     AppFlow::Stay
                 }
                 KeyPress::Up => {
-                    self.configuration.move_config_menu_up();
+                    self.config_navigation.move_config_menu_up();
                     AppFlow::Stay
                 }
                 KeyPress::Down => {
-                    self.configuration.move_config_menu_down();
+                    self.config_navigation.move_config_menu_down();
                     AppFlow::Stay
                 }
-                KeyPress::Left => todo!(),
-                KeyPress::Right => todo!(),
+                KeyPress::Left => {
+                    self.config_object
+                        .handle_left_click(self.config_navigation.selected());
+                    AppFlow::Stay
+                }
+                KeyPress::Right => {
+                    self.config_object
+                        .handle_right_click(self.config_navigation.selected());
+                    AppFlow::Stay
+                }
                 _ => AppFlow::Stay,
             },
         }
@@ -259,6 +269,10 @@ impl App {
 
     pub fn take_cue(&mut self) -> Option<AudioCue> {
         self.pending_cue.take()
+    }
+
+    pub fn config(&self) -> Configuration {
+        self.config_object
     }
 }
 
@@ -817,5 +831,161 @@ mod tests {
             KeyPress::Char('i'), // typed a question, but no Enter yet
         ]);
         assert_eq!(state.take_cue(), None, "no reply yet → nothing to play");
+    }
+
+    // ── Config screen: [←→] alter values, immediate-apply ─────────────────────
+    // Slice A of M5: the config lives in `App.config` (no draft). `[↑↓]` move the
+    // row cursor; `[←→]` alter the selected row's value and apply it live. Discrete
+    // rows (tema/animações/idioma) step through their options with WRAP; the one
+    // continuous row (volume) steps ±10 and CLAMPS at 0/100. Nothing is written to
+    // disk yet — persistence is Slice B.
+    use crate::{language::Language, ui::theme::Theme};
+
+    /// Drive a fresh app onto the Config screen (cursor on the first row, `tema`),
+    /// then apply `then`. Menu order is Ask·Info·About·Config·Exit, so Config is
+    /// three Downs from the top.
+    fn on_config(then: &[KeyPress]) -> App {
+        let mut keys = vec![
+            KeyPress::Enter, // Intro → Menu
+            KeyPress::Down,  // → Info
+            KeyPress::Down,  // → About
+            KeyPress::Down,  // → Config
+            KeyPress::Enter, // → Screen::Config, cursor on `tema`
+        ];
+        keys.extend_from_slice(then);
+        drive(&keys)
+    }
+
+    #[test]
+    fn config_screen_opens_on_todays_defaults() {
+        // Slice A has no loading yet, so a fresh app carries Configuration::default().
+        let app = on_config(&[]);
+        assert!(matches!(app.screen(), Screen::Config));
+        assert_eq!(app.config().theme(), Theme::Sangue);
+        assert_eq!(app.config().audio_volume(), 80);
+        assert!(app.config().animations());
+        assert_eq!(app.config().language(), Language::PtBr);
+    }
+
+    #[test]
+    fn right_on_tema_advances_the_theme() {
+        let app = on_config(&[KeyPress::Right]);
+        assert_eq!(app.config().theme(), Theme::Ambar, "Sangue → Âmbar");
+    }
+
+    #[test]
+    fn left_on_tema_wraps_to_the_last_theme() {
+        let app = on_config(&[KeyPress::Left]);
+        assert_eq!(
+            app.config().theme(),
+            Theme::Fosforo,
+            "Sangue ← wraps to Fósforo"
+        );
+    }
+
+    #[test]
+    fn tema_cycles_full_circle() {
+        let app = on_config(&[KeyPress::Right, KeyPress::Right, KeyPress::Right]);
+        assert_eq!(
+            app.config().theme(),
+            Theme::Sangue,
+            "three steps return to the start"
+        );
+    }
+
+    #[test]
+    fn animacoes_toggles_both_ways() {
+        // Down once from `tema` lands on `animações`.
+        let off = on_config(&[KeyPress::Down, KeyPress::Right]);
+        assert!(!off.config().animations(), "Right turns the effects off");
+
+        let back_on = on_config(&[KeyPress::Down, KeyPress::Right, KeyPress::Left]);
+        assert!(back_on.config().animations(), "Left turns them back on");
+    }
+
+    #[test]
+    fn volume_steps_down_by_ten() {
+        // Down twice from `tema` lands on `volume` (default 80).
+        let app = on_config(&[KeyPress::Down, KeyPress::Down, KeyPress::Left]);
+        assert_eq!(app.config().audio_volume(), 70);
+    }
+
+    #[test]
+    fn volume_steps_up_by_ten() {
+        let app = on_config(&[KeyPress::Down, KeyPress::Down, KeyPress::Right]);
+        assert_eq!(app.config().audio_volume(), 90);
+    }
+
+    #[test]
+    fn volume_clamps_at_the_ceiling() {
+        // 80 → 90 → 100 → stays 100. Volume clamps; it must NOT wrap round to 0.
+        let app = on_config(&[
+            KeyPress::Down,
+            KeyPress::Down,
+            KeyPress::Right,
+            KeyPress::Right,
+            KeyPress::Right,
+        ]);
+        assert_eq!(app.config().audio_volume(), 100);
+    }
+
+    #[test]
+    fn volume_clamps_at_the_floor() {
+        // 80 needs eight Lefts to reach 0; a ninth must stay at 0, not wrap to 100.
+        let mut keys = vec![KeyPress::Down, KeyPress::Down];
+        keys.extend(vec![KeyPress::Left; 9]);
+        let app = on_config(&keys);
+        assert_eq!(app.config().audio_volume(), 0);
+    }
+
+    #[test]
+    fn idioma_cycles_even_though_i18n_is_not_wired_yet() {
+        // Down three times from `tema` lands on `idioma`. It's a "dumb" control for
+        // now — it changes and persists the value, but nothing retranslates until
+        // i18n lands. The chip still moves, so it's feedback, not a silent no-op.
+        let app = on_config(&[
+            KeyPress::Down,
+            KeyPress::Down,
+            KeyPress::Down,
+            KeyPress::Right,
+        ]);
+        assert_eq!(app.config().language(), Language::EnUs, "PT-BR → EN-US");
+    }
+
+    #[test]
+    fn altering_a_value_keeps_you_on_the_config_screen() {
+        let app = on_config(&[KeyPress::Right]);
+        assert!(
+            matches!(app.screen(), Screen::Config),
+            "[←→] alters a value, it doesn't navigate away"
+        );
+    }
+
+    #[test]
+    fn navigating_rows_leaves_every_value_untouched() {
+        // [↑↓] only move the cursor — they must never change a setting.
+        let app = on_config(&[
+            KeyPress::Down,
+            KeyPress::Down,
+            KeyPress::Down,
+            KeyPress::Up,
+            KeyPress::Up,
+        ]);
+        assert_eq!(app.config().theme(), Theme::Sangue);
+        assert_eq!(app.config().audio_volume(), 80);
+        assert!(app.config().animations());
+        assert_eq!(app.config().language(), Language::PtBr);
+    }
+
+    #[test]
+    fn altering_a_row_does_not_move_the_cursor() {
+        // Alter `tema` (Right), then Down must reach `animações` and Right toggles
+        // IT — proving [←→] changed a value without disturbing the row cursor.
+        let app = on_config(&[KeyPress::Right, KeyPress::Down, KeyPress::Right]);
+        assert_eq!(app.config().theme(), Theme::Ambar, "the theme step stuck");
+        assert!(
+            !app.config().animations(),
+            "and the cursor still advanced to animações"
+        );
     }
 }

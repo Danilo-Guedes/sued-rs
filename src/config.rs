@@ -36,9 +36,12 @@ use std::{fs, path::Path};
 use anyhow::Context;
 use serde::{Deserialize, Serialize};
 
-use crate::{language::Language, ui::theme::Theme};
+use crate::{app::ConfigOption, language::Language, ui::theme::Theme};
 
-#[derive(Debug, Deserialize, Serialize, PartialEq)]
+const MAX_ALLOWED_VOLUME: u8 = 100;
+const MIN_ALLOWED_VOLUME: u8 = 0;
+
+#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(default, deny_unknown_fields)]
 pub struct Configuration {
     theme: Theme,
@@ -62,8 +65,82 @@ impl Configuration {
         }
     }
 
-    pub fn to_json(&self) -> Result<String, serde_json::Error> {
-        serde_json::to_string_pretty(self)
+    pub fn to_json(self) -> Result<String, serde_json::Error> {
+        serde_json::to_string_pretty(&self)
+    }
+
+    pub fn handle_right_click(&mut self, selected_config: ConfigOption) {
+        match selected_config {
+            ConfigOption::Theme => match self.theme() {
+                Theme::Sangue => {
+                    self.theme = Theme::Ambar;
+                }
+                Theme::Ambar => {
+                    self.theme = Theme::Fosforo;
+                }
+                Theme::Fosforo => {
+                    self.theme = Theme::Sangue;
+                }
+            },
+            ConfigOption::Animations => {
+                self.animations = !self.animations();
+            }
+            ConfigOption::Volume => {
+                let new_vol = (self.audio_volume() + 10).min(MAX_ALLOWED_VOLUME);
+                self.audio_volume = new_vol;
+            }
+            ConfigOption::Language => match self.language() {
+                Language::PtBr => self.language = Language::EnUs,
+                Language::EnUs => self.language = Language::EsEs,
+                Language::EsEs => self.language = Language::PtBr,
+            },
+        }
+    }
+
+    pub fn handle_left_click(&mut self, selected_config: ConfigOption) {
+        match selected_config {
+            ConfigOption::Theme => match self.theme() {
+                Theme::Sangue => {
+                    self.theme = Theme::Fosforo;
+                }
+                Theme::Ambar => {
+                    self.theme = Theme::Sangue;
+                }
+                Theme::Fosforo => {
+                    self.theme = Theme::Ambar;
+                }
+            },
+            ConfigOption::Animations => {
+                self.animations = !self.animations();
+            }
+            ConfigOption::Volume => {
+                let new_vol = (self.audio_volume() as i8 - 10).max(MIN_ALLOWED_VOLUME as i8) as u8;
+                self.audio_volume = new_vol;
+            }
+            ConfigOption::Language => match self.language() {
+                Language::PtBr => self.language = Language::EsEs,
+                Language::EnUs => self.language = Language::PtBr,
+                Language::EsEs => self.language = Language::EnUs,
+            },
+        }
+    }
+
+    //GETTERS
+
+    pub fn theme(&self) -> Theme {
+        self.theme
+    }
+
+    pub fn audio_volume(&self) -> u8 {
+        self.audio_volume
+    }
+
+    pub fn animations(&self) -> bool {
+        self.animations
+    }
+
+    pub fn language(&self) -> Language {
+        self.language
     }
 }
 
