@@ -242,12 +242,12 @@ impl App {
                 }
                 KeyPress::Left => {
                     self.config_object
-                        .handle_left_click(self.config_navigation.selected());
+                        .select_prev(self.config_navigation.selected());
                     AppFlow::Stay
                 }
                 KeyPress::Right => {
                     self.config_object
-                        .handle_right_click(self.config_navigation.selected());
+                        .select_next(self.config_navigation.selected());
                     AppFlow::Stay
                 }
                 _ => AppFlow::Stay,
