@@ -148,7 +148,10 @@ pub(super) fn render(frame: &mut Frame, app_state: &App) {
         "voltar".dim(),
     ]);
     frame.render_widget(Paragraph::new(hints), hints_area);
-    frame.render_widget(Paragraph::new("CONFIG".dim()).right_aligned(), page_area);
+    frame.render_widget(
+        Paragraph::new("CONFIGURAÇÃO".dim()).right_aligned(),
+        page_area,
+    );
 }
 
 fn option_row(label: &str, chips: &[(&str, bool)], is_focused: bool) -> Line<'static> {
