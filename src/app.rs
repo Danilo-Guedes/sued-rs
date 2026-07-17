@@ -102,14 +102,14 @@ impl ConfigIndex {
 }
 
 impl App {
-    pub fn new() -> Self {
+    pub fn new(parsed_json_config: Configuration) -> Self {
         App {
             screen: Screen::default(),
             menu: MenuIndex::default(),
             started_at: Instant::now(),
             pending_cue: None,
             config_navigation: ConfigIndex::default(),
-            config_object: Configuration::default(),
+            config_object: parsed_json_config,
             pending_save: None,
         }
     }
@@ -357,7 +357,7 @@ mod tests {
 
     #[test]
     fn new_seeds_the_live_config_from_the_loaded_value() {
-        // `main` loads `sued.json` at startup and hands the result to `App::new`;
+        // `main` loads `sued.config.json` at startup and hands the result to `App::new`;
         // the app must adopt it as its live config, not silently fall back to
         // defaults. A non-default value proves the seed actually threads through.
         let loaded =

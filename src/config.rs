@@ -1,6 +1,6 @@
-//! `sued.json` — SueD's preferences file.
+//! `sued.config.json` — SueD's preferences file.
 //!
-//! Both the file and every key in it are optional. With no `sued.json` on disk
+//! Both the file and every key in it are optional. With no `sued.config.json` on disk
 //! SueD runs on its defaults, so you only need to write down the settings you
 //! actually want to change:
 //!
@@ -271,9 +271,9 @@ mod tests {
 
     #[test]
     fn load_falls_back_to_defaults_when_the_file_is_missing() {
-        // No file is the NORMAL case — a fresh clone has no sued.json and must
+        // No file is the NORMAL case — a fresh clone has no sued.config.json and must
         // still run. This path is never created, so there's nothing to clean up.
-        let missing = std::path::Path::new("/sued-rs/no/such/dir/sued.json");
+        let missing = std::path::Path::new("/sued-rs/no/such/dir/sued.config.json");
         assert!(
             !missing.exists(),
             "this test needs a path that truly doesn't exist"
@@ -313,7 +313,7 @@ mod tests {
     #[test]
     fn save_creates_the_file_when_it_is_missing() {
         // Leaving the config screen for the first time must be able to bring
-        // `sued.json` into existence, not merely overwrite an existing one.
+        // `sued.config.json` into existence, not merely overwrite an existing one.
         let path = std::env::temp_dir().join("sued_rs_test_save_creates.json");
         std::fs::remove_file(&path).ok(); // start from a guaranteed-absent file
         assert!(!path.exists(), "this test must begin with no file");

@@ -17,7 +17,7 @@ mod ui;
 use std::io::{Stdout, stdout};
 use std::time::Duration;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use clap::Parser;
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use crossterm::execute;
@@ -30,6 +30,7 @@ use ratatui::backend::CrosstermBackend;
 use crate::app::{App, AppFlow};
 use crate::audio::Audio;
 use crate::cli::Args;
+use crate::config::Configuration;
 use crate::core::engine::KeyPress;
 
 /// How long each tick waits for input before redrawing. ~50ms ≈ 20 fps — smooth
@@ -62,7 +63,16 @@ fn main() -> Result<()> {
 
     let _guard = TerminalGuard::new()?; // declared first → dropped LAST (cleans up after the terminal)
     let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
-    let mut app_state = App::new();
+
+    let mut config_file_path = dirs::config_dir().unwrap();
+
+    config_file_path.push("/sued-rs/sued.config.json");
+
+    let parsed_config = Configuration::load(config_file_path.as_path())
+        .with_context(|| format!("while trying to read {}", config_file_path.display()))
+        .unwrap();
+
+    let mut app_state = App::new(parsed_config);
 
     // Sound is on only when compiled with `--features audio` AND not `--no-sound`.
     // The no-op `Audio` ignores the flag; the real one goes silent when it's false.
