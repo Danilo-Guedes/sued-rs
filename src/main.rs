@@ -16,7 +16,7 @@ mod ui;
 
 use std::io::{Stdout, stdout};
 use std::path::{Path, PathBuf};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
 use clap::Parser;
@@ -29,7 +29,7 @@ use ratatui::Terminal;
 use ratatui::backend::CrosstermBackend;
 
 use crate::app::{App, AppFlow};
-use crate::audio::Audio;
+use crate::audio::{Audio, AudioCue, laugh_interval};
 use crate::cli::Args;
 use crate::config::Configuration;
 use crate::core::engine::KeyPress;
@@ -103,11 +103,20 @@ fn run(
 ) -> Result<()> {
     audio.start_ambience(); // the dread bed loops for the whole session
 
+    let mut next_laugh_at = Instant::now() + laugh_interval(rand::random());
+
     loop {
         // 1. DRAW — ratatui diffs against the last frame and writes only what changed.
         terminal.draw(|frame| ui::screens::render(frame, app_state))?;
 
-        // 2. POLL — wait up to `TICK` for an event. Returns false on timeout (no input).
+        // 2. QUEUE THE LAUGH AUDIO EFFECT
+        let now = Instant::now();
+        if now >= next_laugh_at {
+            audio.play(AudioCue::Laugh);
+            next_laugh_at = now + laugh_interval(rand::random());
+        }
+
+        // 3. POLL — wait up to `TICK` for an event. Returns false on timeout (no input).
         if event::poll(TICK)? {
             // 3. READ — only now, knowing an event is waiting, so this won't block.
             if let Event::Key(key) = event::read()? {

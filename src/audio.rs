@@ -6,8 +6,12 @@
 //! in an audio build. kira owns its own realtime audio thread, so nothing here
 //! spawns threads — we just hand it sounds to play.
 
+pub const LAUGH_MIN_SECS: u64 = 40;
+pub const LAUGH_MAX_SECS: u64 = 120;
+
 #[cfg(feature = "audio")]
 use std::io::Cursor;
+use std::time::Duration;
 
 #[cfg(feature = "audio")]
 use kira::{
@@ -23,6 +27,11 @@ pub enum AudioCue {
     JumpScare,
     /// SUED reveals the answer — demonic laughter (`assets/laugh.ogg`).
     Laugh,
+}
+
+pub fn laugh_interval(roll: f32) -> Duration {
+    let span = LAUGH_MAX_SECS - LAUGH_MIN_SECS;
+    Duration::from_secs(LAUGH_MIN_SECS + (roll * span as f32) as u64)
 }
 
 // ── Silent build: no `audio` feature (or `--no-sound`) ──────────────────────
@@ -104,6 +113,41 @@ impl Audio {
             AudioCue::JumpScare => {
                 let _ = player.manager.play(player.jump_scare_sound.clone());
             }
+        }
+    }
+}
+
+#[cfg(test)]
+mod cadence_tests {
+    use super::*;
+    use std::time::Duration;
+
+    #[test]
+    fn laugh_interval_sits_at_the_floor_for_roll_zero() {
+        assert_eq!(laugh_interval(0.0), Duration::from_secs(40));
+    }
+
+    #[test]
+    fn laugh_interval_reaches_the_ceiling_for_roll_one() {
+        assert_eq!(laugh_interval(1.0), Duration::from_secs(120));
+    }
+
+    #[test]
+    fn laugh_interval_lands_midway_for_a_half_roll() {
+        assert_eq!(laugh_interval(0.5), Duration::from_secs(80));
+    }
+
+    #[test]
+    fn laugh_interval_stays_within_bounds_across_the_rng_range() {
+        // `rand::random::<f32>()` yields [0.0, 1.0). Sweep it: every result must
+        // land in [40, 120]s — never quieter than the floor, never longer than the ceiling.
+        for i in 0..=100 {
+            let roll = i as f32 / 100.0;
+            let secs = laugh_interval(roll).as_secs();
+            assert!(
+                (40..=120).contains(&secs),
+                "roll {roll} produced {secs}s, outside 40..=120"
+            );
         }
     }
 }
