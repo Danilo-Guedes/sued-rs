@@ -147,7 +147,10 @@ impl App {
                     }
                     MenuOption::Exit => AppFlow::Quit,
                 },
-                KeyPress::Esc => AppFlow::Quit,
+                KeyPress::Esc => {
+                    self.screen = Screen::Intro;
+                    AppFlow::Stay
+                }
                 KeyPress::Up => {
                     self.menu.move_menu_up();
                     AppFlow::Stay
@@ -170,7 +173,7 @@ impl App {
                         StateChange::Revealed => {
                             *denied_message = None;
                             *replied_at = Some(Instant::now());
-                            self.pending_cue = Some(AudioCue::Laugh);
+                            self.pending_cue = Some(AudioCue::JumpScare);
                         }
                         StateChange::Denied => {
                             *denied_message = Some(DENIED_STRING);
@@ -452,9 +455,9 @@ mod tests {
     }
 
     #[test]
-    fn menu_esc_quits() {
-        let (_state, flow) = drive_flow(&[KeyPress::Enter, KeyPress::Esc]);
-        assert_eq!(flow, AppFlow::Quit);
+    fn menu_esc_should_return_to_intro() {
+        let state = drive(&[KeyPress::Enter, KeyPress::Esc]);
+        assert!(matches!(state.screen(), Screen::Intro));
     }
 
     // ── Question screen forwards to the engine ───────────────────────────────
@@ -798,7 +801,7 @@ mod tests {
     }
 
     #[test]
-    fn a_reveal_queues_the_laugh_cue() {
+    fn a_reveal_queues_the_jump_scare_cue() {
         let mut state = drive(&[
             KeyPress::Enter,
             KeyPress::Enter,     // → Asking
@@ -807,7 +810,7 @@ mod tests {
             KeyPress::Char('2'), // secret answer "42"
             KeyPress::Enter,     // reveal
         ]);
-        assert_eq!(state.take_cue(), Some(AudioCue::Laugh));
+        assert_eq!(state.take_cue(), Some(AudioCue::JumpScare));
     }
 
     #[test]
@@ -833,7 +836,7 @@ mod tests {
         ]);
         assert_eq!(
             state.take_cue(),
-            Some(AudioCue::Laugh),
+            Some(AudioCue::JumpScare),
             "the first drain gets the cue"
         );
         assert_eq!(
