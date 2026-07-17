@@ -147,7 +147,7 @@ fn render_status_bar(frame: &mut Frame, area: Rect, selected_menu: usize) {
         "  ".into(),
         "[Esc]".red().bold(),
         " ".into(),
-        "sair".dim(),
+        "voltar".dim(),
     ]);
     frame.render_widget(Paragraph::new(hints), hints_area);
     frame.render_widget(
