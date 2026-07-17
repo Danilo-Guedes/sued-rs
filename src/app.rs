@@ -21,8 +21,8 @@ pub struct App {
     menu: MenuIndex,
     started_at: Instant,
     pending_cue: Option<AudioCue>,
-    config_navigation: ConfigIndex,
     config_object: Configuration,
+    pub config_navigation: ConfigIndex,
 }
 
 #[derive(Default, Debug)]
@@ -95,7 +95,7 @@ impl ConfigIndex {
         ConfigOption::Language,
     ];
 
-    fn selected(&self) -> ConfigOption {
+    pub fn selected(&self) -> ConfigOption {
         ConfigIndex::ALL[self.selected]
     }
 }
