@@ -89,6 +89,11 @@ impl Configuration {
         serde_json::to_string_pretty(&self)
     }
 
+    pub fn save(self, path: &Path) -> anyhow::Result<()> {
+        let json = self.to_json().context("serialising config")?;
+        fs::write(path, json).with_context(|| format!("writing {}", path.display()))
+    }
+
     pub fn step(&mut self, row: ConfigOption, dir: Direction) {
         match row {
             ConfigOption::Theme => self.theme = cycle(&Theme::ALL, self.theme, dir),
@@ -277,5 +282,79 @@ mod tests {
         let config = Configuration::load(missing).expect("a missing file must NOT be an error");
 
         assert_eq!(config, Configuration::default());
+    }
+
+    #[test]
+    fn save_then_load_round_trips_through_a_real_file() {
+        // `a_config_survives_a_json_round_trip` proves the trip through *JSON*;
+        // this proves the trip through the *filesystem* — the bytes actually reach
+        // disk in a shape `load` accepts straight back.
+        let path = std::env::temp_dir().join("sued_rs_test_save_roundtrip.json");
+        let original = Configuration {
+            theme: Theme::Fosforo,
+            audio_volume: 30,
+            animations: false,
+            language: Language::default(),
+        };
+
+        original
+            .save(&path)
+            .expect("saving to a writable temp dir must succeed");
+        let loaded = Configuration::load(&path).expect("what we just wrote must load back");
+
+        assert_eq!(
+            loaded, original,
+            "a trip through the filesystem must lose nothing"
+        );
+
+        std::fs::remove_file(&path).ok();
+    }
+
+    #[test]
+    fn save_creates_the_file_when_it_is_missing() {
+        // Leaving the config screen for the first time must be able to bring
+        // `sued.json` into existence, not merely overwrite an existing one.
+        let path = std::env::temp_dir().join("sued_rs_test_save_creates.json");
+        std::fs::remove_file(&path).ok(); // start from a guaranteed-absent file
+        assert!(!path.exists(), "this test must begin with no file");
+
+        Configuration::default()
+            .save(&path)
+            .expect("saving must create a missing file");
+
+        assert!(path.exists(), "after save the file must exist");
+
+        std::fs::remove_file(&path).ok();
+    }
+
+    #[test]
+    fn save_overwrites_an_existing_file_completely() {
+        // A second save must fully replace the first — no leftover keys from the
+        // old contents bleeding through (`fs::write` truncates before writing).
+        let path = std::env::temp_dir().join("sued_rs_test_save_overwrites.json");
+
+        let first = Configuration {
+            theme: Theme::Ambar,
+            audio_volume: 10,
+            animations: true,
+            language: Language::default(),
+        };
+        let second = Configuration {
+            theme: Theme::Sangue,
+            audio_volume: 90,
+            animations: false,
+            language: Language::default(),
+        };
+
+        first.save(&path).expect("the first save must succeed");
+        second.save(&path).expect("the second save must succeed");
+        let loaded = Configuration::load(&path).expect("the file must still load");
+
+        assert_eq!(
+            loaded, second,
+            "the newest save must win, with nothing stale left behind"
+        );
+
+        std::fs::remove_file(&path).ok();
     }
 }
