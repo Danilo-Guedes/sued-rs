@@ -11,4 +11,14 @@ pub enum Language {
 
 impl Language {
     pub const ALL: [Language; 3] = [Language::PtBr, Language::EnUs, Language::EsEs];
+
+    /// The on-screen label for this language, distinct from the lowercase serde
+    /// wire format (`ptbr`/`enus`/`eses`).
+    pub fn label(&self) -> &'static str {
+        match self {
+            Language::PtBr => "PT-BR",
+            Language::EnUs => "EN-US",
+            Language::EsEs => "ES-ES",
+        }
+    }
 }

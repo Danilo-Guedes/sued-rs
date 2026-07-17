@@ -22,7 +22,7 @@ pub struct App {
     started_at: Instant,
     pending_cue: Option<AudioCue>,
     config_object: Configuration,
-    pub config_navigation: ConfigIndex,
+    config_navigation: ConfigIndex,
 }
 
 #[derive(Default, Debug)]
@@ -263,6 +263,10 @@ impl App {
 
     pub fn config(&self) -> Configuration {
         self.config_object
+    }
+
+    pub fn focused_option(&self) -> ConfigOption {
+        self.config_navigation.selected()
     }
 }
 
