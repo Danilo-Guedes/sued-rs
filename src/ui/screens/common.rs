@@ -106,7 +106,7 @@ impl NavTab {
             NavTab::Ask => "Pergunta",
             NavTab::Info => "Informações",
             NavTab::About => "Sobre",
-            NavTab::Config => "Config",
+            NavTab::Config => "Configuração",
         }
     }
 }

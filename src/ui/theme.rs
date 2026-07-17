@@ -11,4 +11,12 @@ pub enum Theme {
 
 impl Theme {
     pub const ALL: [Theme; 3] = [Theme::Sangue, Theme::Ambar, Theme::Fosforo];
+
+    pub fn label(&self) -> &'static str {
+        match self {
+            Theme::Sangue => "SANGUE",
+            Theme::Ambar => "ÂMBAR",
+            Theme::Fosforo => "FÓSFORO",
+        }
+    }
 }

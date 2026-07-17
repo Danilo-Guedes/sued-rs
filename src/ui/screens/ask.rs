@@ -171,7 +171,7 @@ pub(super) fn render(
 
     frame.render_widget(
         Paragraph::new(typed)
-            .block(colorfull_bordered_block(None).title(" input "))
+            .block(colorfull_bordered_block(None).title(" FALE COMIGO... "))
             .wrap(Wrap { trim: false }),
         input_layout,
     );
@@ -190,7 +190,7 @@ pub(super) fn render(
         "  ".into(),
         "[F5]".red().bold(),
         " ".into(),
-        "new question".dim(),
+        "nova pergunta".dim(),
         "  ".into(),
         "[Esc]".red().bold(),
         " ".into(),

@@ -1,9 +1,9 @@
 //! 06 · CONFIGURAÇÃO.
 //!
-//! MOCK — every value on this screen is hardcoded to the design. Nothing here
-//! reads a `Config`, and nothing here moves: the selected chips are frozen where
-//! the mockup drew them. Wiring the rows to real state, to the cursor `[↑↓]`
-//! drives, and to `Config::save` is the next step.
+//! Renders the live `Configuration` as a form: each row shows its current value —
+//! the selected chip lit, the volume bar filled — and the row under the `[↑↓]`
+//! cursor wears a red label. Changes are applied by the config arm in `crate::app`,
+//! so this screen is pure presentation: it reads state, it never mutates it.
 
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout};
@@ -12,19 +12,23 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Padding, Paragraph};
 
 use crate::app::App;
+use crate::config::ConfigOption;
+use crate::language::Language;
 use crate::ui::screens::common::{
     NavTab, colorfull_bordered_block, create_centered_rect, create_screen_block, render_nav_strip,
 };
+use crate::ui::theme::Theme;
 
 const FORM_WIDTH: u16 = 64;
 
 /// Pads the label column so every value starts at the same column.
 const LABEL_WIDTH: usize = 12;
 
-pub(super) fn render(frame: &mut Frame, app_state: &mut App) {
+pub(super) fn render(frame: &mut Frame, app_state: &App) {
     let layout = create_screen_block(frame);
 
-    let current_menu_index = app_state.config_navigation.selected() as usize;
+    let config = app_state.config();
+    let focused = app_state.focused_option();
 
     let [nav_layout, center_layout, status_layout] = Layout::vertical([
         Constraint::Length(4), // nav strip
@@ -77,41 +81,32 @@ pub(super) fn render(frame: &mut Frame, app_state: &mut App) {
         subtitle_area,
     );
 
+    let theme_chips: Vec<(&str, bool)> = Theme::ALL
+        .into_iter()
+        .map(|t| (t.label(), t == config.theme()))
+        .collect();
+    let language_chips: Vec<(&str, bool)> = Language::ALL
+        .into_iter()
+        .map(|l| (l.label(), l == config.language()))
+        .collect();
+    let animation_chips = [("SIM", config.animations()), ("NÃO", !config.animations())];
+
     let rows = vec![
-        option_row(
-            "tema",
-            &["SANGUE", "ÂMBAR", "FÓSFORO"],
-            app_state.config().theme() as usize,
-            0,
-            current_menu_index,
-        ),
+        option_row("TEMA", &theme_chips, focused == ConfigOption::Theme),
         Line::from(""),
         option_row(
-            "animações",
-            &["SIM", "NÃO"],
-            if app_state.config().animations() {
-                0
-            } else {
-                1
-            },
-            1,
-            current_menu_index,
+            "ANIMAÇÕES",
+            &animation_chips,
+            focused == ConfigOption::Animations,
         ),
         Line::from(""),
         volume_row(
-            "volume",
-            app_state.config().audio_volume(),
-            2,
-            current_menu_index,
+            "VOLUME",
+            config.audio_volume(),
+            focused == ConfigOption::Volume,
         ),
         Line::from(""),
-        option_row(
-            "idioma",
-            &["PT-BR", "EN-US", "ES-ES"],
-            app_state.config().language() as usize,
-            3,
-            current_menu_index,
-        ),
+        option_row("IDIOMA", &language_chips, focused == ConfigOption::Language),
     ];
     frame.render_widget(
         Paragraph::new(rows).block(Block::new().padding(Padding::left(4))),
@@ -156,26 +151,16 @@ pub(super) fn render(frame: &mut Frame, app_state: &mut App) {
     frame.render_widget(Paragraph::new("CONFIG".dim()).right_aligned(), page_area);
 }
 
-fn option_row(
-    label: &str,
-    options: &[&str],
-    selected: usize,
-    menu_index: usize,
-    current_menu_index: usize,
-) -> Line<'static> {
-    let mut spans = if menu_index == current_menu_index {
-        vec![Span::from(format!("{label:<LABEL_WIDTH$}")).red()]
-    } else {
-        vec![Span::from(format!("{label:<LABEL_WIDTH$}")).dim()]
-    };
+fn option_row(label: &str, chips: &[(&str, bool)], is_focused: bool) -> Line<'static> {
+    let mut spans = vec![styled_label(label, is_focused)];
 
-    for (i, option) in options.iter().enumerate() {
+    for (i, &(text, selected)) in chips.iter().enumerate() {
         if i > 0 {
             spans.push("  ".into());
         }
 
-        let chip = Span::from(format!(" {option} "));
-        spans.push(if i == selected {
+        let chip = Span::from(format!(" {text} "));
+        spans.push(if selected {
             chip.black().on_red().bold()
         } else {
             chip.dim()
@@ -185,27 +170,20 @@ fn option_row(
     Line::from(spans)
 }
 
-/// The volume row — a bar filled to `percent`, plus the number it stands for.
-fn volume_row(
-    label: &str,
-    percent: u8,
-    menu_index: usize,
-    current_menu_index: usize,
-) -> Line<'static> {
+fn volume_row(label: &str, percent: u8, is_focused: bool) -> Line<'static> {
     const BAR_WIDTH: usize = 24;
 
     let filled = BAR_WIDTH * percent.min(100) as usize / 100;
 
-    let label_span = if menu_index == current_menu_index {
-        Span::from(format!("{label:<LABEL_WIDTH$}")).red()
-    } else {
-        Span::from(format!("{label:<LABEL_WIDTH$}")).dim()
-    };
-
     Line::from(vec![
-        label_span,
+        styled_label(label, is_focused),
         Span::from("█".repeat(filled)).red(),
         Span::from("░".repeat(BAR_WIDTH - filled)).dim(),
         Span::from(format!(" {percent}%")).dim(),
     ])
+}
+
+fn styled_label(label: &str, is_focused: bool) -> Span<'static> {
+    let span = Span::from(format!("{label:<LABEL_WIDTH$}"));
+    if is_focused { span.red() } else { span.dim() }
 }

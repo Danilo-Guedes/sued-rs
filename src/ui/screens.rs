@@ -12,7 +12,7 @@ use ratatui::Frame;
 
 use crate::app::{App, Screen};
 
-pub fn render(frame: &mut Frame, app: &mut App) {
+pub fn render(frame: &mut Frame, app: &App) {
     match app.screen() {
         Screen::Intro => intro::render(frame),
         Screen::Menu => menu::render(frame, app.menu()),
