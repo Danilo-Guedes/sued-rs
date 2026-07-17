@@ -11,19 +11,20 @@ use ratatui::style::Stylize;
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Padding, Paragraph};
 
+use crate::app::App;
 use crate::ui::screens::common::{
     NavTab, colorfull_bordered_block, create_centered_rect, create_screen_block, render_nav_strip,
 };
 
-/// Width of the centred form column — sized to the longest line inside it (the
-/// `[↑↓]`/`[Enter]` hint), so the rows, the divider and the hint share an edge.
 const FORM_WIDTH: u16 = 64;
 
 /// Pads the label column so every value starts at the same column.
 const LABEL_WIDTH: usize = 12;
 
-pub(super) fn render(frame: &mut Frame) {
+pub(super) fn render(frame: &mut Frame, app_state: &mut App) {
     let layout = create_screen_block(frame);
+
+    let current_menu_index = app_state.config_navigation.selected() as usize;
 
     let [nav_layout, center_layout, status_layout] = Layout::vertical([
         Constraint::Length(4), // nav strip
@@ -34,10 +35,6 @@ pub(super) fn render(frame: &mut Frame) {
 
     render_nav_strip(frame, nav_layout, NavTab::Config);
 
-    // The whole form is one centred column, so its rows, divider and hint all
-    // share a left edge. Height stays `Fill(1)` and the gaps between the groups
-    // are `Fill` rows: that lets the form breathe on a tall terminal and still
-    // fit the 12 rows it truly needs into an 80×24 one.
     let form_area = create_centered_rect(
         center_layout,
         Constraint::Length(FORM_WIDTH),
@@ -80,16 +77,41 @@ pub(super) fn render(frame: &mut Frame) {
         subtitle_area,
     );
 
-    // Same "a table is just aligned lines" move as the Informações screen: one
-    // Paragraph, blank lines for the gaps, no table widget.
     let rows = vec![
-        option_row("tema", &["SANGUE", "ÂMBAR", "FÓSFORO"], 0),
+        option_row(
+            "tema",
+            &["SANGUE", "ÂMBAR", "FÓSFORO"],
+            app_state.config().theme() as usize,
+            0,
+            current_menu_index,
+        ),
         Line::from(""),
-        option_row("animações", &["SIM", "NÃO"], 0),
+        option_row(
+            "animações",
+            &["SIM", "NÃO"],
+            if app_state.config().animations() {
+                0
+            } else {
+                1
+            },
+            1,
+            current_menu_index,
+        ),
         Line::from(""),
-        volume_row("volume", 50),
+        volume_row(
+            "volume",
+            app_state.config().audio_volume(),
+            2,
+            current_menu_index,
+        ),
         Line::from(""),
-        option_row("idioma", &["PT-BR", "EN-US", "ES-ES"], 0),
+        option_row(
+            "idioma",
+            &["PT-BR", "EN-US", "ES-ES"],
+            app_state.config().language() as usize,
+            3,
+            current_menu_index,
+        ),
     ];
     frame.render_widget(
         Paragraph::new(rows).block(Block::new().padding(Padding::left(4))),
@@ -114,14 +136,9 @@ pub(super) fn render(frame: &mut Frame) {
     let status_inner = status_block.inner(status_layout);
     frame.render_widget(status_block, status_layout);
 
-    // The page tag is right-aligned, so its Rect only has to be as wide as the
-    // word itself — sized to "CONFIG" the way the menu sizes its own to "1/4",
-    // rather than copying the 14 the other screens reserve for "INFORMAÇÕES".
     let [hints_area, page_area] =
         Layout::horizontal([Constraint::Fill(1), Constraint::Length(8)]).areas(status_inner);
 
-    // No `[Enter]`: changes apply on the keypress, so there is nothing to commit.
-    // A "salvar"/"cancelar" hint here would promise a step the app doesn't have.
     let hints = Line::from(vec![
         "[↑↓]".red().bold(),
         " ".into(),
@@ -139,12 +156,18 @@ pub(super) fn render(frame: &mut Frame) {
     frame.render_widget(Paragraph::new("CONFIG".dim()).right_aligned(), page_area);
 }
 
-/// One `label   [CHIP] opt opt` row. The selected option wears the same
-/// black-on-red chip as the active nav tab; the others sit dim beside it. Every
-/// option is padded to `" {option} "` whether or not it's selected, so the row
-/// doesn't shift sideways as the selection moves along it.
-fn option_row(label: &str, options: &[&str], selected: usize) -> Line<'static> {
-    let mut spans = vec![Span::from(format!("{label:<LABEL_WIDTH$}")).dim()];
+fn option_row(
+    label: &str,
+    options: &[&str],
+    selected: usize,
+    menu_index: usize,
+    current_menu_index: usize,
+) -> Line<'static> {
+    let mut spans = if menu_index == current_menu_index {
+        vec![Span::from(format!("{label:<LABEL_WIDTH$}")).red()]
+    } else {
+        vec![Span::from(format!("{label:<LABEL_WIDTH$}")).dim()]
+    };
 
     for (i, option) in options.iter().enumerate() {
         if i > 0 {
@@ -163,13 +186,24 @@ fn option_row(label: &str, options: &[&str], selected: usize) -> Line<'static> {
 }
 
 /// The volume row — a bar filled to `percent`, plus the number it stands for.
-fn volume_row(label: &str, percent: u8) -> Line<'static> {
+fn volume_row(
+    label: &str,
+    percent: u8,
+    menu_index: usize,
+    current_menu_index: usize,
+) -> Line<'static> {
     const BAR_WIDTH: usize = 24;
 
     let filled = BAR_WIDTH * percent.min(100) as usize / 100;
 
+    let label_span = if menu_index == current_menu_index {
+        Span::from(format!("{label:<LABEL_WIDTH$}")).red()
+    } else {
+        Span::from(format!("{label:<LABEL_WIDTH$}")).dim()
+    };
+
     Line::from(vec![
-        Span::from(format!("{label:<LABEL_WIDTH$}")).dim(),
+        label_span,
         Span::from("█".repeat(filled)).red(),
         Span::from("░".repeat(BAR_WIDTH - filled)).dim(),
         Span::from(format!(" {percent}%")).dim(),
