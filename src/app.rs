@@ -23,6 +23,7 @@ pub struct App {
     pending_cue: Option<AudioCue>,
     config_object: Configuration,
     config_navigation: ConfigIndex,
+    pending_save: Option<Configuration>,
 }
 
 #[derive(Default, Debug)]
@@ -109,6 +110,7 @@ impl App {
             pending_cue: None,
             config_navigation: ConfigIndex::default(),
             config_object: Configuration::default(),
+            pending_save: None,
         }
     }
     pub fn handle_key(&mut self, key: KeyPress) -> AppFlow {
@@ -220,6 +222,7 @@ impl App {
             },
             Screen::Config => match key {
                 KeyPress::Esc => {
+                    self.pending_save = Some(self.config_object);
                     self.screen = Screen::Menu;
                     AppFlow::Stay
                 }
@@ -267,6 +270,10 @@ impl App {
 
     pub fn focused_option(&self) -> ConfigOption {
         self.config_navigation.selected()
+    }
+
+    pub fn take_pending_save(&mut self) -> Option<Configuration> {
+        self.pending_save.take()
     }
 }
 
@@ -318,7 +325,7 @@ mod tests {
     /// Replay a sequence of keystrokes from a fresh app, handing back the final
     /// state *and* the `AppFlow` returned by the last key (Stay/Quit).
     fn drive_flow(keys: &[KeyPress]) -> (App, AppFlow) {
-        let mut state = App::new();
+        let mut state = App::new(Configuration::default());
         let mut flow = AppFlow::Stay;
         for &key in keys {
             flow = state.handle_key(key);
@@ -342,7 +349,27 @@ mod tests {
 
     #[test]
     fn new_starts_at_intro() {
-        assert!(matches!(App::new().screen(), Screen::Intro));
+        assert!(matches!(
+            App::new(Configuration::default()).screen(),
+            Screen::Intro
+        ));
+    }
+
+    #[test]
+    fn new_seeds_the_live_config_from_the_loaded_value() {
+        // `main` loads `sued.json` at startup and hands the result to `App::new`;
+        // the app must adopt it as its live config, not silently fall back to
+        // defaults. A non-default value proves the seed actually threads through.
+        let loaded =
+            Configuration::from_json(r#"{ "audio_volume": 33 }"#).expect("a valid partial config");
+
+        let app = App::new(loaded);
+
+        assert_eq!(
+            app.config(),
+            loaded,
+            "App::new must adopt the config it is given"
+        );
     }
 
     #[test]
@@ -1014,5 +1041,84 @@ mod tests {
             Configuration::default(),
             "Enter must not alter any setting"
         );
+    }
+
+    // ── Config persistence seam (Slice B): queue a save on config exit ─────────
+    // The simplified model: leaving the config screen (Esc) queues the live config
+    // for `main` to write, drained with `take_pending_save()` — the twin of the
+    // `pending_cue`/`take_cue` seam. No disk baseline: `App` stays I/O-free and we
+    // write once per visit, changed or not. Reading happens only at startup.
+
+    #[test]
+    fn leaving_config_queues_the_changed_config_for_saving() {
+        // Change the theme, then Esc back to the menu. The value that rides along
+        // must be the live (changed) config, ready for main to persist.
+        let mut app = on_config(&[KeyPress::Right, KeyPress::Esc]);
+        let live = app.config();
+
+        assert_eq!(
+            live.theme(),
+            Theme::Ambar,
+            "precondition: the change applied"
+        );
+        assert_eq!(
+            app.take_pending_save(),
+            Some(live),
+            "Esc from config must queue the live config for saving"
+        );
+    }
+
+    #[test]
+    fn leaving_config_unchanged_still_queues_a_save() {
+        // We keep no baseline, so we never ask "did anything change?" — every exit
+        // writes once. A redundant identical write is the cheap price of not
+        // tracking what disk holds.
+        let mut app = on_config(&[KeyPress::Esc]);
+        let live = app.config();
+
+        assert_eq!(
+            app.take_pending_save(),
+            Some(live),
+            "leaving config always queues a save, changed or not"
+        );
+    }
+
+    #[test]
+    fn take_pending_save_drains_so_the_file_is_written_once() {
+        let mut app = on_config(&[KeyPress::Right, KeyPress::Esc]);
+
+        assert!(
+            app.take_pending_save().is_some(),
+            "the first drain gets the queued config"
+        );
+        assert_eq!(
+            app.take_pending_save(),
+            None,
+            "the second drain is empty — a visit persists exactly once"
+        );
+    }
+
+    #[test]
+    fn leaving_a_non_config_screen_queues_no_save() {
+        // Only the config screen persists. Bouncing out of Info (Menu → Info → Esc)
+        // must not queue anything.
+        let mut app = drive(&[
+            KeyPress::Enter,
+            KeyPress::Down,
+            KeyPress::Enter, // → Info
+            KeyPress::Esc,   // → Menu
+        ]);
+
+        assert_eq!(
+            app.take_pending_save(),
+            None,
+            "leaving a screen other than config must not queue a save"
+        );
+    }
+
+    #[test]
+    fn a_fresh_app_has_nothing_queued_to_save() {
+        let mut app = drive(&[]);
+        assert_eq!(app.take_pending_save(), None);
     }
 }
