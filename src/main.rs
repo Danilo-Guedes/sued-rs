@@ -15,6 +15,7 @@ mod language;
 mod ui;
 
 use std::io::{Stdout, stdout};
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use anyhow::{Context, Result};
@@ -61,16 +62,27 @@ impl Drop for TerminalGuard {
 fn main() -> Result<()> {
     let args = Args::parse();
 
+    let config_path = match args.config {
+        Some(path) => path,
+        None => default_config_path()?,
+    };
+
+    if let Some(parent) = config_path.parent() {
+        std::fs::create_dir_all::<&Path>(parent)
+            .with_context(|| format!("while creating {}", parent.display()))?;
+    }
+
+    let parsed_config = Configuration::load(config_path.as_path())
+        .with_context(|| format!("while trying to read {}", config_path.display()))?;
+
+    if !config_path.exists() {
+        parsed_config
+            .save(&config_path)
+            .with_context(|| format!("saving in {}", config_path.display()))?;
+    }
+
     let _guard = TerminalGuard::new()?; // declared first → dropped LAST (cleans up after the terminal)
     let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
-
-    let mut config_file_path = dirs::config_dir().unwrap();
-
-    config_file_path.push("/sued-rs/sued.config.json");
-
-    let parsed_config = Configuration::load(config_file_path.as_path())
-        .with_context(|| format!("while trying to read {}", config_file_path.display()))
-        .unwrap();
 
     let mut app_state = App::new(parsed_config);
 
@@ -78,7 +90,7 @@ fn main() -> Result<()> {
     // The no-op `Audio` ignores the flag; the real one goes silent when it's false.
     let mut audio = Audio::new(!args.no_sound)?;
 
-    run(&mut terminal, &mut app_state, &mut audio)
+    run(&mut terminal, &mut app_state, &mut audio, &config_path)
 }
 
 /// The tick loop: redraw every frame, only `read()` when there's actually input.
@@ -87,6 +99,7 @@ fn run(
     terminal: &mut Terminal<CrosstermBackend<Stdout>>,
     app_state: &mut App,
     audio: &mut Audio,
+    config_file_path: &Path,
 ) -> Result<()> {
     audio.start_ambience(); // the dread bed loops for the whole session
 
@@ -101,6 +114,12 @@ fn run(
                 // Windows fires Press AND Release; only act on Press, or every key doubles.
                 if key.kind == KeyEventKind::Press {
                     let flow = translate_key(app_state, key);
+
+                    if let Some(config) = app_state.take_pending_save() {
+                        config
+                            .save(config_file_path)
+                            .with_context(|| format!("saving {}", config_file_path.display()))?;
+                    }
 
                     if let Some(cue) = app_state.take_cue() {
                         audio.play(cue);
@@ -131,4 +150,11 @@ fn translate_key(app_state: &mut App, key: KeyEvent) -> AppFlow {
         KeyCode::Right => app_state.handle_key(KeyPress::Right),
         _ => AppFlow::Stay,
     }
+}
+
+fn default_config_path() -> Result<PathBuf> {
+    let mut path = dirs::config_dir().context("could not determine the config directory")?;
+    path.push("sued-rs");
+    path.push("sued.config.json");
+    Ok(path)
 }
