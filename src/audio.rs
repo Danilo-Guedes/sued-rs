@@ -8,6 +8,8 @@
 
 pub const LAUGH_MIN_SECS: u64 = 40;
 pub const LAUGH_MAX_SECS: u64 = 120;
+const SILENCE_DB: f32 = -60.0; // mirrors kira's Decibels::SILENCE
+const MAX_VOLUME_PERCENTAGE: u8 = 100;
 
 #[cfg(feature = "audio")]
 use std::io::Cursor;
@@ -15,7 +17,8 @@ use std::time::Duration;
 
 #[cfg(feature = "audio")]
 use kira::{
-    AudioManager, AudioManagerSettings, DefaultBackend, sound::static_sound::StaticSoundData,
+    AudioManager, AudioManagerSettings, Decibels, DefaultBackend, Tween,
+    sound::static_sound::StaticSoundData,
 };
 
 /// A one-shot sound triggered by a state change. `App` queues one; `main` drains
@@ -34,6 +37,18 @@ pub fn laugh_interval(roll: f32) -> Duration {
     Duration::from_secs(LAUGH_MIN_SECS + (roll * span as f32) as u64)
 }
 
+pub fn volume_db(percent: u8) -> f32 {
+    if percent == 0 {
+        return SILENCE_DB;
+    }
+
+    let capped_percent_as_f32 = percent.min(MAX_VOLUME_PERCENTAGE) as f32;
+
+    let ratio = capped_percent_as_f32 / 100.0;
+
+    20.0 * ratio.log10()
+}
+
 // ── Silent build: no `audio` feature (or `--no-sound`) ──────────────────────
 // Same surface as the real thing, every method a no-op. This is what keeps the
 // crate building with no ALSA headers and `main` free of `#[cfg]`.
@@ -49,6 +64,8 @@ impl Audio {
     pub fn start_ambience(&mut self) {}
 
     pub fn play(&mut self, _cue: AudioCue) {}
+
+    pub fn set_volume(&mut self, _percent: u8) {}
 }
 
 #[cfg(feature = "audio")]
@@ -115,6 +132,17 @@ impl Audio {
             }
         }
     }
+
+    pub fn set_volume(&mut self, percent: u8) {
+        let Some(player) = &mut self.player else {
+            return;
+        };
+
+        player
+            .manager
+            .main_track()
+            .set_volume(Decibels(volume_db(percent)), Tween::default());
+    }
 }
 
 #[cfg(test)]
@@ -152,6 +180,135 @@ mod cadence_tests {
     }
 }
 
+// ── volume_db: the percent → decibels seam ─────────────────────────────────────
+// Ungated on purpose, exactly like `laugh_interval`: it's arithmetic, it touches
+// no kira type, so it compiles and is tested in BOTH the audio and silent builds
+// and needs no sound card. The kira edge wraps the result in `Decibels(..)`.
+//
+// The mapping is the textbook one — `20 * log10(percent / 100)` — because the
+// slider genuinely means "percent of amplitude". The one thing it cannot do is
+// take `log10(0)` (that's -infinity), so `0` returns `SILENCE_DB`, a floor that
+// mirrors kira's own `Decibels::SILENCE` (-60.0) without depending on the type.
+//
+// Assertions use a tolerance rather than `==`: these are f32 and the expected
+// values are irrational-ish, so pinning exact bits would be testing the FPU.
+#[cfg(test)]
+mod volume_tests {
+    use super::{SILENCE_DB, volume_db};
+
+    /// Close enough for decibels — a hundredth of a dB is far below audible.
+    fn approx(actual: f32, expected: f32) -> bool {
+        (actual - expected).abs() < 0.01
+    }
+
+    /// The slider's real stops: 0, 10, 20 … 100, per `VOLUME_STEP` in `config.rs`.
+    const SLIDER_STOPS: [u8; 11] = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
+
+    #[test]
+    fn full_volume_is_unity_gain() {
+        // 100% must be 0 dB — *unchanged*, not "loud". This is the one that
+        // catches the classic kira misreading: `Decibels(0.5)` is +0.5 dB, a
+        // slight BOOST, not half volume.
+        let db = volume_db(100);
+        assert!(approx(db, 0.0), "100% mapped to {db} dB, want 0.0");
+    }
+
+    #[test]
+    fn zero_percent_drops_to_the_silence_floor() {
+        // The special case that has to exist: log10(0) is -infinity, which would
+        // poison every downstream calculation. It returns the floor instead.
+        let db = volume_db(0);
+        assert!(
+            approx(db, SILENCE_DB),
+            "0% mapped to {db} dB, want the {SILENCE_DB} floor"
+        );
+        assert!(db.is_finite(), "0% produced {db} — a non-finite dB value");
+    }
+
+    #[test]
+    fn half_volume_is_about_six_db_down() {
+        // Halving the amplitude is ~-6.02 dB. If this comes out as -50 or -30,
+        // the curve is a dB-space lerp, not the amplitude conversion we chose.
+        let db = volume_db(50);
+        assert!(approx(db, -6.02), "50% mapped to {db} dB, want ~-6.02");
+    }
+
+    #[test]
+    fn a_tenth_of_the_volume_is_about_twenty_db_down() {
+        // Every factor-of-10 drop in amplitude is another -20 dB — the property
+        // that makes this curve the standard one.
+        let db = volume_db(10);
+        assert!(approx(db, -20.0), "10% mapped to {db} dB, want ~-20.0");
+    }
+
+    #[test]
+    fn volume_never_amplifies() {
+        // Nothing on the slider may exceed unity gain. Positive dB would boost
+        // the signal past the mastered level of the asset and clip it.
+        //
+        // Swept across the WHOLE `u8`, not just the slider stops: `percent` can
+        // represent 101..=255, and the clamp that turns those away lives here,
+        // not in `Configuration`. A future `--volume 200` must be turned down,
+        // and the failure mode — audible distortion — is one no other test sees.
+        for percent in 0..=u8::MAX {
+            let db = volume_db(percent);
+            assert!(db <= 0.0, "{percent}% boosted the signal to {db} dB");
+        }
+    }
+
+    #[test]
+    fn above_full_volume_is_pinned_to_unity_gain() {
+        // Not merely "doesn't amplify" — an out-of-range percent must land on
+        // exactly the same volume as 100%, so overshooting reads as "full",
+        // never as some other level.
+        let full = volume_db(100);
+        for percent in [101, 150, u8::MAX] {
+            let db = volume_db(percent);
+            assert!(
+                approx(db, full),
+                "{percent}% mapped to {db} dB, want the {full} dB of full volume"
+            );
+        }
+    }
+
+    #[test]
+    fn volume_never_sinks_below_the_silence_floor() {
+        // The floor is a floor: no stop may land under it, so the render of a
+        // volume change can never ask kira for something quieter than silence.
+        for percent in SLIDER_STOPS {
+            let db = volume_db(percent);
+            assert!(
+                db >= SILENCE_DB,
+                "{percent}% mapped to {db} dB, below the {SILENCE_DB} floor"
+            );
+        }
+    }
+
+    #[test]
+    fn louder_percent_is_never_quieter() {
+        // Strictly increasing across the stops. `[←]` must always get quieter
+        // and `[→]` louder — an inversion anywhere makes the slider feel broken.
+        let curve: Vec<f32> = SLIDER_STOPS.iter().map(|&p| volume_db(p)).collect();
+        for pair in curve.windows(2) {
+            assert!(pair[0] < pair[1], "the volume curve inverted: {curve:?}");
+        }
+    }
+
+    #[test]
+    fn every_slider_stop_is_audibly_distinct() {
+        // Each keypress must *do* something. A mapping that rounds or clamps
+        // could technically stay monotonic while several stops sound identical;
+        // 0.5 dB apart is the loosest bound that still guarantees a real step.
+        let curve: Vec<f32> = SLIDER_STOPS.iter().map(|&p| volume_db(p)).collect();
+        for pair in curve.windows(2) {
+            assert!(
+                pair[1] - pair[0] >= 0.5,
+                "two neighbouring stops are the same volume: {curve:?}"
+            );
+        }
+    }
+}
+
 // Only meaningful in an audio build: the stub `Audio` is unconditionally silent
 // and has no `player` to inspect. There is deliberately no `new(true)` test —
 // that one needs a real sound card, which CI doesn't have.
@@ -176,5 +333,9 @@ mod tests {
         audio.start_ambience();
         audio.play(AudioCue::JumpScare);
         audio.play(AudioCue::Laugh);
+        // `set_volume` reaches for `main_track()` on the manager — the one call
+        // here that would touch a device that was never opened. `--no-sound` has
+        // to swallow it like the rest.
+        audio.set_volume(50);
     }
 }
