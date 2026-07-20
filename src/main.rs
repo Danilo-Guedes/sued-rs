@@ -101,6 +101,10 @@ fn run(
     audio: &mut Audio,
     config_file_path: &Path,
 ) -> Result<()> {
+    let mut last_volume = app_state.config().audio_volume();
+
+    audio.set_volume(last_volume);
+
     audio.start_ambience(); // the dread bed loops for the whole session
 
     let mut next_laugh_at = Instant::now() + laugh_interval(rand::random());
@@ -116,7 +120,14 @@ fn run(
             next_laugh_at = now + laugh_interval(rand::random());
         }
 
-        // 3. POLL — wait up to `TICK` for an event. Returns false on timeout (no input).
+        // 3. CHECK VOLUME
+        if app_state.config().audio_volume() != last_volume {
+            let new_volume = app_state.config().audio_volume();
+            audio.set_volume(new_volume);
+            last_volume = new_volume;
+        }
+
+        // 4. POLL — wait up to `TICK` for an event. Returns false on timeout (no input).
         if event::poll(TICK)? {
             // 3. READ — only now, knowing an event is waiting, so this won't block.
             if let Event::Key(key) = event::read()? {

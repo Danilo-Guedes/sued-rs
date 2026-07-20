@@ -20,7 +20,7 @@ serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.150"
 # Audio is optional so the project builds with no ALSA headers (M1 doesn't use it).
 # Flip `default = ["audio"]` at M3 once sound is wired in.
-kira = { version = "0.12.1", optional = true }
+kira = { version = "0.12.2", optional = true, default-features = false, features = ["cpal", "cpal-realtime", "ogg", "vorbis"] }
 rand = "0.10.2"
 dirs = "6.0.0"
 
