@@ -68,10 +68,10 @@ pub fn cursor_on(elapsed: Duration) -> bool {
 /// returns a intensity number from 0 to MAX_INTENSITY [255]
 /// using FLASH_MS [400] as base divider
 /// it'll be used to create flash ui effects
-pub fn flash_intensity(elapsed: Duration) -> u8 {
+pub fn flash_intensity(elapsed: Duration, enable_animations: bool) -> u8 {
     let elapsed_ms = elapsed.as_millis() as u64;
 
-    if elapsed_ms >= FLASH_MS {
+    if !enable_animations || (elapsed_ms >= FLASH_MS) {
         return 0;
     }
 
@@ -85,8 +85,8 @@ pub fn flash_intensity(elapsed: Duration) -> u8 {
 /// where roll > FLICKER_CHANCE return u8::MAX (256)
 /// only percentages bellow FLICKER_CHANGE will actually dim you text
 /// use this returned value as a dim scale color to simulate flickering
-pub fn flicker_intensity(roll: f32) -> u8 {
-    if roll >= FLICKER_CHANCE {
+pub fn flicker_intensity(roll: f32, enable_animations: bool) -> u8 {
+    if !enable_animations || (roll >= FLICKER_CHANCE) {
         return u8::MAX;
     }
 
@@ -100,9 +100,14 @@ pub fn flicker_intensity(roll: f32) -> u8 {
     (MIN_FLICKER_VALUE as f32 + brightness_fraction * range_above_floor) as u8
 }
 
-pub fn shake_offset(elapsed: Duration, roll_x: f32, roll_y: f32) -> (i16, i16) {
+pub fn shake_offset(
+    elapsed: Duration,
+    roll_x: f32,
+    roll_y: f32,
+    enable_animations: bool,
+) -> (i16, i16) {
     let elapesed_in_ms = elapsed.as_millis() as u64;
-    if elapesed_in_ms >= SHAKE_MS {
+    if !enable_animations || (elapesed_in_ms >= SHAKE_MS) {
         return (0, 0);
     }
 
@@ -312,19 +317,22 @@ mod tests {
     fn flash_peaks_at_the_instant_of_reveal() {
         // elapsed 0 = the reveal *just* fired → fully red. (This is the same ZERO
         // an ungated `None` would pass in — hence the render-boundary note above.)
-        assert_eq!(flash_intensity(Duration::ZERO), 255);
+        assert_eq!(flash_intensity(Duration::ZERO, true), 255);
     }
 
     #[test]
     fn flash_is_dark_once_its_lifetime_elapses() {
         // Exactly one FLASH_MS in, the flash has fully faded.
-        assert_eq!(flash_intensity(Duration::from_millis(FLASH_MS)), 0);
+        assert_eq!(flash_intensity(Duration::from_millis(FLASH_MS), true), 0);
     }
 
     #[test]
     fn flash_stays_dark_long_after() {
         // Well past the lifetime it never wraps or underflows back to bright.
-        assert_eq!(flash_intensity(Duration::from_millis(FLASH_MS * 10)), 0);
+        assert_eq!(
+            flash_intensity(Duration::from_millis(FLASH_MS * 10), true),
+            0
+        );
     }
 
     #[test]
@@ -332,7 +340,7 @@ mod tests {
         // Halfway through the lifetime it's genuinely fading: dimmer than the peak
         // but not yet out. We pin the *rule* (strictly between), not the exact
         // byte — integer division lands it on 128, not the ~127 you'd eyeball.
-        let mid = flash_intensity(flash_fraction(1, 2));
+        let mid = flash_intensity(flash_fraction(1, 2), true);
         assert!(
             mid > 0 && mid < 255,
             "mid-fade intensity was {mid}, want 0 < x < 255"
@@ -345,7 +353,7 @@ mod tests {
         // decreasing): integer division makes the curve plateau for a millisecond
         // or two between steps, which is fine.
         let samples: Vec<u8> = (0..=4)
-            .map(|k| flash_intensity(flash_fraction(k, 4)))
+            .map(|k| flash_intensity(flash_fraction(k, 4), true))
             .collect();
         for pair in samples.windows(2) {
             assert!(
@@ -358,22 +366,22 @@ mod tests {
     #[test]
     fn flicker_is_full_brightness_at_or_above_the_chance() {
         // The common case: the vast majority of rolls leave the demon fully lit.
-        assert_eq!(flicker_intensity(FLICKER_CHANCE), u8::MAX);
-        assert_eq!(flicker_intensity(0.5), u8::MAX);
-        assert_eq!(flicker_intensity(0.999), u8::MAX);
+        assert_eq!(flicker_intensity(FLICKER_CHANCE, true), u8::MAX);
+        assert_eq!(flicker_intensity(0.5, true), u8::MAX);
+        assert_eq!(flicker_intensity(0.999, true), u8::MAX);
     }
 
     #[test]
     fn flicker_hits_the_floor_at_roll_zero() {
         // The deepest possible dip is the floor — a flicker never goes darker.
-        assert_eq!(flicker_intensity(0.0), MIN_FLICKER_VALUE);
+        assert_eq!(flicker_intensity(0.0, true), MIN_FLICKER_VALUE);
     }
 
     #[test]
     fn flicker_dim_band_sits_between_floor_and_full() {
         // A roll inside the dim band is a partial dip: dimmer than full, no darker
         // than the floor. Mid-band roll so it's safely interior, not on an edge.
-        let dim = flicker_intensity(FLICKER_CHANCE * 0.5);
+        let dim = flicker_intensity(FLICKER_CHANCE * 0.5, true);
         assert!(
             dim > MIN_FLICKER_VALUE && dim < u8::MAX,
             "dim-band intensity was {dim}, want {MIN_FLICKER_VALUE} < x < {}",
@@ -394,7 +402,7 @@ mod tests {
             0.5,
             0.99,
         ];
-        let intensities: Vec<u8> = rolls.iter().map(|&r| flicker_intensity(r)).collect();
+        let intensities: Vec<u8> = rolls.iter().map(|&r| flicker_intensity(r, true)).collect();
         for pair in intensities.windows(2) {
             assert!(
                 pair[0] <= pair[1],
@@ -419,7 +427,7 @@ mod tests {
     fn shake_is_centered_for_the_neutral_roll() {
         // A roll of 0.5 sits dead-center of [-amp, +amp] (`0.5 * 2 - 1 == 0`), so
         // that axis never moves — even at the very peak of the shake.
-        assert_eq!(shake_offset(Duration::ZERO, 0.5, 0.5), (0, 0));
+        assert_eq!(shake_offset(Duration::ZERO, 0.5, 0.5, true), (0, 0));
     }
 
     #[test]
@@ -427,11 +435,11 @@ mod tests {
         // elapsed 0 = peak amplitude. The extreme rolls hit the corners of the
         // jolt: 0.0 → the full negative throw, 1.0 → the full positive throw.
         assert_eq!(
-            shake_offset(Duration::ZERO, 0.0, 0.0),
+            shake_offset(Duration::ZERO, 0.0, 0.0, true),
             (-SHAKE_MAX_CELLS, -SHAKE_MAX_CELLS)
         );
         assert_eq!(
-            shake_offset(Duration::ZERO, 1.0, 1.0),
+            shake_offset(Duration::ZERO, 1.0, 1.0, true),
             (SHAKE_MAX_CELLS, SHAKE_MAX_CELLS)
         );
     }
@@ -440,20 +448,20 @@ mod tests {
     fn shake_settles_to_nothing_once_its_lifetime_elapses() {
         // Exactly one SHAKE_MS in, the jolt is spent — dead still for ANY roll...
         assert_eq!(
-            shake_offset(Duration::from_millis(SHAKE_MS), 0.0, 1.0),
+            shake_offset(Duration::from_millis(SHAKE_MS), 0.0, 1.0, true),
             (0, 0)
         );
         // ...and long after it never wraps or underflows back to life. That guard
         // is the flash lesson again — the one bug the happy-path tests can't see.
-        assert_eq!(shake_offset(shake_fraction(10, 1), 0.0, 1.0), (0, 0));
+        assert_eq!(shake_offset(shake_fraction(10, 1), 0.0, 1.0, true), (0, 0));
     }
 
     #[test]
     fn shake_amplitude_decays_from_its_peak() {
         // The same extreme roll, later in the window → a strictly smaller throw.
         // This is the whole point: the shake calms instead of rattling forever.
-        let peak = shake_offset(Duration::ZERO, 1.0, 1.0).0;
-        let midway = shake_offset(shake_fraction(1, 2), 1.0, 1.0).0;
+        let peak = shake_offset(Duration::ZERO, 1.0, 1.0, true).0;
+        let midway = shake_offset(shake_fraction(1, 2), 1.0, 1.0, true).0;
         assert!(
             midway.abs() < peak.abs(),
             "midway throw {midway} was not smaller than the peak {peak}"
@@ -468,7 +476,7 @@ mod tests {
         for num in 0..=4 {
             for &rx in &rolls {
                 for &ry in &rolls {
-                    let (dx, dy) = shake_offset(shake_fraction(num, 4), rx, ry);
+                    let (dx, dy) = shake_offset(shake_fraction(num, 4), rx, ry, true);
                     assert!(
                         dx.abs() <= SHAKE_MAX_CELLS && dy.abs() <= SHAKE_MAX_CELLS,
                         "offset ({dx},{dy}) exceeded max {SHAKE_MAX_CELLS}"
@@ -483,7 +491,7 @@ mod tests {
         // Hold the roll at the positive extreme and walk time forward: the throw
         // never grows. Non-increasing (integer truncation makes it plateau).
         let throws: Vec<i16> = (0..=4)
-            .map(|k| shake_offset(shake_fraction(k, 4), 1.0, 0.5).0)
+            .map(|k| shake_offset(shake_fraction(k, 4), 1.0, 0.5, true).0)
             .collect();
         for pair in throws.windows(2) {
             assert!(pair[0] >= pair[1], "shake grew over time: {throws:?}");
@@ -494,7 +502,103 @@ mod tests {
     fn shake_axes_are_independent() {
         // roll_x drives dx and only dx; roll_y drives dy and only dy. A neutral
         // roll on one axis keeps it still while the other throws to full.
-        assert_eq!(shake_offset(Duration::ZERO, 1.0, 0.5), (SHAKE_MAX_CELLS, 0));
-        assert_eq!(shake_offset(Duration::ZERO, 0.5, 1.0), (0, SHAKE_MAX_CELLS));
+        assert_eq!(
+            shake_offset(Duration::ZERO, 1.0, 0.5, true),
+            (SHAKE_MAX_CELLS, 0)
+        );
+        assert_eq!(
+            shake_offset(Duration::ZERO, 0.5, 1.0, true),
+            (0, SHAKE_MAX_CELLS)
+        );
+    }
+
+    // ── the `animations` gate: accessibility, not a feature switch ──────────────
+    // `animations = false` is SueD's `prefers-reduced-motion`: it must silence the
+    // three effects that can genuinely hurt someone — flicker and flash
+    // (photosensitivity) and shake (motion sickness). It must NOT touch the
+    // typewriter or the cursors; those are benign text reveal, so they have no gate
+    // and no test here.
+    //
+    // The rule every test below pins: **off = the effect's REST value, not a
+    // skipped render.** Each fn already knows its own rest state — flicker rests at
+    // FULL brightness, flash at 0 (`Color::Reset`), shake at (0, 0) — so the caller
+    // never has to know what "no effect" looks like, and a `false` frame is still a
+    // complete frame.
+
+    #[test]
+    fn flicker_stays_fully_lit_when_animations_are_off() {
+        // Rest for flicker is NOT the floor — it's full brightness. A roll deep in
+        // the dim band, which would normally dip hard, must leave the demon lit.
+        assert_eq!(flicker_intensity(0.0, false), u8::MAX);
+        assert_eq!(flicker_intensity(FLICKER_CHANCE * 0.5, false), u8::MAX);
+    }
+
+    #[test]
+    fn flicker_never_dims_for_any_roll_when_animations_are_off() {
+        // The whole point of the gate: no roll, anywhere in the range, can produce
+        // a single dark frame. One dim frame in a thousand is still a flash.
+        let rolls = [0.0, FLICKER_CHANCE * 0.25, FLICKER_CHANCE * 0.75, 0.5, 0.99];
+        for roll in rolls {
+            assert_eq!(
+                flicker_intensity(roll, false),
+                u8::MAX,
+                "roll {roll} dimmed the screen with animations off"
+            );
+        }
+    }
+
+    #[test]
+    fn flash_is_dark_at_its_peak_when_animations_are_off() {
+        // Duration::ZERO is the instant of the reply — the brightest frame the
+        // flash ever produces. Gated off, that peak must render as rest (0).
+        assert_eq!(flash_intensity(Duration::ZERO, false), 0);
+    }
+
+    #[test]
+    fn flash_stays_dark_across_its_whole_lifetime_when_animations_are_off() {
+        // Not just the peak: every frame of the fade is 0, so there is no window
+        // in which the colour moves at all.
+        for k in 0..=4 {
+            let lit = flash_intensity(flash_fraction(k, 4), false);
+            assert_eq!(lit, 0, "flash lit up at {k}/4 through its lifetime");
+        }
+    }
+
+    #[test]
+    fn shake_is_still_at_its_peak_when_animations_are_off() {
+        // Duration::ZERO with the extreme rolls is the hardest possible throw.
+        // Gated off it must be dead centre, so the Rect never moves.
+        assert_eq!(shake_offset(Duration::ZERO, 0.0, 0.0, false), (0, 0));
+        assert_eq!(shake_offset(Duration::ZERO, 1.0, 1.0, false), (0, 0));
+    }
+
+    #[test]
+    fn shake_never_moves_for_any_roll_or_time_when_animations_are_off() {
+        // Sweep both rolls across the whole window: not one frame of motion.
+        let rolls = [0.0, 0.25, 0.5, 0.75, 1.0];
+        for num in 0..=4 {
+            for rx in rolls {
+                for ry in rolls {
+                    assert_eq!(
+                        shake_offset(shake_fraction(num, 4), rx, ry, false),
+                        (0, 0),
+                        "shake moved at {num}/4 with rolls ({rx}, {ry})"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn animations_on_is_exactly_todays_behaviour() {
+        // The gate must be additive: `true` changes nothing that shipped in M4.
+        // (Every other test in this module passes `true` and still pins the old
+        // values — this one just states the contract out loud.)
+        assert_eq!(flicker_intensity(0.0, true), MIN_FLICKER_VALUE);
+        assert_eq!(flash_intensity(Duration::ZERO, true), 255);
+        assert_eq!(
+            shake_offset(Duration::ZERO, 1.0, 1.0, true),
+            (SHAKE_MAX_CELLS, SHAKE_MAX_CELLS)
+        );
     }
 }
