@@ -65,9 +65,21 @@ pub fn cursor_on(elapsed: Duration) -> bool {
     (elapsed.as_millis() as u64 / CURSOR_BLINK_MS).is_multiple_of(2)
 }
 
-/// returns a intensity number from 0 to MAX_INTENSITY [255]
-/// using FLASH_MS [400] as base divider
-/// it'll be used to create flash ui effects
+/// How hot the reply flash burns `elapsed` after SueD answered, as an RGB red
+/// channel: `MAX_INTENSITY` at the instant of the reply, fading linearly to `0`
+/// once `FLASH_MS` has passed and staying there.
+///
+/// `0` is the effect's **rest value**, which the render side draws as
+/// `Color::Reset` — so a flash that is over and a flash that never started are
+/// the same frame, and the caller needs no special case.
+///
+/// Pure like the rest of this module: you hand it an elapsed `Duration`, the
+/// real clock (`Instant::elapsed()`) stays out at the render boundary.
+///
+/// `enable_animations = false` returns that rest value immediately — the
+/// photosensitivity half of the accessibility gate (see `Configuration::animations`).
+/// Note it returns rest rather than asking the caller to skip drawing: "effects
+/// off" must still produce a complete frame.
 pub fn flash_intensity(elapsed: Duration, enable_animations: bool) -> u8 {
     let elapsed_ms = elapsed.as_millis() as u64;
 
@@ -80,26 +92,53 @@ pub fn flash_intensity(elapsed: Duration, enable_animations: bool) -> u8 {
     (MAX_INTENSITY - faded) as u8
 }
 
-///a method that accept a rand f32 as arg values and map to a u8 in a scale of [MIN_FLICKER_VALUE(60)..256]
-/// using the FLICKER_CHANGE(0.12) as a yearly return logic
-/// where roll > FLICKER_CHANCE return u8::MAX (256)
-/// only percentages bellow FLICKER_CHANGE will actually dim you text
-/// use this returned value as a dim scale color to simulate flickering
-pub fn flicker_intensity(roll: f32, enable_animations: bool) -> u8 {
-    if !enable_animations || (roll >= FLICKER_CHANCE) {
+/// How bright the demon burns this frame, as an RGB red channel, decided by a
+/// random `roll` in `[0.0, 1.0)` that the caller supplies.
+///
+/// Only rolls *below* `FLICKER_CHANCE` dim anything — so about 6% of frames dip
+/// and every other frame comes back `u8::MAX`, full brightness. Inside that band
+/// the value climbs from `MIN_FLICKER_VALUE` (the deepest dip the demon ever
+/// takes) up toward full, which makes a roll of `0.0` the darkest possible frame
+/// and a roll just under the chance barely perceptible.
+///
+/// The randomness itself lives out at the render edge (`rand::random()`), which
+/// is exactly what keeps this testable: the tests feed explicit rolls.
+///
+/// `animations_enabled = false` returns **full brightness**. Worth pausing on:
+/// this rest value sits at the opposite end of the range from `flash_intensity`'s
+/// and `shake_offset`'s, because "no flicker" means an *undimmed* demon, not a
+/// dark one. The dip is the effect; being lit is the resting state.
+pub fn flicker_intensity(roll: f32, animations_enabled: bool) -> u8 {
+    if !animations_enabled || (roll >= FLICKER_CHANCE) {
         return u8::MAX;
     }
 
     // how far UP from the floor toward full brightness is this roll?
     let brightness_fraction = roll / FLICKER_CHANCE;
 
-    // Room between the deepest dip and full brightness (255 − 60 = 195).
+    // Room between the deepest dip and full brightness (255 − 160 = 95).
     let range_above_floor = u8::MAX as f32 - MIN_FLICKER_VALUE as f32;
 
     // Start at the floor, climb `brightness_fraction` of the way up that range.
     (MIN_FLICKER_VALUE as f32 + brightness_fraction * range_above_floor) as u8
 }
 
+/// How far to jolt the demon's `Rect` this frame, in `(x, y)` terminal cells.
+///
+/// This one is the other two effects multiplied together: `flash_intensity`'s
+/// decaying amplitude — full `SHAKE_MAX_CELLS` at the instant of the reply,
+/// settling to nothing once `SHAKE_MS` has passed — times `flicker_intensity`'s
+/// randomness, where `roll_x`/`roll_y` in `[0.0, 1.0)` place each axis somewhere
+/// inside the current `[-amp, +amp]` range. The axes are independent, so a
+/// neutral `0.5` on one of them holds that axis still while the other throws.
+///
+/// The `>= SHAKE_MS` guard is load-bearing, not an optimisation: without it the
+/// amplitude subtraction underflows once the window has passed and the jolt
+/// comes back to life instead of dying.
+///
+/// `enable_animations = false` returns `(0, 0)` — the motion-sickness half of
+/// the accessibility gate (see `Configuration::animations`). The render side
+/// still offsets and intersects the `Rect`; it just offsets it by nothing.
 pub fn shake_offset(
     elapsed: Duration,
     roll_x: f32,
