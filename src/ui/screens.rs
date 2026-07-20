@@ -14,7 +14,7 @@ use crate::app::{App, Screen};
 
 pub fn render(frame: &mut Frame, app: &App) {
     match app.screen() {
-        Screen::Intro => intro::render(frame),
+        Screen::Intro => intro::render(frame, app.config()),
         Screen::Menu => menu::render(frame, app.menu()),
         Screen::Asking {
             engine,
@@ -26,9 +26,10 @@ pub fn render(frame: &mut Frame, app: &App) {
             *replied_at,
             *denied_message,
             app.started_at(),
+            app.config(),
         ),
         Screen::Info => info::render(frame),
-        Screen::About => about::render(frame),
+        Screen::About => about::render(frame, app.config()),
         Screen::Config => config::render(frame, app),
     }
 }

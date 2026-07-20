@@ -6,13 +6,14 @@ use ratatui::style::{Color, Stylize};
 use ratatui::text::{Line, Span, Text};
 use ratatui::widgets::{Borders, Padding, Paragraph, Wrap};
 
+use crate::config::Configuration;
 use crate::ui::effects::flicker_intensity;
 use crate::ui::screens::common::{
     DEMON_ART, DEMON_ART_HEIGHT, DEMON_ART_WIDTH, NavTab, colorfull_bordered_block,
     create_centered_rect, create_screen_block, render_nav_strip, table_row,
 };
 
-pub(super) fn render(frame: &mut Frame) {
+pub(super) fn render(frame: &mut Frame, config: Configuration) {
     let layout = create_screen_block(frame);
 
     let [
@@ -45,7 +46,7 @@ pub(super) fn render(frame: &mut Frame) {
         Constraint::Length(DEMON_ART_HEIGHT),
     );
 
-    let random_flicker_value = flicker_intensity(rand::random());
+    let random_flicker_value = flicker_intensity(rand::random(), config.animations());
 
     frame.render_widget(
         Paragraph::new(DEMON_ART).fg(Color::Rgb(random_flicker_value, 0, 0)),

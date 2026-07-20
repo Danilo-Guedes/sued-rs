@@ -9,6 +9,7 @@ use ratatui::text::{Line, Span, Text};
 use ratatui::widgets::{Block, Borders, Padding, Paragraph, Wrap};
 
 use super::common::{colorfull_bordered_block, create_centered_rect, render_nav_strip};
+use crate::config::Configuration;
 use crate::core::engine::Engine;
 use crate::ui::effects::{
     CURSOR_CHAR, cursor_on, flash_intensity, flicker_intensity, shake_offset, typewriter_reveal,
@@ -23,6 +24,7 @@ pub(super) fn render(
     replied_at: Option<Instant>,
     denied_message: Option<&'static str>,
     started_at: &Instant,
+    config: Configuration,
 ) {
     let time_elapsed_from_the_start_at = started_at.elapsed();
 
@@ -54,7 +56,7 @@ pub(super) fn render(
     ])
     .areas(sued_art_top_layout);
 
-    let random_flicker_value = flicker_intensity(rand::random());
+    let random_flicker_value = flicker_intensity(rand::random(), config.animations());
 
     let demon_rect = create_centered_rect(
         center_art_rect,
@@ -65,7 +67,12 @@ pub(super) fn render(
     let screen = frame.area();
 
     let (x_offset, y_offset) = replied_at.map_or((0, 0), |t| {
-        shake_offset(t.elapsed(), rand::random(), rand::random())
+        shake_offset(
+            t.elapsed(),
+            rand::random(),
+            rand::random(),
+            config.animations(),
+        )
     });
 
     let demon_rect = demon_rect
@@ -112,7 +119,7 @@ pub(super) fn render(
         }
     };
 
-    let flash_effect = replied_at.map_or(0, |t| flash_intensity(t.elapsed()));
+    let flash_effect = replied_at.map_or(0, |t| flash_intensity(t.elapsed(), config.animations()));
 
     let flash_bg = if flash_effect > 0 {
         Color::Rgb(flash_effect, 0, 0)

@@ -66,6 +66,11 @@ pub enum Direction {
 pub struct Configuration {
     theme: Theme,
     audio_volume: u8,
+    /// SueD's `prefers-reduced-motion`. `false` silences only the effects that can
+    /// genuinely hurt someone: flicker and colour-flash (photosensitivity) and
+    /// screen-shake (motion sickness). The typewriter reveal and the cursors are
+    /// benign text animation and deliberately stay on — that accessibility line,
+    /// not "is it animated?", is what decides whether a new effect belongs here.
     animations: bool,
     language: Language,
 }
