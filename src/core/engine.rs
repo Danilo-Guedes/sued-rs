@@ -370,9 +370,37 @@ mod tests {
             engine.revealed, None,
             "denial reveals nothing — there was no hidden answer"
         );
+        // AMENDED for the conversational flow (G8): this used to pin the
+        // opposite ("the denial must not erase what the mortal typed") — right
+        // for the old ask-once-freeze-until-F5 world, wrong now. A reply of
+        // either kind consumes the offering; the input must read empty while
+        // SueD taunts, ready to blink for the next question.
         assert_eq!(
-            engine.visible_buffer, "quem é o melhor dev rust?",
-            "the denial must not erase what the mortal typed"
+            engine.visible_buffer, "",
+            "the denial consumes the question — the input reads empty while SueD taunts"
+        );
+    }
+
+    #[test]
+    fn a_reveal_consumes_the_question_from_the_visible_buffer() {
+        // The reveal-side twin: the moment SueD accepts the offering, the
+        // question vanishes into the oracle — including the decoy remnants
+        // painted during hidden typing. The audience sees an empty, waiting
+        // prompt under the crawling reply, never the stale question.
+        let mut engine = build_test_engine();
+
+        engine.handle_key(KeyPress::Char(';')); // Hidden — decoy chars go visible
+        simulate_typing(&mut engine, "42");
+        engine.handle_key(KeyPress::Enter); // reveal
+
+        assert_eq!(
+            engine.visible_buffer, "",
+            "the reveal must consume the visible question, decoy remnants included"
+        );
+        assert_eq!(
+            engine.revealed(),
+            Some("42"),
+            "consuming the question must not touch the reply itself"
         );
     }
 

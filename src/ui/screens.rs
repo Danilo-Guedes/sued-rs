@@ -28,7 +28,7 @@ pub fn render(frame: &mut Frame, app: &App) {
             *denied_message,
             app.started_at(),
             app.config(),
-            previous_reply,
+            previous_reply.as_deref(),
         ),
         Screen::Info => info::render(frame),
         Screen::About => about::render(frame, app.config()),

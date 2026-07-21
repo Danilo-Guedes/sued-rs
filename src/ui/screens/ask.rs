@@ -25,7 +25,7 @@ pub(super) fn render(
     denied_message: Option<&'static str>,
     started_at: &Instant,
     config: Configuration,
-    previous_reply: &Option<String>,
+    previous_reply: Option<&str>,
 ) {
     let time_elapsed_from_the_start_at = started_at.elapsed();
 
@@ -107,7 +107,7 @@ pub(super) fn render(
                 Some(denied_str) => Text::from(typewriter_reveal(denied_str, elapsed_duration)),
                 None => {
                     match previous_reply {
-                        Some(last_reply) => Text::from(last_reply.clone()),
+                        Some(last_reply) => Text::from(last_reply),
                         None => {
                             Text::from(vec![
                                 Line::from("Pergunte-me o que deseja saber, humano..."),
