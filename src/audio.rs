@@ -9,7 +9,7 @@
 pub const LAUGH_MIN_SECS: u64 = 40;
 pub const LAUGH_MAX_SECS: u64 = 120;
 const SILENCE_DB: f32 = -60.0; // mirrors kira's Decibels::SILENCE
-const MAX_VOLUME_PERCENTAGE: u8 = 100;
+pub const MAX_ALLOWED_VOLUME: u8 = 100;
 
 #[cfg(feature = "audio")]
 use std::io::Cursor;
@@ -37,15 +37,46 @@ pub fn laugh_interval(roll: f32) -> Duration {
     Duration::from_secs(LAUGH_MIN_SECS + (roll * span as f32) as u64)
 }
 
+/// Converts the config's `0`–`100` volume **percent** into the **decibels** kira
+/// speaks, which is the whole reason this function exists: the two units look
+/// interchangeable and aren't. `Decibels(0.0)` is *unchanged*, not silent — so
+/// handing kira a raw `0.5` compiles happily and means **+0.5 dB ≈ 106%**, a
+/// slight boost rather than half volume.
+///
+/// So `100` maps to `0.0` (unity gain, the asset at its mastered level) and
+/// every step down is negative, at `20 · log10` of the amplitude ratio: `50` is
+/// about `-6` dB, `10` about `-20` dB.
+///
+/// Two inputs get special handling:
+///
+/// - **`0`** returns [`SILENCE_DB`] rather than going through the logarithm,
+///   because `log10(0)` is `-∞` and would poison everything downstream.
+/// - **Anything above [`MAX_ALLOWED_VOLUME`]** is clamped to it. `percent` is a
+///   `u8`, so `101..=255` are representable, and they would map to *positive*
+///   dB — amplifying the signal past the level it was mastered at, which clips.
+///   `Configuration` already stops the slider at 100, but that guarantee lives
+///   in another module and this one refuses to depend on it.
+///
+/// Pure and kira-free on purpose (like [`laugh_interval`]): it's arithmetic, so
+/// it compiles and is tested in both the audio and the silent build, with no
+/// sound card anywhere. Only the caller wraps the result in `Decibels(..)`.
 pub fn volume_db(percent: u8) -> f32 {
     if percent == 0 {
         return SILENCE_DB;
     }
 
-    let capped_percent_as_f32 = percent.min(MAX_VOLUME_PERCENTAGE) as f32;
+    let capped_percent_as_f32 = percent.min(MAX_ALLOWED_VOLUME) as f32;
 
+    // The `100.0` is the *definition of percent*, not the volume ceiling — they
+    // happen to be the same number today for unrelated reasons. Don't replace it
+    // with `MAX_ALLOWED_VOLUME`: if a boost mode ever raises the ceiling to 150,
+    // this must stay 100, or 150% would silently mean unity gain again.
     let ratio = capped_percent_as_f32 / 100.0;
 
+    // 20·log10, not 10·log10, because we're scaling AMPLITUDE and acoustic power
+    // goes as amplitude² — squaring inside the log comes out as the factor of 2
+    // (10 for "deci", × 2 for the square). It's the definition of the unit, not
+    // a tunable, which is why it stays a literal instead of becoming a constant.
     20.0 * ratio.log10()
 }
 

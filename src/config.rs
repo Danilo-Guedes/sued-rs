@@ -36,9 +36,8 @@ use std::{fs, path::Path};
 use anyhow::Context;
 use serde::{Deserialize, Serialize};
 
-use crate::{language::Language, ui::theme::Theme};
+use crate::{audio::MAX_ALLOWED_VOLUME, language::Language, ui::theme::Theme};
 
-const MAX_ALLOWED_VOLUME: u8 = 100;
 const VOLUME_STEP: u8 = 10;
 
 /// The tunable settings, one per row on the config screen. It lives here rather
