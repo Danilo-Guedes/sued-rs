@@ -170,26 +170,24 @@ impl App {
                 denied_message,
                 previous_reply,
             } => {
-                //does sued replied ?
+                // The conversation guard (G8). Three time-paths converge on the
+                // ordinary key handling below: SueD never spoke → fall straight
+                // through; SueD mid-reply → swallow the key (only F5/Esc still
+                // act); SueD finished → this key begins the next exchange, so
+                // the live reply rotates aside and everything re-arms first.
                 if let Some(sued_replied_at) = replied_at {
-                    // he replied!
-
-                    // what is the current sued words ?
-
                     let current_sued_words = match denied_message {
                         Some(denied_msg) => denied_msg,
-                        None => engine.revealed().unwrap_or_default(),
+                        None => engine
+                            .revealed()
+                            .expect("a reply clock with no reply words is a bug"),
                     };
 
-                    // does he finished typing ?
-
-                    let have_sued_finished_type_the_answser =
+                    let sued_finished_speaking =
                         reveal_is_complete(current_sued_words, sued_replied_at.elapsed());
 
-                    if have_sued_finished_type_the_answser {
-                        // HERE GOES A NEW KEY PRESS AFTER SUED FINISHES TYPING
-                        //
-                        //RESET ASK ENUM STATES  -> MAYBE THIS SHOULD BE A METHOD FROM APP, IDK
+                    if sued_finished_speaking {
+                        // Keep the words before `engine.reset()` drops them.
                         *previous_reply = Some(current_sued_words.to_string());
                         *replied_at = None;
                         *denied_message = None;
@@ -197,11 +195,13 @@ impl App {
 
                         engine.reset();
                     } else {
-                        // he didn't - special case
                         match key {
+                            // The lock only holds keys that would feed the
+                            // question — the panic button and the door still
+                            // work while SueD is speaking.
                             KeyPress::F5 => {}
                             KeyPress::Esc => {}
-                            _ => return AppFlow::Stay, // here is the block input, sued is still typing so no key press is registered
+                            _ => return AppFlow::Stay,
                         }
                     }
                 }
@@ -215,13 +215,11 @@ impl App {
                                 *denied_message = None;
                                 *replied_at = Some(Instant::now());
                                 self.pending_cue = Some(AudioCue::JumpScare);
-                                // *previous_reply = Some(engine.revealed().unwrap().to_string());
                             }
                             StateChange::Denied => {
                                 *denied_message = Some(DENIED_STRING);
                                 *replied_at = Some(Instant::now());
                                 self.pending_cue = Some(AudioCue::JumpScare);
-                                // *previous_reply = Some(denied_message.unwrap().to_string());
                             }
                             _ => {}
                         }
@@ -773,7 +771,8 @@ mod tests {
             KeyPress::Enter,     // empty answer → Denied (a reply)
         ];
 
-        // Precondition: SUED really replied and the input still holds the question.
+        // Precondition: SUED really replied — and the reply CONSUMED the
+        // question (G8 amendment): the input already reads empty while SueD taunts.
         match drive(&until_reply).screen {
             Screen::Asking {
                 engine,
@@ -784,7 +783,11 @@ mod tests {
                     denied_message.is_some(),
                     "precondition: SUED replied (denied)"
                 );
-                assert_eq!(engine.visible_buffer(), "oi");
+                assert_eq!(
+                    engine.visible_buffer(),
+                    "",
+                    "the reply must consume the question from the input"
+                );
             }
             other => panic!("expected Asking, got {other:?}"),
         }
@@ -796,8 +799,8 @@ mod tests {
             Screen::Asking { engine, .. } => {
                 assert_eq!(
                     engine.visible_buffer(),
-                    "oi",
-                    "keystrokes after a reply must not reach the input"
+                    "",
+                    "keystrokes after a reply must not reach the freshly emptied input"
                 );
             }
             other => panic!("expected Asking, got {other:?}"),
