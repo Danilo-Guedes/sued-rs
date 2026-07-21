@@ -20,6 +20,7 @@ pub fn render(frame: &mut Frame, app: &App) {
             engine,
             replied_at,
             denied_message,
+            previous_reply,
         } => ask::render(
             frame,
             engine,
@@ -27,6 +28,7 @@ pub fn render(frame: &mut Frame, app: &App) {
             *denied_message,
             app.started_at(),
             app.config(),
+            previous_reply,
         ),
         Screen::Info => info::render(frame),
         Screen::About => about::render(frame, app.config()),

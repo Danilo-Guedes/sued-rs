@@ -65,6 +65,13 @@ pub fn cursor_on(elapsed: Duration) -> bool {
     (elapsed.as_millis() as u64 / CURSOR_BLINK_MS).is_multiple_of(2)
 }
 
+pub fn reveal_is_complete(text: &str, elapsed: Duration) -> bool {
+    let total_char = text.chars().count();
+    let visible_chars = (elapsed.as_millis() as u64 / REVEAL_MS_PER_CHAR) as usize;
+
+    visible_chars >= total_char
+}
+
 /// How hot the reply flash burns `elapsed` after SueD answered, as an RGB red
 /// channel: `MAX_INTENSITY` at the instant of the reply, fading linearly to `0`
 /// once `FLASH_MS` has passed and staying there.

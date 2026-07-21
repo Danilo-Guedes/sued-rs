@@ -13,6 +13,7 @@ use crate::{
     config::{ConfigOption, Configuration, Direction},
     constants::{DECOY_STRING, DENIED_STRING},
     core::engine::{Engine, KeyPress, StateChange},
+    ui::effects::reveal_is_complete,
 };
 
 #[derive(Debug)]
@@ -35,6 +36,7 @@ pub enum Screen {
         engine: Engine,
         replied_at: Option<Instant>,
         denied_message: Option<&'static str>,
+        previous_reply: Option<String>,
     },
     Info,
     About,
@@ -130,6 +132,7 @@ impl App {
                             engine: Engine::new(DECOY_STRING),
                             replied_at: None,
                             denied_message: None,
+                            previous_reply: None,
                         };
                         AppFlow::Stay
                     }
@@ -165,50 +168,92 @@ impl App {
                 engine,
                 replied_at,
                 denied_message,
-            } => match key {
-                KeyPress::Enter => {
-                    let state = engine.handle_key(KeyPress::Enter);
+                previous_reply,
+            } => {
+                //does sued replied ?
+                if let Some(sued_replied_at) = replied_at {
+                    // he replied!
 
-                    match state {
-                        StateChange::Revealed => {
-                            *denied_message = None;
-                            *replied_at = Some(Instant::now());
-                            self.pending_cue = Some(AudioCue::JumpScare);
+                    // what is the current sued words ?
+
+                    let current_sued_words = match denied_message {
+                        Some(denied_msg) => denied_msg,
+                        None => match engine.revealed() {
+                            Some(answer) => answer,
+                            None => "",
+                        },
+                    };
+
+                    // does he finished typing ?
+
+                    let have_sued_finished_type_the_answser =
+                        reveal_is_complete(current_sued_words, sued_replied_at.elapsed());
+
+                    if have_sued_finished_type_the_answser {
+                        // HERE GOES A NEW KEY PRESS AFTER SUED FINISHES TYPING
+                        //
+                        //RESET ASK ENUM STATES  -> MAYBE THIS SHOULD BE A METHOD FROM APP, IDK
+                        *previous_reply = Some(current_sued_words.to_string());
+                        *replied_at = None;
+                        *denied_message = None;
+                        self.pending_cue = None;
+
+                        engine.reset();
+                    } else {
+                        // he didn't - special case
+                        match key {
+                            KeyPress::F5 => {}
+                            KeyPress::Esc => {}
+                            _ => return AppFlow::Stay, // here is the block input, sued is still typing so no key press is registered
                         }
-                        StateChange::Denied => {
-                            *denied_message = Some(DENIED_STRING);
-                            *replied_at = Some(Instant::now());
-                            self.pending_cue = Some(AudioCue::JumpScare);
-                        }
-                        _ => {}
                     }
+                }
 
-                    AppFlow::Stay
-                }
-                KeyPress::Esc => {
-                    self.screen = Screen::Menu;
-                    AppFlow::Stay
-                }
-                KeyPress::Backspace => {
-                    if replied_at.is_none() {
+                match key {
+                    KeyPress::Enter => {
+                        let state = engine.handle_key(KeyPress::Enter);
+
+                        match state {
+                            StateChange::Revealed => {
+                                *denied_message = None;
+                                *replied_at = Some(Instant::now());
+                                self.pending_cue = Some(AudioCue::JumpScare);
+                                // *previous_reply = Some(engine.revealed().unwrap().to_string());
+                            }
+                            StateChange::Denied => {
+                                *denied_message = Some(DENIED_STRING);
+                                *replied_at = Some(Instant::now());
+                                self.pending_cue = Some(AudioCue::JumpScare);
+                                // *previous_reply = Some(denied_message.unwrap().to_string());
+                            }
+                            _ => {}
+                        }
+
+                        AppFlow::Stay
+                    }
+                    KeyPress::Esc => {
+                        self.screen = Screen::Menu;
+                        AppFlow::Stay
+                    }
+                    KeyPress::Backspace => {
                         engine.handle_key(KeyPress::Backspace);
+                        AppFlow::Stay
                     }
-                    AppFlow::Stay
-                }
-                KeyPress::F5 => {
-                    engine.handle_key(KeyPress::F5);
-                    *replied_at = None;
-                    *denied_message = None;
-                    self.pending_cue = None;
-                    AppFlow::Stay
-                }
-                other_char => {
-                    if replied_at.is_none() {
+                    KeyPress::F5 => {
+                        engine.handle_key(KeyPress::F5);
+
+                        *previous_reply = None;
+                        *replied_at = None;
+                        *denied_message = None;
+                        self.pending_cue = None;
+                        AppFlow::Stay
+                    }
+                    other_char => {
                         engine.handle_key(other_char);
+                        AppFlow::Stay
                     }
-                    AppFlow::Stay
                 }
-            },
+            }
             Screen::Info => match key {
                 KeyPress::Esc => {
                     self.screen = Screen::Menu;
@@ -533,6 +578,7 @@ mod tests {
                 engine,
                 replied_at,
                 denied_message,
+                previous_reply: _,
             } => {
                 assert_eq!(engine.revealed(), Some("42"));
                 assert!(replied_at.is_some(), "the reveal clock started");

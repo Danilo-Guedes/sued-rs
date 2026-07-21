@@ -152,8 +152,12 @@ impl Engine {
     }
 
     fn handle_f5_key(&mut self) -> StateChange {
-        *self = Self::new(DECOY_STRING);
+        self.reset();
         StateChange::None
+    }
+
+    pub fn reset(&mut self) {
+        *self = Self::new(DECOY_STRING);
     }
 
     pub fn visible_buffer(&self) -> &str {
