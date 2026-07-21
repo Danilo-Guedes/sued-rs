@@ -178,10 +178,7 @@ impl App {
 
                     let current_sued_words = match denied_message {
                         Some(denied_msg) => denied_msg,
-                        None => match engine.revealed() {
-                            Some(answer) => answer,
-                            None => "",
-                        },
+                        None => engine.revealed().unwrap_or_default(),
                     };
 
                     // does he finished typing ?
