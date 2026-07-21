@@ -12,7 +12,8 @@ use super::common::{colorfull_bordered_block, create_centered_rect, render_nav_s
 use crate::config::Configuration;
 use crate::core::engine::Engine;
 use crate::ui::effects::{
-    CURSOR_CHAR, cursor_on, flash_intensity, flicker_intensity, shake_offset, typewriter_reveal,
+    CURSOR_CHAR, cursor_on, flash_intensity, flicker_intensity, reveal_is_complete, shake_offset,
+    typewriter_reveal,
 };
 use crate::ui::screens::common::{
     DEMON_ART, DEMON_ART_HEIGHT, DEMON_ART_WIDTH, NavTab, create_screen_block,
@@ -170,7 +171,41 @@ pub(super) fn render(
         sued_logs_layout,
     );
 
-    let rendered_cursor = if replied_at.is_none() && cursor_on(time_elapsed_from_the_start_at) {
+    // if let Some(sued_replied_at) = replied_at {
+    //     let current_sued_words = match denied_message {
+    //         Some(denied_msg) => denied_msg,
+    //         None => engine
+    //             .revealed()
+    //             .expect("a reply clock with no reply words is a bug"),
+    //     };
+
+    //     let sued_finished_speaking =
+    //         reveal_is_complete(current_sued_words, sued_replied_at.elapsed());
+
+    //     if sued_finished_speaking {
+    //         // Keep the words before `engine.reset()` drops them.
+    //         *previous_reply = Some(current_sued_words.to_string());
+    //         *replied_at = None;
+    //         *denied_message = None;
+    //         self.pending_cue = None;
+
+    //         engine.reset();
+    //
+
+    let sued_finished_speaking = match replied_at {
+        Some(inst) => {
+            let current_sued_words = match denied_message {
+                Some(denied_msg) => denied_msg,
+                None => engine
+                    .revealed()
+                    .expect("a reply clock with no reply words is a bug"),
+            };
+            reveal_is_complete(current_sued_words, inst.elapsed())
+        }
+        None => false,
+    };
+
+    let rendered_cursor = if sued_finished_speaking && cursor_on(time_elapsed_from_the_start_at) {
         Span::raw(CURSOR_CHAR.to_string()).red()
     } else {
         Span::raw("")
