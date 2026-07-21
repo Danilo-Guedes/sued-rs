@@ -121,15 +121,15 @@ fn run(
         }
 
         // 3. CHECK VOLUME
-        if app_state.config().audio_volume() != last_volume {
-            let new_volume = app_state.config().audio_volume();
-            audio.set_volume(new_volume);
-            last_volume = new_volume;
+        let current_volume = app_state.config().audio_volume();
+        if current_volume != last_volume {
+            audio.set_volume(current_volume);
+            last_volume = current_volume;
         }
 
         // 4. POLL — wait up to `TICK` for an event. Returns false on timeout (no input).
         if event::poll(TICK)? {
-            // 3. READ — only now, knowing an event is waiting, so this won't block.
+            // 5. READ — only now, knowing an event is waiting, so this won't block.
             if let Event::Key(key) = event::read()? {
                 // Windows fires Press AND Release; only act on Press, or every key doubles.
                 if key.kind == KeyEventKind::Press {
