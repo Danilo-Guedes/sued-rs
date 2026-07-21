@@ -129,6 +129,7 @@ impl Engine {
     }
 
     fn handle_enter_key(&mut self) -> StateChange {
+        self.visible_buffer = String::new();
         if self.answer_buffer.is_empty() {
             StateChange::Denied
         } else {
@@ -540,7 +541,8 @@ mod tests {
         simulate_typing(&mut engine, "oi"); // Normal: visible "oi"
         engine.handle_key(KeyPress::Char(';')); // → Hidden
         simulate_typing(&mut engine, "42"); // secret answer + decoy advances
-        engine.handle_key(KeyPress::Enter); // reveal
+        engine.handle_key(KeyPress::Enter); // reveal — consumes the visible question (G8)
+        simulate_typing(&mut engine, "x"); // re-dirty the visible buffer post-reveal (paints a decoy char)
 
         // Precondition: prove the engine really is dirty before we reset it,
         // otherwise a no-op reset would pass this test for the wrong reason.
