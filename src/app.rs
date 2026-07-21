@@ -324,6 +324,7 @@ impl ConfigIndex {
 mod tests {
     use super::*;
     use crate::{audio::AudioCue, constants::DENIED_STRING, core::engine::KeyPress};
+    use std::time::Duration;
 
     /// Replay a sequence of keystrokes from a fresh app, handing back the final
     /// state *and* the `AppFlow` returned by the last key (Stay/Quit).
@@ -1123,5 +1124,350 @@ mod tests {
     fn a_fresh_app_has_nothing_queued_to_save() {
         let mut app = drive(&[]);
         assert_eq!(app.take_pending_save(), None);
+    }
+
+    // ── G8: the exchange is a conversation, not a wipe ───────────────────────
+    // The old flow answered once and froze until F5. The new one: SueD replies,
+    // the crawl finishes, the input reopens EMPTY — and the answer you just got
+    // stays on screen while you type the next question, so the screen reads as a
+    // back-and-forth. Only F5 (or leaving) forgets the conversation.
+    //
+    // The unlock is *time*-driven — it happens when the typewriter finishes, not
+    // when a key arrives — so these tests rewind the reply clock rather than
+    // sleeping. `finish_the_reveal` is what "SueD stopped talking" looks like to
+    // the app, and no test below is allowed to depend on wall-clock speed.
+
+    /// Keep driving an app that is already mid-conversation. `drive` always
+    /// starts from scratch, which can't express "reply, wait, then type".
+    fn feed(app: &mut App, keys: &[KeyPress]) {
+        for &key in keys {
+            app.handle_key(key);
+        }
+    }
+
+    /// Rewind the reply clock far enough that the crawl has certainly ended —
+    /// the app must now behave as though SueD has finished speaking.
+    fn finish_the_reveal(app: &mut App) {
+        match &mut app.screen {
+            Screen::Asking { replied_at, .. } => {
+                let started = replied_at.expect("precondition: SUED has replied");
+                *replied_at = Some(
+                    started
+                        .checked_sub(Duration::from_secs(60))
+                        .expect("the test clock must be able to rewind 60s"),
+                );
+            }
+            other => panic!("expected Asking, got {other:?}"),
+        }
+    }
+
+    /// Menu → Asking, then whisper "42" and reveal it.
+    const ASK_AND_REVEAL: [KeyPress; 6] = [
+        KeyPress::Enter,     // Intro → Menu
+        KeyPress::Enter,     // Menu → Asking
+        KeyPress::Char(';'), // Hidden
+        KeyPress::Char('4'),
+        KeyPress::Char('2'), // the secret answer
+        KeyPress::Enter,     // reveal
+    ];
+
+    /// Menu → Asking, then hit Enter with nothing hidden → SUED denies you.
+    const ASK_AND_BE_DENIED: [KeyPress; 3] = [
+        KeyPress::Enter, // Intro → Menu
+        KeyPress::Enter, // Menu → Asking
+        KeyPress::Enter, // no hidden answer → Denied
+    ];
+
+    #[test]
+    fn a_fresh_oracle_has_no_earlier_reply_to_show() {
+        // Nothing has been asked yet, so SUED FALA has no previous reply to keep
+        // — which is what lets the render show its welcome line instead.
+        match drive(&[KeyPress::Enter, KeyPress::Enter]).screen {
+            Screen::Asking { previous_reply, .. } => {
+                assert_eq!(previous_reply, None, "a fresh oracle remembers nothing");
+            }
+            other => panic!("expected Asking, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn the_input_stays_locked_while_sued_is_still_talking() {
+        // The half of the old rule that survives: mid-crawl, keystrokes are still
+        // swallowed. Without the clock rewind the reveal has barely begun, so
+        // this is the "still talking" case by construction.
+        let mut app = drive(&ASK_AND_REVEAL);
+
+        feed(&mut app, &[KeyPress::Char('x')]);
+
+        match &app.screen {
+            Screen::Asking {
+                engine,
+                previous_reply,
+                ..
+            } => {
+                assert_eq!(
+                    engine.revealed(),
+                    Some("42"),
+                    "the engine must still hold the reply it is mid-way through speaking"
+                );
+                assert_eq!(
+                    previous_reply, &None,
+                    "nothing rotates while SUED is still talking"
+                );
+            }
+            other => panic!("expected Asking, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn a_finished_reply_reopens_the_input() {
+        // The new half: once the crawl ends, the very next keystroke lands in the
+        // input instead of being swallowed.
+        let mut app = drive(&ASK_AND_REVEAL);
+        finish_the_reveal(&mut app);
+
+        feed(&mut app, &[KeyPress::Char('x')]);
+
+        match &app.screen {
+            Screen::Asking { engine, .. } => {
+                assert_eq!(
+                    engine.visible_buffer(),
+                    "x",
+                    "the keystroke must reach a freshly emptied input"
+                );
+            }
+            other => panic!("expected Asking, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn starting_the_next_question_keeps_the_answer_on_screen() {
+        // The heart of G8. Typing again must NOT blank SUED FALA: the answer
+        // moves aside into `previous_reply`, which is what the render keeps
+        // showing until a new reply lands.
+        let mut app = drive(&ASK_AND_REVEAL);
+        finish_the_reveal(&mut app);
+
+        feed(&mut app, &[KeyPress::Char('x')]);
+
+        match &app.screen {
+            Screen::Asking {
+                engine,
+                replied_at,
+                denied_message,
+                previous_reply,
+            } => {
+                assert_eq!(
+                    previous_reply.as_deref(),
+                    Some("42"),
+                    "the answer must survive the start of the next question"
+                );
+                assert_eq!(
+                    engine.revealed(),
+                    None,
+                    "the engine is re-armed for the new question"
+                );
+                assert!(replied_at.is_none(), "the reply clock is re-armed too");
+                assert_eq!(*denied_message, None);
+            }
+            other => panic!("expected Asking, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn a_finished_denial_is_remembered_the_same_way_as_an_answer() {
+        // A taunt is a reply too — it must linger on screen exactly like an
+        // answer does, not vanish the moment you start typing again.
+        let mut app = drive(&ASK_AND_BE_DENIED);
+        finish_the_reveal(&mut app);
+
+        feed(&mut app, &[KeyPress::Char('x')]);
+
+        match &app.screen {
+            Screen::Asking {
+                denied_message,
+                previous_reply,
+                ..
+            } => {
+                assert_eq!(
+                    previous_reply.as_deref(),
+                    Some(DENIED_STRING),
+                    "the denial must survive the start of the next question"
+                );
+                assert_eq!(
+                    *denied_message, None,
+                    "the live denial is cleared once it has been rotated aside"
+                );
+            }
+            other => panic!("expected Asking, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn the_input_starts_the_next_question_from_scratch() {
+        // "Reset the input" means the decoy restarts from its first character —
+        // not that it continues where the last question left off. Three hidden
+        // keystrokes must therefore paint exactly three decoy chars.
+        let mut app = drive(&ASK_AND_REVEAL);
+        finish_the_reveal(&mut app);
+
+        feed(
+            &mut app,
+            &[
+                KeyPress::Char(';'), // Hidden
+                KeyPress::Char('a'),
+                KeyPress::Char('b'),
+                KeyPress::Char('c'),
+            ],
+        );
+
+        match &app.screen {
+            Screen::Asking { engine, .. } => {
+                let visible = engine.visible_buffer();
+                assert_eq!(
+                    visible.chars().count(),
+                    3,
+                    "the decoy must restart at its first char, got {visible:?}"
+                );
+                assert!(
+                    DECOY_STRING.starts_with(visible),
+                    "the new question must paint the decoy from the beginning, got {visible:?}"
+                );
+            }
+            other => panic!("expected Asking, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn enter_after_a_finished_reply_also_begins_the_next_question() {
+        // Enter is an input key like any other: pressing it once SUED has stopped
+        // talking starts the next exchange rather than re-firing on the old
+        // engine. With nothing hidden yet, that new question earns a denial —
+        // and the answer it replaces is kept.
+        let mut app = drive(&ASK_AND_REVEAL);
+        finish_the_reveal(&mut app);
+
+        feed(&mut app, &[KeyPress::Enter]);
+
+        match &app.screen {
+            Screen::Asking {
+                previous_reply,
+                denied_message,
+                ..
+            } => {
+                assert_eq!(
+                    previous_reply.as_deref(),
+                    Some("42"),
+                    "the earlier answer must be kept, not overwritten by the new reply"
+                );
+                assert_eq!(
+                    *denied_message,
+                    Some(DENIED_STRING),
+                    "asking nothing earns a taunt, on the fresh engine"
+                );
+            }
+            other => panic!("expected Asking, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn each_new_answer_replaces_the_one_before_it() {
+        // Two full exchanges. Only ever ONE earlier reply is kept — this is a
+        // rolling last-answer, deliberately not a transcript.
+        let mut app = drive(&ASK_AND_REVEAL);
+        finish_the_reveal(&mut app);
+
+        feed(
+            &mut app,
+            &[
+                KeyPress::Char(';'), // rotates "42" aside, then Hidden
+                KeyPress::Char('9'),
+                KeyPress::Char('9'),
+                KeyPress::Enter, // reveal "99"
+            ],
+        );
+
+        match &app.screen {
+            Screen::Asking {
+                engine,
+                previous_reply,
+                ..
+            } => {
+                assert_eq!(engine.revealed(), Some("99"), "the new answer is live");
+                assert_eq!(
+                    previous_reply.as_deref(),
+                    Some("42"),
+                    "while the new reply is speaking, the old one is still the kept reply"
+                );
+            }
+            other => panic!("expected Asking, got {other:?}"),
+        }
+
+        // ...and once THIS reply finishes and the third question begins, "99"
+        // takes "42"'s place. The old answer is gone for good, not stacked.
+        finish_the_reveal(&mut app);
+        feed(&mut app, &[KeyPress::Char('x')]);
+
+        match &app.screen {
+            Screen::Asking { previous_reply, .. } => {
+                assert_eq!(
+                    previous_reply.as_deref(),
+                    Some("99"),
+                    "only the most recent reply is kept"
+                );
+            }
+            other => panic!("expected Asking, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn f5_forgets_the_whole_conversation() {
+        // F5 stays the hard reset: not just the live reply but the kept one too,
+        // so SUED FALA returns to its opening welcome.
+        let mut app = drive(&ASK_AND_REVEAL);
+        finish_the_reveal(&mut app);
+        feed(&mut app, &[KeyPress::Char('x')]); // "42" is now the kept reply
+
+        feed(&mut app, &[KeyPress::F5]);
+
+        match &app.screen {
+            Screen::Asking {
+                engine,
+                replied_at,
+                denied_message,
+                previous_reply,
+            } => {
+                assert_eq!(
+                    previous_reply, &None,
+                    "F5 must clear the kept reply, or the welcome line never returns"
+                );
+                assert_eq!(engine.revealed(), None);
+                assert_eq!(engine.visible_buffer(), "");
+                assert!(replied_at.is_none());
+                assert_eq!(*denied_message, None);
+            }
+            other => panic!("expected Asking, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn leaving_the_oracle_starts_a_clean_conversation_next_time() {
+        // Esc is a door, not a pause: walking back in must not resurrect the
+        // last exchange.
+        let mut app = drive(&ASK_AND_REVEAL);
+        finish_the_reveal(&mut app);
+        feed(&mut app, &[KeyPress::Char('x')]); // "42" is now the kept reply
+
+        feed(&mut app, &[KeyPress::Esc, KeyPress::Enter]); // → Menu → Asking again
+
+        match &app.screen {
+            Screen::Asking { previous_reply, .. } => {
+                assert_eq!(
+                    previous_reply, &None,
+                    "a new visit to the oracle starts a new conversation"
+                );
+            }
+            other => panic!("expected Asking, got {other:?}"),
+        }
     }
 }

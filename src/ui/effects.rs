@@ -168,7 +168,8 @@ mod tests {
     use super::{
         CURSOR_BLINK_MS, CURSOR_CHAR, FLASH_MS, FLICKER_CHANCE, MIN_FLICKER_VALUE,
         REVEAL_MS_PER_CHAR, SHAKE_MAX_CELLS, SHAKE_MS, cursor_on, flash_intensity,
-        flicker_intensity, shake_offset, typewriter_len, typewriter_reveal, typewriter_slice,
+        flicker_intensity, reveal_is_complete, shake_offset, typewriter_len, typewriter_reveal,
+        typewriter_slice,
     };
     use std::time::Duration;
 
@@ -626,6 +627,68 @@ mod tests {
                 }
             }
         }
+    }
+
+    // ── reveal_is_complete: the crawl's own finish line (G8) ───────────────────
+    // The conversation flow needs to know *when SueD stopped talking*, because
+    // that is the moment the input unlocks and the next question can begin. It's
+    // the same clock the typewriter already runs on, asked a yes/no question, so
+    // the unlock can never drift out of sync with what's on screen.
+    //
+    // Deliberately phrased over `text` rather than a char count: the caller has
+    // the reply string in hand, and passing a length invites the byte-vs-char
+    // mistake this module has already been bitten by once.
+
+    #[test]
+    fn a_reply_is_not_complete_before_it_starts() {
+        // elapsed 0 — SueD has said nothing yet, so the input must stay locked.
+        assert!(!reveal_is_complete("abc", Duration::ZERO));
+    }
+
+    #[test]
+    fn a_reply_is_not_complete_mid_crawl() {
+        // 3 of 6 characters in: still talking, still locked.
+        assert!(!reveal_is_complete("abcdef", after_chars(3)));
+    }
+
+    #[test]
+    fn a_reply_is_complete_when_its_last_char_lands() {
+        // Exactly the moment the final character appears — not a tick later.
+        assert!(reveal_is_complete("abc", after_chars(3)));
+    }
+
+    #[test]
+    fn a_reply_stays_complete_long_afterwards() {
+        // The user may sit and stare before typing again; the door stays open.
+        assert!(reveal_is_complete("abc", after_chars(1000)));
+    }
+
+    #[test]
+    fn an_empty_reply_is_complete_immediately() {
+        // Degenerate but reachable: nothing to crawl means nothing to wait for.
+        assert!(reveal_is_complete("", Duration::ZERO));
+    }
+
+    #[test]
+    fn completion_counts_chars_not_bytes() {
+        // 'É' is two UTF-8 bytes, so a `text.len()`-based implementation would
+        // think this reply is one character longer than it is and hold the input
+        // locked for an extra interval after SueD visibly stopped typing.
+        assert!(!reveal_is_complete("É42", after_chars(2)));
+        assert!(reveal_is_complete("É42", after_chars(3)));
+    }
+
+    #[test]
+    fn a_complete_reply_is_exactly_the_fully_revealed_text() {
+        // The invariant that ties the unlock to the screen: the instant this
+        // returns true, the typewriter must already be showing the whole reply
+        // with no trailing cursor. If it could go true early, the input would
+        // reopen while SueD was still mid-sentence.
+        let text = "abcdef";
+        let done = after_chars(text.chars().count() as u64);
+
+        assert!(reveal_is_complete(text, done));
+        assert_eq!(typewriter_reveal(text, done), text);
     }
 
     #[test]
