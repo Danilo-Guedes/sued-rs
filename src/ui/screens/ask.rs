@@ -25,6 +25,7 @@ pub(super) fn render(
     denied_message: Option<&'static str>,
     started_at: &Instant,
     config: Configuration,
+    previous_reply: &Option<String>,
 ) {
     let time_elapsed_from_the_start_at = started_at.elapsed();
 
@@ -105,15 +106,20 @@ pub(super) fn render(
             match denied_message {
                 Some(denied_str) => Text::from(typewriter_reveal(denied_str, elapsed_duration)),
                 None => {
-                    Text::from(vec![
-                        Line::from("Pergunte-me o que deseja saber, humano..."),
-                        Line::from(""), // blank row for breathing space
-                        Line::from(vec![
-                            Span::raw("— elogie-me antes da pergunta, e ").dim(),
-                            Span::raw("talvez").red(),
-                            Span::raw(" eu responda.").dim(),
-                        ]),
-                    ])
+                    match previous_reply {
+                        Some(last_reply) => Text::from(last_reply.clone()),
+                        None => {
+                            Text::from(vec![
+                                Line::from("Pergunte-me o que deseja saber, humano..."),
+                                Line::from(""), // blank row for breathing space
+                                Line::from(vec![
+                                    Span::raw("— elogie-me antes da pergunta, e ").dim(),
+                                    Span::raw("talvez").red(),
+                                    Span::raw(" eu responda.").dim(),
+                                ]),
+                            ])
+                        }
+                    }
                 }
             }
         }
