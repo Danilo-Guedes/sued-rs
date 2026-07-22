@@ -17,7 +17,7 @@ use crate::language::Language;
 use crate::ui::screens::common::{
     NavTab, colorfull_bordered_block, create_centered_rect, create_screen_block, render_nav_strip,
 };
-use crate::ui::theme::Theme;
+use crate::ui::theme::{Palette, Theme};
 
 const FORM_WIDTH: u16 = 64;
 
@@ -69,7 +69,7 @@ pub(super) fn render(frame: &mut Frame, app_state: &App) {
     .areas(form_area);
 
     frame.render_widget(
-        Paragraph::new(Line::from("▓ CONFIGURAÇÃO ▓").red().bold()).centered(),
+        Paragraph::new(Line::from("▓ CONFIGURAÇÃO ▓").fg(palette.accent).bold()).centered(),
         heading_area,
     );
 
@@ -94,21 +94,33 @@ pub(super) fn render(frame: &mut Frame, app_state: &App) {
     let animation_chips = [("SIM", config.animations()), ("NÃO", !config.animations())];
 
     let rows = vec![
-        option_row("TEMA", &theme_chips, focused == ConfigOption::Theme),
+        option_row(
+            "TEMA",
+            &theme_chips,
+            focused == ConfigOption::Theme,
+            palette,
+        ),
         Line::from(""),
         option_row(
             "ANIMAÇÕES",
             &animation_chips,
             focused == ConfigOption::Animations,
+            palette,
         ),
         Line::from(""),
         volume_row(
             "VOLUME",
             config.audio_volume(),
             focused == ConfigOption::Volume,
+            palette,
         ),
         Line::from(""),
-        option_row("IDIOMA", &language_chips, focused == ConfigOption::Language),
+        option_row(
+            "IDIOMA",
+            &language_chips,
+            focused == ConfigOption::Language,
+            palette,
+        ),
     ];
     frame.render_widget(
         Paragraph::new(rows).block(Block::new().padding(Padding::left(4))),
@@ -116,7 +128,7 @@ pub(super) fn render(frame: &mut Frame, app_state: &App) {
     );
 
     let divider = "─".repeat(divider_area.width as usize);
-    frame.render_widget(Paragraph::new(divider).red(), divider_area);
+    frame.render_widget(Paragraph::new(divider).fg(palette.accent), divider_area);
 
     frame.render_widget(
         Paragraph::new(
@@ -134,18 +146,18 @@ pub(super) fn render(frame: &mut Frame, app_state: &App) {
     frame.render_widget(status_block, status_layout);
 
     let [hints_area, page_area] =
-        Layout::horizontal([Constraint::Fill(1), Constraint::Length(8)]).areas(status_inner);
+        Layout::horizontal([Constraint::Fill(1), Constraint::Length(12)]).areas(status_inner);
 
     let hints = Line::from(vec![
-        "[↑↓]".red().bold(),
+        "[↑↓]".fg(palette.accent).bold(),
         " ".into(),
         "navegar".dim(),
         "    ".into(),
-        "[↔]".red().bold(),
+        "[↔]".fg(palette.accent).bold(),
         " ".into(),
         "alterar".dim(),
         "    ".into(),
-        "[Esc]".red().bold(),
+        "[Esc]".fg(palette.accent).bold(),
         " ".into(),
         "voltar".dim(),
     ]);
@@ -156,8 +168,13 @@ pub(super) fn render(frame: &mut Frame, app_state: &App) {
     );
 }
 
-fn option_row(label: &str, chips: &[(&str, bool)], is_focused: bool) -> Line<'static> {
-    let mut spans = vec![styled_label(label, is_focused)];
+fn option_row(
+    label: &str,
+    chips: &[(&str, bool)],
+    is_focused: bool,
+    palette: Palette,
+) -> Line<'static> {
+    let mut spans = vec![styled_label(label, is_focused, palette)];
 
     for (i, &(text, selected)) in chips.iter().enumerate() {
         if i > 0 {
@@ -166,7 +183,7 @@ fn option_row(label: &str, chips: &[(&str, bool)], is_focused: bool) -> Line<'st
 
         let chip = Span::from(format!(" {text} "));
         spans.push(if selected {
-            chip.black().on_red().bold()
+            chip.bg(palette.bg).fg(palette.accent).bold()
         } else {
             chip.dim()
         });
@@ -175,20 +192,24 @@ fn option_row(label: &str, chips: &[(&str, bool)], is_focused: bool) -> Line<'st
     Line::from(spans)
 }
 
-fn volume_row(label: &str, percent: u8, is_focused: bool) -> Line<'static> {
+fn volume_row(label: &str, percent: u8, is_focused: bool, palette: Palette) -> Line<'static> {
     const BAR_WIDTH: usize = 24;
 
     let filled = BAR_WIDTH * percent.min(100) as usize / 100;
 
     Line::from(vec![
-        styled_label(label, is_focused),
-        Span::from("█".repeat(filled)).red(),
+        styled_label(label, is_focused, palette),
+        Span::from("█".repeat(filled)).fg(palette.accent),
         Span::from("░".repeat(BAR_WIDTH - filled)).dim(),
         Span::from(format!(" {percent}%")).dim(),
     ])
 }
 
-fn styled_label(label: &str, is_focused: bool) -> Span<'static> {
+fn styled_label(label: &str, is_focused: bool, palette: Palette) -> Span<'static> {
     let span = Span::from(format!("{label:<LABEL_WIDTH$}"));
-    if is_focused { span.red() } else { span.dim() }
+    if is_focused {
+        span.fg(palette.accent)
+    } else {
+        span.dim()
+    }
 }
