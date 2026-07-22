@@ -1,3 +1,4 @@
+use ratatui::style::Color;
 use serde::{Deserialize, Serialize};
 
 #[derive(Default, Debug, Serialize, Deserialize, PartialEq, Clone, Copy)]
@@ -19,6 +20,46 @@ impl Theme {
             Theme::Fosforo => "FÓSFORO",
         }
     }
+
+    pub fn palette(&self) -> Palette {
+        match self {
+            Theme::Sangue => Palette {
+                accent: Color::Rgb(255, 42, 42),
+                bg: Color::Rgb(7, 4, 6),
+                on_accent: Color::Rgb(7, 4, 6),
+                peak: (255, 42, 42),
+            },
+            Theme::Ambar => Palette {
+                accent: Color::Rgb(255, 176, 0),
+                bg: Color::Rgb(7, 4, 6),
+                on_accent: Color::Rgb(7, 4, 6),
+                peak: (255, 176, 0),
+            },
+            Theme::Fosforo => Palette {
+                accent: Color::Rgb(61, 255, 116),
+                bg: Color::Rgb(7, 4, 6),
+                on_accent: Color::Rgb(7, 4, 6),
+                peak: (61, 255, 116),
+            },
+        }
+    }
+}
+
+pub struct Palette {
+    accent: Color,
+    bg: Color,
+    on_accent: Color,
+    peak: (u8, u8, u8),
+}
+
+impl Palette {
+    pub fn glow(&self, intensity: u8) -> Color {
+        let (r, g, b) = self.peak;
+
+        let scale = |c: u8| (c as u16 * intensity as u16 / 255) as u8;
+
+        Color::Rgb(scale(r), scale(g), scale(b))
+    }
 }
 
 #[cfg(test)]
@@ -29,7 +70,7 @@ mod tests {
     use super::Theme;
 
     #[test]
-    fn glow_at_full_intensity_for_sangue_themes() {
+    fn glow_at_full_intensity_for_sangue_theme() {
         let intensity = 255;
 
         let sangue_theme = Theme::Sangue;
@@ -39,7 +80,7 @@ mod tests {
     }
 
     #[test]
-    fn glow_at_full_intensity_for_ambar_themes() {
+    fn glow_at_full_intensity_for_ambar_theme() {
         let intensity = 255;
 
         let ambar_theme = Theme::Ambar;
@@ -49,7 +90,7 @@ mod tests {
     }
 
     #[test]
-    fn glow_at_full_intensity_for_fosforo_themes() {
+    fn glow_at_full_intensity_for_fosforo_theme() {
         let intensity = 255;
 
         let fosforo_theme = Theme::Fosforo;
@@ -59,7 +100,7 @@ mod tests {
     }
 
     #[test]
-    fn glow_at_mid_intensity_for_sangue_themes() {
+    fn glow_at_mid_intensity_for_sangue_theme() {
         let intensity = 128;
 
         let sangue_theme = Theme::Sangue;
@@ -69,7 +110,7 @@ mod tests {
     }
 
     #[test]
-    fn glow_at_mid_intensity_for_ambar_themes() {
+    fn glow_at_mid_intensity_for_ambar_theme() {
         let intensity = 128;
 
         let ambar_theme = Theme::Ambar;
@@ -79,7 +120,7 @@ mod tests {
     }
 
     #[test]
-    fn glow_at_mid_intensity_for_fosforo_themes() {
+    fn glow_at_mid_intensity_for_fosforo_theme() {
         let intensity = 128;
 
         let fosforo_theme = Theme::Fosforo;
