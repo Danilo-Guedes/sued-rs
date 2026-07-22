@@ -87,4 +87,45 @@ mod tests {
 
         assert_eq!(fosforo_palette.glow(intensity), Color::Rgb(30, 128, 58));
     }
+
+    #[test]
+    fn glow_at_zero_intensity_is_black_for_every_theme() {
+        for theme in Theme::ALL {
+            assert_eq!(
+                theme.palette().glow(0),
+                Color::Rgb(0, 0, 0),
+                "{} must fade all the way to black",
+                theme.label()
+            );
+        }
+    }
+
+    #[test]
+    fn every_theme_shares_the_same_background() {
+        let reference_bg = Theme::Sangue.palette().bg;
+
+        for theme in Theme::ALL {
+            assert_eq!(theme.palette().bg, reference_bg, "{}", theme.label());
+        }
+    }
+
+    #[test]
+    fn the_three_accents_are_all_distinct() {
+        let sangue = Theme::Sangue.palette().accent;
+        let ambar = Theme::Ambar.palette().accent;
+        let fosforo = Theme::Fosforo.palette().accent;
+
+        assert_ne!(sangue, ambar);
+        assert_ne!(ambar, fosforo);
+        assert_ne!(fosforo, sangue);
+    }
+
+    #[test]
+    fn text_on_an_accent_chip_is_the_background_showing_through() {
+        for theme in Theme::ALL {
+            let palette = theme.palette();
+
+            assert_eq!(palette.on_accent, palette.bg, "{}", theme.label());
+        }
+    }
 }
