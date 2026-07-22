@@ -160,7 +160,9 @@ pub(super) fn render_nav_strip(frame: &mut Frame, area: Rect, active: NavTab) {
 }
 
 pub(super) fn create_screen_block(frame: &mut Frame, palette: Palette) -> Rect {
-    let outer_layout = colorfull_bordered_block(None, palette).title(APP_TITLE);
+    let outer_layout = colorfull_bordered_block(None, palette)
+        .title(APP_TITLE)
+        .style(Style::default().bg(palette.bg));
     let inner_layout = outer_layout.inner(frame.area());
 
     frame.render_widget(outer_layout, frame.area());
