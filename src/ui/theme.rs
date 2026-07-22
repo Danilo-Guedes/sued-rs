@@ -20,3 +20,71 @@ impl Theme {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+
+    use ratatui::style::Color;
+
+    use super::Theme;
+
+    #[test]
+    fn glow_at_full_intensity_for_sangue_themes() {
+        let intensity = 255;
+
+        let sangue_theme = Theme::Sangue;
+        let sangue_palette = sangue_theme.palette();
+
+        assert_eq!(sangue_palette.glow(intensity), Color::Rgb(255, 42, 42));
+    }
+
+    #[test]
+    fn glow_at_full_intensity_for_ambar_themes() {
+        let intensity = 255;
+
+        let ambar_theme = Theme::Ambar;
+        let ambar_palette = ambar_theme.palette();
+
+        assert_eq!(ambar_palette.glow(intensity), Color::Rgb(255, 176, 0));
+    }
+
+    #[test]
+    fn glow_at_full_intensity_for_fosforo_themes() {
+        let intensity = 255;
+
+        let fosforo_theme = Theme::Fosforo;
+        let fosforo_palette = fosforo_theme.palette();
+
+        assert_eq!(fosforo_palette.glow(intensity), Color::Rgb(61, 255, 116));
+    }
+
+    #[test]
+    fn glow_at_mid_intensity_for_sangue_themes() {
+        let intensity = 128;
+
+        let sangue_theme = Theme::Sangue;
+        let sangue_palette = sangue_theme.palette();
+
+        assert_eq!(sangue_palette.glow(intensity), Color::Rgb(128, 21, 21));
+    }
+
+    #[test]
+    fn glow_at_mid_intensity_for_ambar_themes() {
+        let intensity = 128;
+
+        let ambar_theme = Theme::Ambar;
+        let ambar_palette = ambar_theme.palette();
+
+        assert_eq!(ambar_palette.glow(intensity), Color::Rgb(128, 88, 0));
+    }
+
+    #[test]
+    fn glow_at_mid_intensity_for_fosforo_themes() {
+        let intensity = 128;
+
+        let fosforo_theme = Theme::Fosforo;
+        let fosforo_palette = fosforo_theme.palette();
+
+        assert_eq!(fosforo_palette.glow(intensity), Color::Rgb(30, 128, 58));
+    }
+}
