@@ -65,6 +65,12 @@ pub fn cursor_on(elapsed: Duration) -> bool {
     (elapsed.as_millis() as u64 / CURSOR_BLINK_MS).is_multiple_of(2)
 }
 
+/// True once the typewriter crawl has fully revealed `text`.
+///
+/// Deliberately derived from the SAME clock and rate (`REVEAL_MS_PER_CHAR`) as
+/// `typewriter_reveal`, so "the input has unlocked" can never drift from "the
+/// last char is on screen". Takes the text itself rather than a pre-counted
+/// length so the char-vs-byte counting stays in one place.
 pub fn reveal_is_complete(text: &str, elapsed: Duration) -> bool {
     let total_char = text.chars().count();
     let visible_chars = (elapsed.as_millis() as u64 / REVEAL_MS_PER_CHAR) as usize;
