@@ -14,7 +14,9 @@ use crate::ui::screens::common::{
 };
 
 pub(super) fn render(frame: &mut Frame, config: Configuration) {
-    let layout = create_screen_block(frame);
+    let palette = config.theme().palette();
+
+    let layout = create_screen_block(frame, palette);
 
     let [
         nav_layout,
@@ -114,8 +116,9 @@ pub(super) fn render(frame: &mut Frame, config: Configuration) {
     ]);
 
     frame.render_widget(
-        Paragraph::new(status_texts)
-            .block(colorfull_bordered_block(Some(Borders::TOP)).padding(Padding::new(2, 0, 0, 0))),
+        Paragraph::new(status_texts).block(
+            colorfull_bordered_block(Some(Borders::TOP), palette).padding(Padding::new(2, 0, 0, 0)),
+        ),
         status_layout,
     );
 }
