@@ -8,10 +8,14 @@ use ratatui::widgets::{Block, Borders, Padding, Paragraph, Wrap};
 
 use super::common::{colorfull_bordered_block, render_nav_strip, step_badge, table_row};
 
+use crate::config::Configuration;
 use crate::ui::screens::common::{NavTab, create_screen_block};
+use crate::ui::theme::Palette;
 
-pub(super) fn render(frame: &mut Frame) {
-    let layout = create_screen_block(frame);
+pub(super) fn render(frame: &mut Frame, config: Configuration) {
+    let palette = config.theme().palette();
+
+    let layout = create_screen_block(frame, palette);
 
     let [nav_layout, center_layout, status_layout] = Layout::vertical([
         Constraint::Length(4), // nav strip
@@ -29,11 +33,11 @@ pub(super) fn render(frame: &mut Frame) {
         Layout::horizontal([Constraint::Fill(6), Constraint::Fill(4)]).areas(center_layout);
 
     render_ritual_panel(frame, ritual_area);
-    render_shortcuts_panel(frame, shortcuts_area);
+    render_shortcuts_panel(frame, shortcuts_area, palette);
 
     // Status bar: split the *inside* of one border into left hints + right page tag.
     let status_block =
-        colorfull_bordered_block(Some(Borders::TOP)).padding(Padding::new(2, 2, 0, 0));
+        colorfull_bordered_block(Some(Borders::TOP), palette).padding(Padding::new(2, 2, 0, 0));
     let status_inner = status_block.inner(status_layout);
     frame.render_widget(status_block, status_layout);
 
@@ -133,10 +137,11 @@ fn render_ritual_panel(frame: &mut Frame, area: Rect) {
 }
 
 /// Right panel — the keyboard shortcuts table.
-fn render_shortcuts_panel(frame: &mut Frame, area: Rect) {
+fn render_shortcuts_panel(frame: &mut Frame, area: Rect, palette: Palette) {
     // Borderless, same move as the ritual panel: padding-only block for the inset,
     // the title becomes a heading `Line`.
-    let block = colorfull_bordered_block(Some(Borders::LEFT)).padding(Padding::new(2, 0, 1, 0));
+    let block =
+        colorfull_bordered_block(Some(Borders::LEFT), palette).padding(Padding::new(2, 0, 1, 0));
     let inner = block.inner(area);
     frame.render_widget(block, area);
 

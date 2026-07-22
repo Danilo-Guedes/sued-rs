@@ -30,7 +30,9 @@ pub(super) fn render(
 ) {
     let time_elapsed_from_the_start_at = started_at.elapsed();
 
-    let layout = create_screen_block(frame);
+    let palette = config.theme().palette();
+
+    let layout = create_screen_block(frame, palette);
 
     let [
         nav_layout,
@@ -136,7 +138,7 @@ pub(super) fn render(
 
     let speak_widget = Paragraph::new(final_sued_words)
         .block(
-            colorfull_bordered_block(None)
+            colorfull_bordered_block(None, palette)
                 .bg(flash_bg)
                 .title(" SUED FALA ")
                 .padding(Padding::new(2, 2, 1, 1)),
@@ -171,27 +173,6 @@ pub(super) fn render(
         sued_logs_layout,
     );
 
-    // if let Some(sued_replied_at) = replied_at {
-    //     let current_sued_words = match denied_message {
-    //         Some(denied_msg) => denied_msg,
-    //         None => engine
-    //             .revealed()
-    //             .expect("a reply clock with no reply words is a bug"),
-    //     };
-
-    //     let sued_finished_speaking =
-    //         reveal_is_complete(current_sued_words, sued_replied_at.elapsed());
-
-    //     if sued_finished_speaking {
-    //         // Keep the words before `engine.reset()` drops them.
-    //         *previous_reply = Some(current_sued_words.to_string());
-    //         *replied_at = None;
-    //         *denied_message = None;
-    //         self.pending_cue = None;
-
-    //         engine.reset();
-    //
-
     let sued_finished_speaking = match replied_at {
         Some(inst) => {
             let current_sued_words = match denied_message {
@@ -219,12 +200,13 @@ pub(super) fn render(
 
     frame.render_widget(
         Paragraph::new(typed)
-            .block(colorfull_bordered_block(None).title(" FALE COMIGO... "))
+            .block(colorfull_bordered_block(None, palette).title(" FALE COMIGO... "))
             .wrap(Wrap { trim: false }),
         input_layout,
     );
 
-    let status_block = colorfull_bordered_block(Some(Borders::TOP)).padding(Padding::horizontal(2));
+    let status_block =
+        colorfull_bordered_block(Some(Borders::TOP), palette).padding(Padding::horizontal(2));
     let status_inner = status_block.inner(status_layout);
     frame.render_widget(status_block, status_layout);
 

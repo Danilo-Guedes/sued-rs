@@ -8,6 +8,7 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Padding, Paragraph};
 
 use crate::constants::APP_TITLE;
+use crate::ui::theme::Palette;
 
 /// The demon face — verbatim quadrant-block art (11 rows), shown on the
 /// Pergunta + Sobre screens. Centre it by carving a Rect the *exact* size of the
@@ -51,7 +52,10 @@ pub(super) fn create_centered_rect(area: Rect, width: Constraint, height: Constr
 
 /// The shared accent-red panel frame, so every screen's border colour lives in
 /// one place (M5/M6 can swap the theme palette here).
-pub(super) fn colorfull_bordered_block(border_type: Option<Borders>) -> Block<'static> {
+pub(super) fn colorfull_bordered_block(
+    border_type: Option<Borders>,
+    palette: Palette,
+) -> Block<'static> {
     let final_border_style = match border_type {
         Some(border) => border,
         None => Borders::all(),
@@ -59,7 +63,7 @@ pub(super) fn colorfull_bordered_block(border_type: Option<Borders>) -> Block<'s
 
     Block::new()
         .borders(final_border_style)
-        .border_style(Style::default().fg(Color::Red))
+        .border_style(Style::default().fg(palette.accent))
         .merge_borders(MergeStrategy::Exact)
 }
 
@@ -155,8 +159,8 @@ pub(super) fn render_nav_strip(frame: &mut Frame, area: Rect, active: NavTab) {
     frame.render_widget(Paragraph::new(session).right_aligned(), session_area);
 }
 
-pub(super) fn create_screen_block(frame: &mut Frame) -> Rect {
-    let outer_layout = colorfull_bordered_block(None).title(APP_TITLE);
+pub(super) fn create_screen_block(frame: &mut Frame, palette: Palette) -> Rect {
+    let outer_layout = colorfull_bordered_block(None, palette).title(APP_TITLE);
     let inner_layout = outer_layout.inner(frame.area());
 
     frame.render_widget(outer_layout, frame.area());

@@ -7,10 +7,14 @@ use ratatui::text::Line;
 use ratatui::widgets::{Block, Borders, Padding, Paragraph, Wrap};
 
 use crate::app::MenuIndex;
+use crate::config::Configuration;
 use crate::ui::screens::common::{colorfull_bordered_block, create_screen_block};
+use crate::ui::theme::Palette;
 
-pub(super) fn render(frame: &mut Frame, menu: &MenuIndex) {
-    let layout = create_screen_block(frame);
+pub(super) fn render(frame: &mut Frame, menu: &MenuIndex, config: Configuration) {
+    let palette = config.theme().palette();
+
+    let layout = create_screen_block(frame, palette);
 
     let [center_layout, status_layout] = Layout::vertical([
         Constraint::Fill(1),   // center: menu | aviso
@@ -22,8 +26,8 @@ pub(super) fn render(frame: &mut Frame, menu: &MenuIndex) {
         Layout::horizontal([Constraint::Fill(5), Constraint::Fill(4)]).areas(center_layout);
 
     render_menu_column(frame, menu_area, menu);
-    render_disclaimer_column(frame, aviso_area);
-    render_status_bar(frame, status_layout, menu.index());
+    render_disclaimer_column(frame, aviso_area, palette);
+    render_status_bar(frame, status_layout, menu.index(), palette);
 }
 
 /// Left column — heading, the selectable list, a divider and a hint.
@@ -90,13 +94,14 @@ fn render_menu_column(frame: &mut Frame, area: Rect, menu: &MenuIndex) {
 }
 
 /// Right column — the ATENÇÃO warning, with a bottom-pinned footer.
-fn render_disclaimer_column(frame: &mut Frame, area: Rect) {
+fn render_disclaimer_column(frame: &mut Frame, area: Rect, palette: Palette) {
     // One block owns the column's full-height left border: render it over the whole
     // `area`, then lay the content into its `inner`. A `Block` is *moved* into
     // `.block()`, so it can't be shared by two Paragraphs — but the fix isn't a
     // second block, it's to draw the border once here and drop `.block()` on the
     // content. (Same "block once, content into inner" idiom as `render_status_bar`.)
-    let block = colorfull_bordered_block(Some(Borders::LEFT)).padding(Padding::new(2, 0, 1, 0));
+    let block =
+        colorfull_bordered_block(Some(Borders::LEFT), palette).padding(Padding::new(2, 0, 1, 0));
     let inner = block.inner(area);
     frame.render_widget(block, area);
 
@@ -128,8 +133,9 @@ fn render_disclaimer_column(frame: &mut Frame, area: Rect) {
 }
 
 /// Bottom status bar — key hints on the left, page tag pinned right.
-fn render_status_bar(frame: &mut Frame, area: Rect, selected_menu: usize) {
-    let block = colorfull_bordered_block(Some(Borders::TOP)).padding(Padding::horizontal(2));
+fn render_status_bar(frame: &mut Frame, area: Rect, selected_menu: usize, palette: Palette) {
+    let block =
+        colorfull_bordered_block(Some(Borders::TOP), palette).padding(Padding::horizontal(2));
     let inner = block.inner(area);
     frame.render_widget(block, area);
 

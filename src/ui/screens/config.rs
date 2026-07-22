@@ -25,7 +25,9 @@ const FORM_WIDTH: u16 = 64;
 const LABEL_WIDTH: usize = 12;
 
 pub(super) fn render(frame: &mut Frame, app_state: &App) {
-    let layout = create_screen_block(frame);
+    let palette = app_state.config().theme().palette();
+
+    let layout = create_screen_block(frame, palette);
 
     let config = app_state.config();
     let focused = app_state.focused_option();
@@ -127,7 +129,7 @@ pub(super) fn render(frame: &mut Frame, app_state: &App) {
     );
 
     let status_block =
-        colorfull_bordered_block(Some(Borders::TOP)).padding(Padding::new(2, 2, 0, 0));
+        colorfull_bordered_block(Some(Borders::TOP), palette).padding(Padding::new(2, 2, 0, 0));
     let status_inner = status_block.inner(status_layout);
     frame.render_widget(status_block, status_layout);
 

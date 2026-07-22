@@ -15,7 +15,7 @@ use crate::app::{App, Screen};
 pub fn render(frame: &mut Frame, app: &App) {
     match app.screen() {
         Screen::Intro => intro::render(frame, app.config()),
-        Screen::Menu => menu::render(frame, app.menu()),
+        Screen::Menu => menu::render(frame, app.menu(), app.config()),
         Screen::Asking {
             engine,
             replied_at,
@@ -30,7 +30,7 @@ pub fn render(frame: &mut Frame, app: &App) {
             app.config(),
             previous_reply.as_deref(),
         ),
-        Screen::Info => info::render(frame),
+        Screen::Info => info::render(frame, app.config()),
         Screen::About => about::render(frame, app.config()),
         Screen::Config => config::render(frame, app),
     }

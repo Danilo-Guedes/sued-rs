@@ -24,32 +24,33 @@ impl Theme {
     pub fn palette(&self) -> Palette {
         match self {
             Theme::Sangue => Palette {
+                peak: (255, 42, 42),
                 accent: Color::Rgb(255, 42, 42),
                 bg: Color::Rgb(7, 4, 6),
                 on_accent: Color::Rgb(7, 4, 6),
-                peak: (255, 42, 42),
             },
             Theme::Ambar => Palette {
+                peak: (255, 176, 0),
                 accent: Color::Rgb(255, 176, 0),
                 bg: Color::Rgb(7, 4, 6),
                 on_accent: Color::Rgb(7, 4, 6),
-                peak: (255, 176, 0),
             },
             Theme::Fosforo => Palette {
+                peak: (61, 255, 116),
                 accent: Color::Rgb(61, 255, 116),
                 bg: Color::Rgb(7, 4, 6),
                 on_accent: Color::Rgb(7, 4, 6),
-                peak: (61, 255, 116),
             },
         }
     }
 }
 
+#[derive(Debug, Copy, Clone)]
 pub struct Palette {
-    accent: Color,
-    bg: Color,
-    on_accent: Color,
-    peak: (u8, u8, u8),
+    pub peak: (u8, u8, u8),
+    pub accent: Color,
+    pub bg: Color,
+    pub on_accent: Color,
 }
 
 impl Palette {
