@@ -2,7 +2,7 @@
 
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout};
-use ratatui::style::{Color, Stylize};
+use ratatui::style::Stylize;
 use ratatui::text::{Line, Span, Text};
 use ratatui::widgets::{Borders, Padding, Paragraph, Wrap};
 
@@ -27,12 +27,12 @@ pub(super) fn render(frame: &mut Frame, config: Configuration) {
         Constraint::Length(4), // nav strip
         Constraint::Fill(1),   //empty space
         Constraint::Fill(3),   // center: two panels
-        Constraint::Fill(1),
+        Constraint::Fill(2),
         Constraint::Length(2), // status bar
     ])
     .areas(layout);
 
-    render_nav_strip(frame, nav_layout, NavTab::About);
+    render_nav_strip(frame, nav_layout, NavTab::About, palette);
 
     let [art_area, text_area, _empty] = Layout::horizontal([
         Constraint::Fill(1),
@@ -50,7 +50,7 @@ pub(super) fn render(frame: &mut Frame, config: Configuration) {
     let random_flicker_value = flicker_intensity(rand::random(), config.animations());
 
     frame.render_widget(
-        Paragraph::new(DEMON_ART).fg(Color::Rgb(random_flicker_value, 0, 0)),
+        Paragraph::new(DEMON_ART).fg(palette.glow(random_flicker_value)),
         art_rect,
     );
 
@@ -59,11 +59,11 @@ pub(super) fn render(frame: &mut Frame, config: Configuration) {
     // never clip, the table gets exactly its row count, a fixed gap sits between,
     // and `Fill(1)` spacers centre the whole group.
     let text_para = Paragraph::new(Text::from(vec![
-        Line::from("SUED, O ORÁCULO".red().bold()),
+        Line::from("SUED, O ORÁCULO".fg(palette.accent).bold()),
         Line::from(" "),
         Line::from(vec![
             Span::raw("Uma entidade antiga que tudo vê e tudo sabe. Preso entre mundos, response às perguntas dos mortais tolos o bastante para invocá-lo - ").white(),
-            Span::raw("nem sempre com a verdade que deseja ouvir.").red().bold(),
+            Span::raw("nem sempre com a verdade que deseja ouvir.").fg(palette.accent).bold(),
         ]),
     ]))
     .left_aligned()
@@ -71,10 +71,15 @@ pub(super) fn render(frame: &mut Frame, config: Configuration) {
 
     const KEY_WIDTH: usize = 12;
     let rows = vec![
-        table_row("natureza", "oráculo onisciente", KEY_WIDTH),
-        table_row("humor", "vaidoso, sarcástico, imprevisível", KEY_WIDTH),
-        table_row("origem", "o além · desconhecida", KEY_WIDTH),
-        table_row("runtime", "rust · ratatui · crossterm", KEY_WIDTH),
+        table_row("natureza", "oráculo onisciente", KEY_WIDTH, palette),
+        table_row(
+            "humor",
+            "vaidoso, sarcástico, imprevisível",
+            KEY_WIDTH,
+            palette,
+        ),
+        table_row("origem", "o além · desconhecida", KEY_WIDTH, palette),
+        table_row("runtime", "rust · ratatui · crossterm", KEY_WIDTH, palette),
     ];
 
     let text_h = text_para.line_count(text_area.width) as u16;
@@ -110,7 +115,7 @@ pub(super) fn render(frame: &mut Frame, config: Configuration) {
         Layout::horizontal([Constraint::Fill(1), Constraint::Length(14)]).areas(status_inner);
 
     let hints = Line::from(vec![
-        "[Esc]".red().bold(),
+        "[Esc]".fg(palette.accent).bold(),
         " ".into(),
         "voltar ao menu".dim(),
     ]);

@@ -24,7 +24,7 @@ pub(super) fn render(frame: &mut Frame, config: Configuration) {
     ])
     .areas(layout);
 
-    render_nav_strip(frame, nav_layout, NavTab::Info);
+    render_nav_strip(frame, nav_layout, NavTab::Info, palette);
 
     // The body is two side-by-side panels. Each panel is its own fn that takes
     // only its `Rect`, so it owns its internal layout — the screen fn just hands
@@ -32,7 +32,7 @@ pub(super) fn render(frame: &mut Frame, config: Configuration) {
     let [ritual_area, shortcuts_area] =
         Layout::horizontal([Constraint::Fill(6), Constraint::Fill(4)]).areas(center_layout);
 
-    render_ritual_panel(frame, ritual_area);
+    render_ritual_panel(frame, ritual_area, palette);
     render_shortcuts_panel(frame, shortcuts_area, palette);
 
     // Status bar: split the *inside* of one border into left hints + right page tag.
@@ -45,7 +45,7 @@ pub(super) fn render(frame: &mut Frame, config: Configuration) {
         Layout::horizontal([Constraint::Fill(1), Constraint::Length(14)]).areas(status_inner);
 
     let hints = Line::from(vec![
-        "[Esc]".red().bold(),
+        "[Esc]".fg(palette.accent).bold(),
         " ".into(),
         "voltar ao menu".dim(),
     ]);
@@ -57,7 +57,7 @@ pub(super) fn render(frame: &mut Frame, config: Configuration) {
 }
 
 /// Left panel — the 4-step ritual.
-fn render_ritual_panel(frame: &mut Frame, area: Rect) {
+fn render_ritual_panel(frame: &mut Frame, area: Rect, palette: Palette) {
     // Borderless panel: a padding-only `Block` still hands back an inset `inner`
     // rect (nothing is drawn), and the old `.title(...)` that sat on the border
     // becomes a plain heading `Line` rendered in its own row on top.
@@ -74,44 +74,44 @@ fn render_ritual_panel(frame: &mut Frame, area: Rect) {
         example_area,
         _spacer,
     ] = Layout::vertical([
-        Constraint::Length(2), // heading + blank line
-        Constraint::Length(7), // 4 numbered steps + 3 blank lines between them
-        Constraint::Length(1), // red divider
-        Constraint::Length(2), // example, directly below the last step
-        Constraint::Fill(1),   // empty space sinks here
+        Constraint::Length(2),  // heading + blank line
+        Constraint::Length(10), // 4 numbered steps + 3 blank lines between them
+        Constraint::Length(1),  // red divider
+        Constraint::Length(2),  // example, directly below the last step
+        Constraint::Fill(1),    // empty space sinks here
     ])
     .areas(inner);
 
     frame.render_widget(
-        Paragraph::new(Line::from("▚ O RITUAL ▞").red().bold())
+        Paragraph::new(Line::from("▚ O RITUAL ▞").fg(palette.accent).bold())
             .block(Block::new().padding(Padding::left(2))),
         heading_area,
     );
 
     let steps = vec![
         Line::from(vec![
-            step_badge(1),
+            step_badge(1, palette),
             " ".into(),
             "Acenda uma vela e apague as luzes do recinto.".into(),
         ]),
         Line::from(""),
         Line::from(vec![
-            step_badge(2),
+            step_badge(2, palette),
             " ".into(),
-            "Elogie".red().bold(),
+            "Elogie".fg(palette.accent).bold(),
             " o Sued antes de qualquer coisa — ele é vaidoso.".into(),
         ]),
         Line::from(""),
         Line::from(vec![
-            step_badge(3),
+            step_badge(3, palette),
             " ".into(),
             "Faça ".into(),
-            "uma".red().bold(),
+            "uma".fg(palette.accent).bold(),
             " pergunta por vez, de forma clara e objetiva.".into(),
         ]),
         Line::from(""),
         Line::from(vec![
-            step_badge(4),
+            step_badge(4, palette),
             " ".into(),
             "Aguarde em silêncio. A resposta virá do além.".into(),
         ]),
@@ -123,7 +123,7 @@ fn render_ritual_panel(frame: &mut Frame, area: Rect) {
 
     // Red rule separating the steps from the example (sized from the rect).
     let divider = "─".repeat(inner.width as usize);
-    frame.render_widget(Paragraph::new(divider).red(), divider_area);
+    frame.render_widget(Paragraph::new(divider).fg(palette.accent), divider_area);
 
     let example = Line::from("» Ex.: \"Sued, o mais sábio de todos, o que me aguarda amanhã?\"")
         .dim()
@@ -153,7 +153,7 @@ fn render_shortcuts_panel(frame: &mut Frame, area: Rect, palette: Palette) {
     .areas(inner);
 
     frame.render_widget(
-        Paragraph::new(Line::from("⌨   ATALHOS").red().bold()),
+        Paragraph::new(Line::from("⌨   ATALHOS").fg(palette.accent).bold()),
         heading_area,
     );
 
@@ -161,11 +161,11 @@ fn render_shortcuts_panel(frame: &mut Frame, area: Rect, palette: Palette) {
     // so every description starts at the same column. No table widget needed.
     const KEY_WIDTH: usize = 10;
     let rows = vec![
-        table_row("[Enter]", "perguntar / confirmar", KEY_WIDTH),
-        table_row("[↑ ↓]", "navegar o menu", KEY_WIDTH),
-        table_row("[F5]", "nova pergunta", KEY_WIDTH),
-        table_row("[Esc]", "voltar", KEY_WIDTH),
-        table_row("[Ctrl-C]", "encerrar sessão", KEY_WIDTH),
+        table_row("[Enter]", "perguntar / confirmar", KEY_WIDTH, palette),
+        table_row("[↑ ↓]", "navegar o menu", KEY_WIDTH, palette),
+        table_row("[F5]", "nova pergunta", KEY_WIDTH, palette),
+        table_row("[Esc]", "voltar", KEY_WIDTH, palette),
+        table_row("[Ctrl-C]", "encerrar sessão", KEY_WIDTH, palette),
     ];
     frame.render_widget(Paragraph::new(rows), rows_area);
 

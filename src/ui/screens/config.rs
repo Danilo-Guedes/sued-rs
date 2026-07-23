@@ -39,7 +39,7 @@ pub(super) fn render(frame: &mut Frame, app_state: &App) {
     ])
     .areas(layout);
 
-    render_nav_strip(frame, nav_layout, NavTab::Config);
+    render_nav_strip(frame, nav_layout, NavTab::Config, palette);
 
     let form_area = create_centered_rect(
         center_layout,
@@ -174,7 +174,7 @@ fn option_row(
     is_focused: bool,
     palette: Palette,
 ) -> Line<'static> {
-    let mut spans = vec![styled_label(label, is_focused, palette)];
+    let mut spans = styled_label(label, is_focused, palette);
 
     for (i, &(text, selected)) in chips.iter().enumerate() {
         if i > 0 {
@@ -183,7 +183,7 @@ fn option_row(
 
         let chip = Span::from(format!(" {text} "));
         spans.push(if selected {
-            chip.bg(palette.bg).fg(palette.accent).bold()
+            chip.bg(palette.accent).fg(palette.on_accent).bold()
         } else {
             chip.dim()
         });
@@ -197,19 +197,23 @@ fn volume_row(label: &str, percent: u8, is_focused: bool, palette: Palette) -> L
 
     let filled = BAR_WIDTH * percent.min(100) as usize / 100;
 
-    Line::from(vec![
-        styled_label(label, is_focused, palette),
+    let mut spans = styled_label(label, is_focused, palette);
+    spans.extend([
         Span::from("█".repeat(filled)).fg(palette.accent),
         Span::from("░".repeat(BAR_WIDTH - filled)).dim(),
         Span::from(format!(" {percent}%")).dim(),
-    ])
+    ]);
+
+    Line::from(spans)
 }
 
-fn styled_label(label: &str, is_focused: bool, palette: Palette) -> Span<'static> {
-    let span = Span::from(format!("{label:<LABEL_WIDTH$}"));
-    if is_focused {
-        span.fg(palette.accent)
+fn styled_label(label: &str, is_focused: bool, palette: Palette) -> Vec<Span<'static>> {
+    let text = Span::from(label.to_string());
+    let pad = " ".repeat(LABEL_WIDTH - label.chars().count());
+    let text = if is_focused {
+        text.bg(palette.accent).fg(palette.on_accent)
     } else {
-        span.dim()
-    }
+        text.dim()
+    };
+    vec![text, Span::from(pad)]
 }
