@@ -277,7 +277,6 @@ impl App {
                 }
                 KeyPress::CtrlC => {
                     self.pending_save = Some(self.config_object);
-                    self.screen = Screen::Menu;
                     AppFlow::Quit
                 }
                 KeyPress::Up => {
