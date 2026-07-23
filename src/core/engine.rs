@@ -30,6 +30,7 @@ pub enum KeyPress {
     F5,
     Left,
     Right,
+    CtrlC,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -55,15 +56,16 @@ impl Engine {
     pub fn handle_key(&mut self, key: KeyPress) -> StateChange {
         match key {
             KeyPress::Char(';') => self.toggle_mode(),
-            KeyPress::Char(c) => self.type_char(c),
+            KeyPress::Char(char) => self.type_char(char),
             KeyPress::Enter => self.handle_enter_key(),
             KeyPress::Backspace => self.handle_backspace_key(),
+            KeyPress::F5 => self.handle_f5_key(),
             KeyPress::Esc => StateChange::None,
             KeyPress::Up => StateChange::None,
             KeyPress::Down => StateChange::None,
             KeyPress::Left => StateChange::None,
             KeyPress::Right => StateChange::None,
-            KeyPress::F5 => self.handle_f5_key(),
+            KeyPress::CtrlC => StateChange::None,
         }
     }
 
