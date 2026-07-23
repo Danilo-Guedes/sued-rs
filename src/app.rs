@@ -211,6 +211,10 @@ impl App {
 
                 match key {
                     KeyPress::Enter => {
+                        if engine.visible_buffer().is_empty() {
+                            return AppFlow::Stay;
+                        }
+
                         let state = engine.handle_key(KeyPress::Enter);
 
                         match state {
@@ -1339,12 +1343,36 @@ mod tests {
         KeyPress::Enter,     // reveal
     ];
 
-    /// Menu → Asking, then hit Enter with nothing hidden → SUED denies you.
-    const ASK_AND_BE_DENIED: [KeyPress; 3] = [
-        KeyPress::Enter, // Intro → Menu
-        KeyPress::Enter, // Menu → Asking
-        KeyPress::Enter, // no hidden answer → Denied
+    /// Menu → Asking, type a visible question with nothing hidden → SUED denies
+    /// you. The question must have words: an EMPTY Enter is ignored outright
+    /// (no denial), so the denial path has to actually ask something.
+    const ASK_AND_BE_DENIED: [KeyPress; 5] = [
+        KeyPress::Enter,     // Intro → Menu
+        KeyPress::Enter,     // Menu → Asking
+        KeyPress::Char('o'),
+        KeyPress::Char('i'), // a visible question, no hidden answer
+        KeyPress::Enter,     // → Denied
     ];
+
+    #[test]
+    fn enter_with_an_empty_question_earns_no_reply_at_all() {
+        // An empty offering is ignored outright: no denial, no reply clock,
+        // nothing to play. The taunt is reserved for mortals who actually ask.
+        let mut app = drive(&[KeyPress::Enter, KeyPress::Enter, KeyPress::Enter]);
+
+        match &app.screen {
+            Screen::Asking {
+                replied_at,
+                denied_message,
+                ..
+            } => {
+                assert!(replied_at.is_none(), "no reply clock started");
+                assert_eq!(*denied_message, None, "no taunt for an empty question");
+            }
+            other => panic!("expected Asking, got {other:?}"),
+        }
+        assert_eq!(app.take_cue(), None, "and no sting queued either");
+    }
 
     #[test]
     fn a_fresh_oracle_has_no_earlier_reply_to_show() {
@@ -1510,8 +1538,8 @@ mod tests {
     fn enter_after_a_finished_reply_also_begins_the_next_question() {
         // Enter is an input key like any other: pressing it once SUED has stopped
         // talking starts the next exchange rather than re-firing on the old
-        // engine. With nothing hidden yet, that new question earns a denial —
-        // and the answer it replaces is kept.
+        // engine — the answer it replaces is kept. And since the fresh input is
+        // empty, this Enter earns nothing: silence, not a taunt.
         let mut app = drive(&ASK_AND_REVEAL);
         finish_the_reveal(&mut app);
 
@@ -1521,6 +1549,7 @@ mod tests {
             Screen::Asking {
                 previous_reply,
                 denied_message,
+                replied_at,
                 ..
             } => {
                 assert_eq!(
@@ -1529,9 +1558,12 @@ mod tests {
                     "the earlier answer must be kept, not overwritten by the new reply"
                 );
                 assert_eq!(
-                    *denied_message,
-                    Some(DENIED_STRING),
-                    "asking nothing earns a taunt, on the fresh engine"
+                    *denied_message, None,
+                    "an empty question earns nothing — the taunt needs words"
+                );
+                assert!(
+                    replied_at.is_none(),
+                    "no reply fired: the oracle stays quiet on an empty offering"
                 );
             }
             other => panic!("expected Asking, got {other:?}"),
