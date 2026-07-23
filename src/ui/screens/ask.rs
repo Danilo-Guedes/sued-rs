@@ -4,7 +4,7 @@ use std::time::{Duration, Instant};
 
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Offset};
-use ratatui::style::{Color, Stylize};
+use ratatui::style::Stylize;
 use ratatui::text::{Line, Span, Text};
 use ratatui::widgets::{Block, Borders, Padding, Paragraph, Wrap};
 
@@ -51,7 +51,7 @@ pub(super) fn render(
     ])
     .areas(layout);
 
-    render_nav_strip(frame, nav_layout, NavTab::Ask);
+    render_nav_strip(frame, nav_layout, NavTab::Ask, palette);
 
     let [_, center_art_rect, _] = Layout::horizontal([
         Constraint::Fill(1),
@@ -88,7 +88,7 @@ pub(super) fn render(
 
     // demon ASCII art will fill this area next (no border, per design)
     frame.render_widget(
-        Paragraph::new(DEMON_ART).fg(Color::Rgb(random_flicker_value, 0, 0)),
+        Paragraph::new(DEMON_ART).fg(palette.glow(random_flicker_value)),
         demon_rect,
     );
 
@@ -117,7 +117,7 @@ pub(super) fn render(
                                 Line::from(""), // blank row for breathing space
                                 Line::from(vec![
                                     Span::raw("— elogie-me antes da pergunta, e ").dim(),
-                                    Span::raw("talvez").red(),
+                                    Span::raw("talvez").fg(palette.accent),
                                     Span::raw(" eu responda.").dim(),
                                 ]),
                             ])
@@ -131,9 +131,9 @@ pub(super) fn render(
     let flash_effect = replied_at.map_or(0, |t| flash_intensity(t.elapsed(), config.animations()));
 
     let flash_bg = if flash_effect > 0 {
-        Color::Rgb(flash_effect, 0, 0)
+        palette.glow(flash_effect)
     } else {
-        Color::Reset
+        palette.bg
     };
 
     let speak_widget = Paragraph::new(final_sued_words)
@@ -155,13 +155,13 @@ pub(super) fn render(
 
     let default_logs_text = Text::from(vec![
         Line::from(vec![
-            Span::raw(">").red(),
+            Span::raw(">").fg(palette.accent),
             Span::raw(" "),
             Span::raw("conexão com o além estabelecida.").dim(),
         ]),
         Line::from(""),
         Line::from(vec![
-            Span::raw(">").red(),
+            Span::raw(">").fg(palette.accent),
             Span::raw(" "),
             Span::raw("aguardando oferenda do mortal").dim(),
             underline_cursor,
@@ -187,13 +187,13 @@ pub(super) fn render(
     };
 
     let rendered_cursor = if sued_finished_speaking && cursor_on(time_elapsed_from_the_start_at) {
-        Span::raw(CURSOR_CHAR.to_string()).red()
+        Span::raw(CURSOR_CHAR.to_string()).fg(palette.accent)
     } else {
         Span::raw("")
     };
 
     let typed = Text::from(vec![Line::from(vec![
-        " ▶ ".red().bold(),
+        " ▶ ".fg(palette.accent).bold(),
         Span::raw(engine.visible_buffer()).white(),
         rendered_cursor,
     ])]);
@@ -214,19 +214,19 @@ pub(super) fn render(
         Layout::horizontal([Constraint::Fill(1), Constraint::Length(14)]).areas(status_inner);
 
     let hints = Line::from(vec![
-        "[Enter]".red().bold(),
+        "[Enter]".fg(palette.accent).bold(),
         " ".into(),
         "perguntar".dim(),
         "  ".into(),
-        "[F5]".red().bold(),
+        "[F5]".fg(palette.accent).bold(),
         " ".into(),
         "nova pergunta".dim(),
         "  ".into(),
-        "[Esc]".red().bold(),
+        "[Esc]".fg(palette.accent).bold(),
         " ".into(),
         "menu".dim(),
         "  ".into(),
-        "[Ctrl-C]".red().bold(),
+        "[Ctrl-C]".fg(palette.accent).bold(),
         " ".into(),
         "sair".dim(),
     ]);

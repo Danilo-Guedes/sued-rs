@@ -2,7 +2,7 @@
 
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
-use ratatui::style::{Color, Style, Stylize};
+use ratatui::style::{Style, Stylize};
 use ratatui::symbols::merge::MergeStrategy;
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Padding, Paragraph};
@@ -68,16 +68,24 @@ pub(super) fn colorfull_bordered_block(
 }
 
 /// Accent "chip" for a step number: black glyphs on the accent colour.
-pub(super) fn step_badge(n: u8) -> Span<'static> {
-    Span::from(format!(" {n} ")).black().on_red().bold()
+pub(super) fn step_badge(n: u8, palette: Palette) -> Span<'static> {
+    Span::from(format!(" {n} "))
+        .black()
+        .bg(palette.accent)
+        .bold()
 }
 
 /// One aligned `key   description` row. `key_width` pads the key so the
 /// descriptions line up into a column.
-pub(super) fn table_row(key: &str, desc: &str, key_width: usize) -> Line<'static> {
+pub(super) fn table_row(
+    key: &str,
+    desc: &str,
+    key_width: usize,
+    palette: Palette,
+) -> Line<'static> {
     Line::from(vec![
         Span::from(format!("{:<width$}", key, width = key_width))
-            .red()
+            .fg(palette.accent)
             .bold(),
         Span::from(desc.to_string()).dim(),
     ])
@@ -115,11 +123,11 @@ impl NavTab {
     }
 }
 
-pub(super) fn render_nav_strip(frame: &mut Frame, area: Rect, active: NavTab) {
+pub(super) fn render_nav_strip(frame: &mut Frame, area: Rect, active: NavTab, palette: Palette) {
     // `area` must now be 2 rows tall: one row of tabs plus the red underline.
     let block = Block::new()
         .borders(Borders::BOTTOM)
-        .border_style(Style::default().fg(Color::Red))
+        .border_style(Style::default().fg(palette.accent))
         .padding(Padding::new(2, 2, 1, 0));
 
     let inner = block.inner(area);
@@ -139,8 +147,8 @@ pub(super) fn render_nav_strip(frame: &mut Frame, area: Rect, active: NavTab) {
             // Active: uppercased, black-on-red chip (leading/trailing space = padding).
             spans.push(
                 Span::from(format!(" {} ", tab.label().to_uppercase()))
-                    .black()
-                    .on_red()
+                    .fg(palette.accent)
+                    .bg(palette.on_accent)
                     .bold(),
             );
         } else {
@@ -153,7 +161,7 @@ pub(super) fn render_nav_strip(frame: &mut Frame, area: Rect, active: NavTab) {
     let session = Line::from(vec![
         "sessão #999 ".dim(),
         "· ".dim(),
-        "●".red(),
+        "●".fg(palette.accent),
         " online".dim(),
     ]);
     frame.render_widget(Paragraph::new(session).right_aligned(), session_area);

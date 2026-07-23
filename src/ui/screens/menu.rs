@@ -25,13 +25,13 @@ pub(super) fn render(frame: &mut Frame, menu: &MenuIndex, config: Configuration)
     let [menu_area, aviso_area] =
         Layout::horizontal([Constraint::Fill(5), Constraint::Fill(4)]).areas(center_layout);
 
-    render_menu_column(frame, menu_area, menu);
+    render_menu_column(frame, menu_area, menu, palette);
     render_disclaimer_column(frame, aviso_area, palette);
     render_status_bar(frame, status_layout, menu.index(), palette);
 }
 
 /// Left column — heading, the selectable list, a divider and a hint.
-fn render_menu_column(frame: &mut Frame, area: Rect, menu: &MenuIndex) {
+fn render_menu_column(frame: &mut Frame, area: Rect, menu: &MenuIndex, palette: Palette) {
     // Split a fixed block (heading + list + divider, no wrap) from the hint below
     // (which *does* wrap). Keeping them in separate rects lets the long hint reflow
     // while the full-width selection bar simply clips instead of shoving the whole
@@ -42,7 +42,9 @@ fn render_menu_column(frame: &mut Frame, area: Rect, menu: &MenuIndex) {
     let width = list_area.width as usize;
     let mut lines: Vec<Line> = vec![
         Line::from(""),
-        Line::from("▚ ESCOLHA SEU DESTINO ▞").red().bold(),
+        Line::from("▚ ESCOLHA SEU DESTINO ▞")
+            .fg(palette.accent)
+            .bold(),
         Line::from(""),
     ];
 
@@ -57,16 +59,18 @@ fn render_menu_column(frame: &mut Frame, area: Rect, menu: &MenuIndex) {
             let head = format!(" ▶  {label}");
             let pad = width.saturating_sub(head.chars().count() + 3);
             let bar = format!("{head}{}⏎ ", " ".repeat(pad));
-            lines.push(Line::from(bar.black().on_red().bold()));
+            lines.push(Line::from(
+                bar.bg(palette.accent).fg(palette.on_accent).bold(),
+            ));
         } else {
             // Unselected: indented 4 spaces to line up under the ` ▶  ` prefix.
-            lines.push(Line::from(format!("    {label}")).red().bold());
+            lines.push(Line::from(format!("    {label}")).fg(palette.accent).bold());
         }
     }
 
     lines.push(Line::from(""));
     // The design's divider stops short of the column edge — about 70% width.
-    lines.push(Line::from("─".repeat((width * 7) / 10)).red());
+    lines.push(Line::from("─".repeat((width * 7) / 10)).fg(palette.accent));
 
     frame.render_widget(
         Paragraph::new(lines).block(Block::new().padding(Padding::new(2, 0, 1, 0))),
@@ -111,7 +115,7 @@ fn render_disclaimer_column(frame: &mut Frame, area: Rect, palette: Palette) {
 
     let body = vec![
         Line::from(""),
-        Line::from("⚠ ATENÇÃO").red().bold(),
+        Line::from("⚠ ATENÇÃO").fg(palette.accent).bold(),
         Line::from(""),
         Line::from("Pessoas fracas e sensíveis não devem utilizar o programa.").dim(),
         Line::from(""),
@@ -143,15 +147,15 @@ fn render_status_bar(frame: &mut Frame, area: Rect, selected_menu: usize, palett
         Layout::horizontal([Constraint::Fill(1), Constraint::Length(6)]).areas(inner);
 
     let hints = Line::from(vec![
-        "[↑↓]".red().bold(),
+        "[↑↓]".fg(palette.accent).bold(),
         " ".into(),
         "navegar".dim(),
         "  ".into(),
-        "[Enter]".red().bold(),
+        "[Enter]".fg(palette.accent).bold(),
         " ".into(),
         "selecionar".dim(),
         "  ".into(),
-        "[Esc]".red().bold(),
+        "[Esc]".fg(palette.accent).bold(),
         " ".into(),
         "voltar".dim(),
     ]);

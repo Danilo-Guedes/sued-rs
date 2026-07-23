@@ -2,7 +2,7 @@
 
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Flex, Layout};
-use ratatui::style::{Color, Stylize};
+use ratatui::style::Stylize;
 use ratatui::text::{Line, Span, Text};
 use ratatui::widgets::{Borders, Padding, Paragraph, Wrap};
 
@@ -35,7 +35,7 @@ pub(super) fn render(frame: &mut Frame, config: Configuration) {
     ])
     .areas(layout);
 
-    render_nav_strip(frame, nav_layout, NavTab::Intro);
+    render_nav_strip(frame, nav_layout, NavTab::Intro, palette);
 
     let [banner_area, _gap, subtitle_area] = Layout::vertical([
         Constraint::Length(SUED_BANNER_HEIGHT),
@@ -55,7 +55,7 @@ pub(super) fn render(frame: &mut Frame, config: Configuration) {
 
     frame.render_widget(
         Paragraph::new(SUED_BANNER)
-            .fg(Color::Rgb(random_flicker_value, 0, 0))
+            .fg(palette.glow(random_flicker_value))
             .bold(),
         banner_rect,
     );
@@ -76,25 +76,30 @@ pub(super) fn render(frame: &mut Frame, config: Configuration) {
     // Match the rule to the same centred 50% band the warning text uses.
     let rule_band = divider_area.centered_horizontally(Constraint::Percentage(50));
     frame.render_widget(
-        Paragraph::new("─".repeat(rule_band.width as usize)).red(),
+        Paragraph::new("─".repeat(rule_band.width as usize)).fg(palette.accent),
         rule_band,
     );
 
     let intro_texts = Text::from(vec![
-        Line::from("A T E N Ç Ã O".red().bold()),
+        Line::from("A T E N Ç Ã O".fg(palette.accent).bold()),
         Line::from(""), // blank row for breathing space
         Line::from("Você está prestes a abrir uma porta para o desconhecido."),
         Line::from("Aconselho acender uma vela e apagar as luzes antes de executar."),
         Line::from(vec![
             Span::raw("Para que "),
-            Span::raw("SUED ").red().bold(),
+            Span::raw("SUED ").fg(palette.accent).bold(),
             Span::raw("responda, você deve elogiá-lo e em seguida pergunte com clareza."),
         ]),
         Line::from("Pessoas fracas e sensíveis não devem utilizar o programa."),
         Line::from("Tenha muito cuidado com o que você irá perguntar..."),
         Line::from(""),
         Line::from(""),
-        Line::from("   CONTINUAR ▸   ".black().on_red().bold()),
+        Line::from(
+            "   CONTINUAR ▸   "
+                .fg(palette.on_accent)
+                .bg(palette.accent)
+                .bold(),
+        ),
     ]);
 
     frame.render_widget(
@@ -106,11 +111,11 @@ pub(super) fn render(frame: &mut Frame, config: Configuration) {
     );
 
     let status_texts = Line::from(vec![
-        "[Enter]".red().bold(),
+        "[Enter]".fg(palette.accent).bold(),
         " ".into(),
         "continuar".dim(),
         "  ".into(),
-        "[Esc]".red().bold(),
+        "[Esc]".fg(palette.accent).bold(),
         " ".into(),
         "sair".dim(),
     ]);
