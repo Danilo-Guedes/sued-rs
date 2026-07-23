@@ -1183,6 +1183,118 @@ mod tests {
         assert_eq!(app.take_pending_save(), None);
     }
 
+    // ── G10: Ctrl-C is a door, not a kill ────────────────────────────────────
+    // Ctrl-C used to be intercepted in `main::translate_key` and never reached
+    // `handle_key`, so quitting from the config screen skipped the exit-write and
+    // the visit's edits silently died. Now Ctrl-C is an ordinary `KeyPress`:
+    // every screen answers Quit, and the config screen queues its save first —
+    // the same promise Esc makes, kept on the impatient exit too. (`main` drains
+    // `pending_save` before it honours `Quit`, so queueing is all App must do.)
+
+    #[test]
+    fn ctrl_c_quits_from_every_screen() {
+        let routes: [(&str, &[KeyPress]); 6] = [
+            ("intro", &[]),
+            ("menu", &[KeyPress::Enter]),
+            ("asking", &[KeyPress::Enter, KeyPress::Enter]),
+            ("info", &[KeyPress::Enter, KeyPress::Down, KeyPress::Enter]),
+            (
+                "about",
+                &[
+                    KeyPress::Enter,
+                    KeyPress::Down,
+                    KeyPress::Down,
+                    KeyPress::Enter,
+                ],
+            ),
+            (
+                "config",
+                &[
+                    KeyPress::Enter,
+                    KeyPress::Down,
+                    KeyPress::Down,
+                    KeyPress::Down,
+                    KeyPress::Enter,
+                ],
+            ),
+        ];
+
+        for (screen, route) in routes {
+            let mut keys = route.to_vec();
+            keys.push(KeyPress::CtrlC);
+            let (_, flow) = drive_flow(&keys);
+            assert_eq!(
+                flow,
+                AppFlow::Quit,
+                "Ctrl-C on the {screen} screen must quit"
+            );
+        }
+    }
+
+    #[test]
+    fn ctrl_c_from_config_queues_the_changed_config_for_saving() {
+        // The hole G10 exists to close: change a value, then quit with Ctrl-C
+        // instead of Esc. The edit must ride out with the quit.
+        let mut app = on_config(&[KeyPress::Right]);
+
+        let flow = app.handle_key(KeyPress::CtrlC);
+        let live = app.config();
+
+        assert_eq!(
+            live.theme(),
+            Theme::Ambar,
+            "precondition: the change applied"
+        );
+        assert_eq!(flow, AppFlow::Quit);
+        assert_eq!(
+            app.take_pending_save(),
+            Some(live),
+            "Ctrl-C from config must queue the live config, exactly like Esc"
+        );
+    }
+
+    #[test]
+    fn ctrl_c_from_config_unchanged_still_queues_a_save() {
+        // Same no-baseline policy as Esc: every exit from config writes once,
+        // changed or not.
+        let mut app = on_config(&[]);
+        app.handle_key(KeyPress::CtrlC);
+
+        assert!(
+            app.take_pending_save().is_some(),
+            "Ctrl-C from config queues a save even when nothing changed"
+        );
+    }
+
+    #[test]
+    fn ctrl_c_outside_config_queues_no_save() {
+        // Only a config visit persists. A quit from anywhere else must not
+        // write — otherwise every exit would touch the file for no reason.
+        let (mut app, flow) = drive_flow(&[KeyPress::Enter, KeyPress::CtrlC]);
+
+        assert_eq!(flow, AppFlow::Quit);
+        assert_eq!(
+            app.take_pending_save(),
+            None,
+            "quitting from the menu must not queue a save"
+        );
+    }
+
+    #[test]
+    fn ctrl_c_still_quits_while_sued_is_speaking() {
+        // The G8 lock swallows keys while the crawl runs — but the panic button
+        // must never be locked. (F5 and Esc pass; Ctrl-C joins them.)
+        let mut app = drive(&ASK_AND_REVEAL); // reply clock ticking, crawl unfinished
+
+        let flow = app.handle_key(KeyPress::CtrlC);
+
+        assert_eq!(
+            flow,
+            AppFlow::Quit,
+            "the mid-reveal input lock must not hold Ctrl-C"
+        );
+    }
+
     // ── G8: the exchange is a conversation, not a wipe ───────────────────────
     // The old flow answered once and froze until F5. The new one: SueD replies,
     // the crawl finishes, the input reopens EMPTY — and the answer you just got
