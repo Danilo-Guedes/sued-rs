@@ -123,6 +123,7 @@ impl App {
                     AppFlow::Stay
                 }
                 KeyPress::Esc => AppFlow::Quit,
+                KeyPress::CtrlC => AppFlow::Quit,
                 _ => AppFlow::Stay,
             },
             Screen::Menu => match key {
@@ -162,6 +163,7 @@ impl App {
                     self.menu.move_menu_down();
                     AppFlow::Stay
                 }
+                KeyPress::CtrlC => AppFlow::Quit,
                 _ => AppFlow::Stay,
             },
             Screen::Asking {
@@ -201,6 +203,7 @@ impl App {
                             // work while SueD is speaking.
                             KeyPress::F5 => {}
                             KeyPress::Esc => {}
+                            KeyPress::CtrlC => return AppFlow::Quit,
                             _ => return AppFlow::Stay,
                         }
                     }
@@ -243,6 +246,7 @@ impl App {
                         self.pending_cue = None;
                         AppFlow::Stay
                     }
+                    KeyPress::CtrlC => AppFlow::Quit,
                     other_char => {
                         engine.handle_key(other_char);
                         AppFlow::Stay
@@ -254,6 +258,7 @@ impl App {
                     self.screen = Screen::Menu;
                     AppFlow::Stay
                 }
+                KeyPress::CtrlC => AppFlow::Quit,
                 _ => AppFlow::Stay,
             },
             Screen::About => match key {
@@ -261,6 +266,7 @@ impl App {
                     self.screen = Screen::Menu;
                     AppFlow::Stay
                 }
+                KeyPress::CtrlC => AppFlow::Quit,
                 _ => AppFlow::Stay,
             },
             Screen::Config => match key {
@@ -268,6 +274,11 @@ impl App {
                     self.pending_save = Some(self.config_object);
                     self.screen = Screen::Menu;
                     AppFlow::Stay
+                }
+                KeyPress::CtrlC => {
+                    self.pending_save = Some(self.config_object);
+                    self.screen = Screen::Menu;
+                    AppFlow::Quit
                 }
                 KeyPress::Up => {
                     self.config_navigation.move_config_menu_up();

@@ -158,7 +158,9 @@ fn run(
 /// never `process::exit`; we return, so `TerminalGuard`'s `Drop` always runs.
 fn translate_key(app_state: &mut App, key: KeyEvent) -> AppFlow {
     match key.code {
-        KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => AppFlow::Quit,
+        KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+            app_state.handle_key(KeyPress::CtrlC)
+        }
         KeyCode::Backspace => app_state.handle_key(KeyPress::Backspace),
         KeyCode::Esc => app_state.handle_key(KeyPress::Esc),
         KeyCode::Enter => app_state.handle_key(KeyPress::Enter),
