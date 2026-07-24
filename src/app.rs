@@ -211,10 +211,6 @@ impl App {
 
                 match key {
                     KeyPress::Enter => {
-                        if engine.visible_buffer().is_empty() {
-                            return AppFlow::Stay;
-                        }
-
                         let state = engine.handle_key(KeyPress::Enter);
 
                         match state {
@@ -1347,8 +1343,8 @@ mod tests {
     /// you. The question must have words: an EMPTY Enter is ignored outright
     /// (no denial), so the denial path has to actually ask something.
     const ASK_AND_BE_DENIED: [KeyPress; 5] = [
-        KeyPress::Enter,     // Intro → Menu
-        KeyPress::Enter,     // Menu → Asking
+        KeyPress::Enter, // Intro → Menu
+        KeyPress::Enter, // Menu → Asking
         KeyPress::Char('o'),
         KeyPress::Char('i'), // a visible question, no hidden answer
         KeyPress::Enter,     // → Denied

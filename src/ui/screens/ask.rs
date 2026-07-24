@@ -220,7 +220,7 @@ pub(super) fn render(
         "  ".into(),
         "[F5]".fg(palette.accent).bold(),
         " ".into(),
-        "nova pergunta".dim(),
+        "recomeçar".dim(),
         "  ".into(),
         "[Esc]".fg(palette.accent).bold(),
         " ".into(),

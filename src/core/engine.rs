@@ -131,7 +131,19 @@ impl Engine {
     }
 
     fn handle_enter_key(&mut self) -> StateChange {
+        if self.visible_buffer().is_empty() {
+            // here means that the user somehow ended up with an empty input,
+            // we force the answer clean up to avoid hold wrong answer
+
+            self.answer_buffer.clear();
+            self.decoy_cursor = 0;
+
+            return StateChange::None;
+        }
+
+        //clean visible buffer
         self.visible_buffer = String::new();
+
         if self.answer_buffer.is_empty() {
             StateChange::Denied
         } else {
@@ -337,6 +349,11 @@ mod tests {
     fn enter_with_empty_answer_is_denied() {
         let mut engine = build_test_engine();
 
+        simulate_typing(
+            &mut engine,
+            "this is a normal question without using the special char",
+        );
+
         // Operator hits Enter without ever composing an answer.
         let change = engine.handle_key(KeyPress::Enter);
 
@@ -381,6 +398,90 @@ mod tests {
         assert_eq!(
             engine.visible_buffer, "",
             "the denial consumes the question — the input reads empty while SueD taunts"
+        );
+    }
+
+    #[test]
+    fn enter_on_a_fresh_engine_is_ignored_not_denied() {
+        // Enter with no words at all earns silence. The taunt is reserved for
+        // mortals who actually ask something — this rule used to live in the
+        // app as an early-return; it moved down here so the engine can also
+        // purge a staged answer on the same gesture.
+        let mut engine = build_test_engine();
+
+        let change = engine.handle_key(KeyPress::Enter);
+
+        assert_eq!(
+            change,
+            StateChange::None,
+            "an empty offering is ignored outright, not denied"
+        );
+    }
+
+    #[test]
+    fn enter_with_an_empty_input_discards_the_staged_answer() {
+        // The stale-answer hole: stage a secret answer, erase the fake question
+        // entirely, and the loaded answer must not lie in wait for a later,
+        // unrelated question. The empty Enter is the abort gesture.
+        let mut engine = Engine::new("ABCDEFG");
+
+        engine.handle_key(KeyPress::Char(';')); // Hidden
+        simulate_typing(&mut engine, "42"); // stage the secret — visible paints "AB"
+        engine.handle_key(KeyPress::Char(';')); // back to Normal
+        simulate_backspaces(&mut engine, 2); // erase the whole fake question
+
+        let change = engine.handle_key(KeyPress::Enter);
+
+        assert_eq!(
+            change,
+            StateChange::None,
+            "the abort itself is silent — no reveal, no denial"
+        );
+        assert!(
+            engine.answer_buffer.is_empty(),
+            "the staged answer must be discarded, not held"
+        );
+
+        // The proof: a follow-up question cannot resurrect the old answer.
+        simulate_typing(&mut engine, "oi");
+        let change = engine.handle_key(KeyPress::Enter);
+
+        assert_eq!(
+            change,
+            StateChange::Denied,
+            "with the answer discarded, the next open question earns a denial — not the stale reveal"
+        );
+        assert_eq!(
+            engine.revealed(),
+            None,
+            "the discarded answer must never surface"
+        );
+    }
+
+    #[test]
+    fn hidden_typing_after_an_empty_enter_paints_the_decoy_from_the_start() {
+        // The abort re-arms the decoy too. Erasing the fake question leaves
+        // `decoy_cursor` mid-string (Normal backspace only pops visible), so
+        // without the reset the next hidden session would paint the decoy from
+        // the middle — mid-word garbage in front of the mark.
+        let mut engine = Engine::new("ABCDEFG");
+
+        engine.handle_key(KeyPress::Char(';')); // Hidden
+        simulate_typing(&mut engine, "42"); // cursor advances to 2
+        engine.handle_key(KeyPress::Char(';')); // Normal
+        simulate_backspaces(&mut engine, 2); // visible empty, cursor stale at 2
+        engine.handle_key(KeyPress::Enter); // the abort — must re-arm the decoy
+
+        engine.handle_key(KeyPress::Char(';')); // Hidden again, new exchange
+        simulate_typing(&mut engine, "9");
+
+        assert_eq!(
+            engine.visible_buffer, "A",
+            "a fresh exchange paints the decoy from its first character, not mid-string"
+        );
+        assert_eq!(
+            engine.decoy_cursor, 1,
+            "the decoy cursor restarts with the new exchange"
         );
     }
 
