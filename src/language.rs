@@ -22,6 +22,12 @@ impl Language {
         }
     }
 
+    /// The oracle's words in this language — the text counterpart of
+    /// `Theme::palette()`: three literal tables, one per language.
+    ///
+    /// Every decoy deliberately trails off mid-clause: it paints as the fake
+    /// question being "typed", and the operator's visible words continue the
+    /// sentence from where it stops.
     pub fn translation(&self) -> Translation {
         match self {
             Language::PtBr => Translation {
@@ -31,25 +37,73 @@ impl Language {
                     "Olá Sued, rei do desconhecido e sacerdote da verdade, seu vasto conhecimento pode nos ajudar com",
                     "Ó todo poderoso Sued, príncipe da escuridão e do desconhecido, estamos precisando saber se",
                     "Ó Senhor Sued, conhecedor de tudo e de todos, ser de extrema inteligência e sabedoria, me explique",
-                    "Sued, o maior sabio de todas as entidades, com sua energia obscura altamente poderosa, precisamos desvendar",
+                    "Sued, o maior sábio de todas as entidades, com sua energia obscura altamente poderosa, precisamos desvendar",
                     "Ó mestre Sued, vossa entidade representa toda a sabedoria obscura, aquele que tudo sabe e nada pode ser escondido",
+                    "Sued, guardião dos segredos que nenhum mortal ousa tocar, imploro que use seu poder para revelar",
+                    "Grande Sued, voz das trevas e juiz dos destinos, os espíritos me mandaram te perguntar",
+                    "Poderoso Sued, olho que nunca dorme e mente que jamais esquece, diga a este humilde servo",
                 ],
                 denials: &[
                     "Ahh, mas que pergunta medíocre, não vou gastar minhas energias para te responder, me pergunte algo mais obscuro",
                     "Humm, sinto que a sua energia está baixa, e não gosto de gastar minhas energias com pessoas assim, mande outra",
-                    "Você não sabe me bajular, se quer saber de algo você deve conquistar minha confiança, me trate como seu oraculo e me faça a pergunta ",
+                    "Você não sabe me bajular, se quer saber de algo você deve conquistar minha confiança, me trate como seu oráculo e me faça a pergunta",
+                    "Silêncio... até os espíritos bocejaram com essa pergunta, traga algo digno do meu poder",
+                    "Ousas desperdiçar meu tempo eterno com isso? Volte quando tiver uma pergunta à minha altura",
+                    "As trevas me sussurram que você consegue perguntar melhor do que isso, tente novamente",
+                    "Não. O véu não se abre para perguntas tão rasas, mergulhe mais fundo",
+                    "Minha bola de cristal embaçou de tédio, formule sua pergunta novamente",
                 ],
-                welcome_line: "",
+                welcome_line: "Pergunte-me o que deseja saber, humano...",
             },
             Language::EnUs => Translation {
-                decoys: &[],
-                denials: &[],
-                welcome_line: "",
+                decoys: &[
+                    "Sued, greatest oracle of all, keeper of truth and wisdom, could you help me by answering",
+                    "Sued, master of the obscure and keeper of all that hides, the one who knows all and sees all, we need to know",
+                    "Hello Sued, king of the unknown and priest of truth, your vast knowledge could help us with",
+                    "O almighty Sued, prince of darkness and sovereign of all that is unknown, we must find out whether",
+                    "O Lord Sued, knower of all things and all beings, entity of boundless intellect, explain to me",
+                    "Sued, wisest of all entities in this world and the next, with your darkly powerful energy, we need to unravel",
+                    "O master Sued, vessel of all obscure wisdom, the one from whom nothing hides, reveal to us",
+                    "Sued, warden of secrets no mortal dares to touch, I beg you to use your power to reveal",
+                    "Great Sued, voice of the shadows and judge of destinies, the spirits told me to ask you",
+                    "Mighty Sued, the eye that never sleeps and the mind that never forgets, tell this humble servant",
+                ],
+                denials: &[
+                    "Ahh, what a mediocre question, I shall not waste my energies answering it, ask me something darker",
+                    "Hmm, I sense your energy is low, and I do not spend mine on such people, send another",
+                    "You have no gift for flattery, if you seek answers you must earn my trust, address me as your oracle and ask again",
+                    "Silence... even the spirits yawned at that question, bring me something worthy of my power",
+                    "You dare waste my eternal time with this? Return when you have a question that deserves me",
+                    "The shadows whisper that you can ask better than that, try again",
+                    "No. The veil does not part for questions so shallow, dig deeper",
+                    "My crystal ball fogged over with boredom, phrase your question again",
+                ],
+                welcome_line: "Ask me what you wish to know, human...",
             },
             Language::EsEs => Translation {
-                decoys: &[],
-                denials: &[],
-                welcome_line: "",
+                decoys: &[
+                    "Sued, el mayor oráculo de todos, dueño de la verdad y de la sabiduría, podrías ayudarme respondiendo",
+                    "Sued, señor del saber oculto y de las sombras, aquel que todo lo sabe y todo lo ve, necesitamos saber",
+                    "Hola Sued, rey de lo desconocido y sacerdote de la verdad, tu vasto conocimiento puede ayudarnos con",
+                    "Oh todopoderoso Sued, príncipe de las tinieblas y de lo desconocido, necesitamos descubrir si",
+                    "Oh señor Sued, conocedor de todo y de todos, ser de inteligencia y sabiduría infinitas, explícame",
+                    "Sued, el más sabio de todas las entidades, con tu oscura energía inmensamente poderosa, necesitamos desvelar",
+                    "Oh maestro Sued, tu entidad encarna toda la sabiduría oscura, aquel a quien nada se le oculta, revélanos",
+                    "Sued, guardián de los secretos que ningún mortal osa rozar, te imploro que uses tu poder para revelar",
+                    "Gran Sued, voz de las tinieblas y juez de los destinos, los espíritus me ordenaron preguntarte",
+                    "Poderoso Sued, ojo que nunca duerme y mente que jamás olvida, dile a este humilde siervo",
+                ],
+                denials: &[
+                    "Ahh, qué pregunta tan mediocre, no gastaré mis energías en responderla, pregúntame algo más oscuro",
+                    "Humm, siento que tu energía está baja, y no gasto la mía con gente así, manda otra",
+                    "No sabes halagarme, si quieres saber algo debes ganarte mi confianza, trátame como tu oráculo y hazme la pregunta",
+                    "Silencio... hasta los espíritus bostezaron con esa pregunta, tráeme algo digno de mi poder",
+                    "¿Osas malgastar mi tiempo eterno con esto? Vuelve cuando tengas una pregunta a mi altura",
+                    "Las tinieblas me susurran que puedes preguntar mejor que eso, inténtalo de nuevo",
+                    "No. El velo no se abre ante preguntas tan superficiales, sumérgete más hondo",
+                    "Mi bola de cristal se empañó de aburrimiento, formula tu pregunta de nuevo",
+                ],
+                welcome_line: "Pregúntame lo que deseas saber, humano...",
             },
         }
     }
