@@ -373,7 +373,7 @@ impl ConfigIndex {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{audio::AudioCue, constants::DENIED_STRING, core::engine::KeyPress};
+    use crate::{audio::AudioCue, core::engine::KeyPress};
     use std::time::Duration;
 
     /// Replay a sequence of keystrokes from a fresh app, handing back the final
@@ -549,16 +549,18 @@ mod tests {
             KeyPress::Char('i'), // a question typed in the open
             KeyPress::Enter,     // ask with an empty answer_buffer → Denied
         ]);
+        let denials = state.config().language().translation().denials;
         match state.screen {
             Screen::Asking {
                 engine,
                 denied_message,
                 ..
             } => {
-                assert_eq!(
-                    denied_message,
-                    Some(DENIED_STRING),
-                    "a denial must surface SUED's taunt phrase for the UI to show"
+                let taunt =
+                    denied_message.expect("a denial must surface SUED's taunt phrase for the UI");
+                assert!(
+                    denials.contains(&taunt),
+                    "the taunt must come from the active language's denial pool, got {taunt:?}"
                 );
                 assert_eq!(engine.revealed(), None, "a denial reveals no answer");
             }
@@ -739,9 +741,8 @@ mod tests {
         let dirtied = drive(&dirty);
         match dirtied.screen {
             Screen::Asking { denied_message, .. } => {
-                assert_eq!(
-                    denied_message,
-                    Some(DENIED_STRING),
+                assert!(
+                    denied_message.is_some(),
                     "precondition: the denial parked a taunt to clear"
                 );
             }
@@ -1475,16 +1476,19 @@ mod tests {
 
         feed(&mut app, &[KeyPress::Char('x')]);
 
+        let denials = app.config().language().translation().denials;
         match &app.screen {
             Screen::Asking {
                 denied_message,
                 previous_reply,
                 ..
             } => {
-                assert_eq!(
-                    previous_reply.as_deref(),
-                    Some(DENIED_STRING),
-                    "the denial must survive the start of the next question"
+                let kept = previous_reply
+                    .as_deref()
+                    .expect("the denial must survive the start of the next question");
+                assert!(
+                    denials.contains(&kept),
+                    "the remembered reply must be the denial taunt, got {kept:?}"
                 );
                 assert_eq!(
                     *denied_message, None,
@@ -1513,6 +1517,7 @@ mod tests {
             ],
         );
 
+        let decoys = app.config().language().translation().decoys;
         match &app.screen {
             Screen::Asking { engine, .. } => {
                 let visible = engine.visible_buffer();
@@ -1522,8 +1527,8 @@ mod tests {
                     "the decoy must restart at its first char, got {visible:?}"
                 );
                 assert!(
-                    DECOY_STRING.starts_with(visible),
-                    "the new question must paint the decoy from the beginning, got {visible:?}"
+                    decoys.iter().any(|d| d.starts_with(visible)),
+                    "the new question must paint a pool decoy from the beginning, got {visible:?}"
                 );
             }
             other => panic!("expected Asking, got {other:?}"),
@@ -1661,6 +1666,122 @@ mod tests {
                 assert_eq!(
                     previous_reply, &None,
                     "a new visit to the oracle starts a new conversation"
+                );
+            }
+            other => panic!("expected Asking, got {other:?}"),
+        }
+    }
+
+    // ── G2 wiring: SUED's words come from the language pools ─────────────────
+    // Decoys and denials are drawn from `Language::translation()` with a random
+    // roll at the app edge — so these specs assert pool *membership*, never
+    // which entry won the draw. Every pin flips idioma to EN-US first: the
+    // language flip is the discriminator. A prefix-length probe alone proved
+    // gameable — the PT pool's first decoy grew out of the old constant, so
+    // fixing the constant's typo satisfied "prefix of some pool entry" with no
+    // wiring at all. No hardcoded Portuguese string can pass these.
+
+    /// Drive a fresh app onto the Ask screen with `idioma` flipped to EN-US
+    /// first, then apply `then`. Config is 3 Downs from the top of the menu;
+    /// `idioma` is 3 Downs from the top of the config rows; the menu cursor is
+    /// still on Config when we Esc back out.
+    fn ask_in_english(then: &[KeyPress]) -> App {
+        let mut keys = vec![
+            KeyPress::Enter, // Intro → Menu
+            KeyPress::Down,
+            KeyPress::Down,
+            KeyPress::Down,  // → Config row
+            KeyPress::Enter, // → Screen::Config, cursor on `tema`
+            KeyPress::Down,
+            KeyPress::Down,
+            KeyPress::Down,  // → `idioma`
+            KeyPress::Right, // PT-BR → EN-US
+            KeyPress::Esc,   // → Menu (cursor on Config)
+            KeyPress::Up,
+            KeyPress::Up,
+            KeyPress::Up,    // → Ask row
+            KeyPress::Enter, // → Asking
+        ];
+        keys.extend_from_slice(then);
+        let app = drive(&keys);
+        assert_eq!(
+            app.config().language(),
+            Language::EnUs,
+            "precondition: the idioma flip must have landed"
+        );
+        app
+    }
+
+    #[test]
+    fn a_new_question_draws_its_decoy_from_the_language_pool() {
+        let mut hidden_typing = vec![KeyPress::Char(';')];
+        hidden_typing.extend(std::iter::repeat(KeyPress::Char('x')).take(50));
+        let app = ask_in_english(&hidden_typing);
+
+        match &app.screen {
+            Screen::Asking { engine, .. } => {
+                let visible = engine.visible_buffer();
+                assert_eq!(visible.chars().count(), 50, "one decoy char per keystroke");
+                assert!(
+                    Language::EnUs
+                        .translation()
+                        .decoys
+                        .iter()
+                        .any(|d| d.starts_with(visible)),
+                    "the painted decoy must be an entry of the active language's pool, \
+                     got {visible:?}"
+                );
+            }
+            other => panic!("expected Asking, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn f5_re_arms_the_decoy_from_the_start_of_a_pool_entry() {
+        // F5's re-arm lives app-side (the engine's F5 is inert): the fresh
+        // exchange must paint a pool decoy from its first character — a stale
+        // decoy cursor would paint mid-string and break the illusion.
+        let mut app = ask_in_english(&[
+            KeyPress::Char(';'), // Hidden
+            KeyPress::Char('4'),
+            KeyPress::Char('2'), // secret answer "42"
+            KeyPress::Enter,     // reveal
+        ]);
+        feed(&mut app, &[KeyPress::F5, KeyPress::Char(';')]);
+        feed(&mut app, &vec![KeyPress::Char('x'); 45]);
+
+        match &app.screen {
+            Screen::Asking { engine, .. } => {
+                let visible = engine.visible_buffer();
+                assert_eq!(visible.chars().count(), 45, "one decoy char per keystroke");
+                assert!(
+                    Language::EnUs
+                        .translation()
+                        .decoys
+                        .iter()
+                        .any(|d| d.starts_with(visible)),
+                    "after F5 the decoy must restart from the top of a pool entry, \
+                     got {visible:?}"
+                );
+            }
+            other => panic!("expected Asking, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn a_denial_speaks_the_configured_language() {
+        let state = ask_in_english(&[
+            KeyPress::Char('o'),
+            KeyPress::Char('i'), // a question typed in the open
+            KeyPress::Enter,     // empty answer → Denied
+        ]);
+
+        match state.screen {
+            Screen::Asking { denied_message, .. } => {
+                let taunt = denied_message.expect("a denial must park a taunt");
+                assert!(
+                    Language::EnUs.translation().denials.contains(&taunt),
+                    "the oracle must taunt in the configured language, got {taunt:?}"
                 );
             }
             other => panic!("expected Asking, got {other:?}"),
