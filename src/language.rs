@@ -22,10 +22,36 @@ impl Language {
         }
     }
 
-    /// The oracle's words in this language — the text counterpart of
-    /// `Theme::palette()`: three literal tables, one per language.
     pub fn translation(&self) -> Translation {
-        todo!("Danilo: three literal tables, one per language")
+        match self {
+            Language::PtBr => Translation {
+                decoys: &[
+                    "Sued, o maior oráculo de todos, dono da verdade e da sabedoria, poderia me ajudar respondendo",
+                    "Sued, dono da sabedoria do obscuro, aquele que tudo sabe e tudo vê, estamos precisando saber",
+                    "Olá Sued, rei do desconhecido e sacerdote da verdade, seu vasto conhecimento pode nos ajudar com",
+                    "Ó todo poderoso Sued, príncipe da escuridão e do desconhecido, estamos precisando saber se",
+                    "Ó Senhor Sued, conhecedor de tudo e de todos, ser de extrema inteligência e sabedoria, me explique",
+                    "Sued, o maior sabio de todas as entidades, com sua energia obscura altamente poderosa, precisamos desvendar",
+                    "Ó mestre Sued, vossa entidade representa toda a sabedoria obscura, aquele que tudo sabe e nada pode ser escondido",
+                ],
+                denials: &[
+                    "Ahh, mas que pergunta medíocre, não vou gastar minhas energias para te responder, me pergunte algo mais obscuro",
+                    "Humm, sinto que a sua energia está baixa, e não gosto de gastar minhas energias com pessoas assim, mande outra",
+                    "Você não sabe me bajular, se quer saber de algo você deve conquistar minha confiança, me trate como seu oraculo e me faça a pergunta ",
+                ],
+                welcome_line: "",
+            },
+            Language::EnUs => Translation {
+                decoys: &[],
+                denials: &[],
+                welcome_line: "",
+            },
+            Language::EsEs => Translation {
+                decoys: &[],
+                denials: &[],
+                welcome_line: "",
+            },
+        }
     }
 }
 
@@ -42,6 +68,16 @@ pub struct Translation {
     pub welcome_line: &'static str,
 }
 
+/// Map a random roll onto one entry of a non-empty `pool`: floor(roll × len),
+/// so `rand::random::<f32>()`'s `0.0..1.0` spreads uniformly across the pool.
+///
+/// The roll travels in as a parameter to keep the function pure — callers
+/// pass `rand::random()` at the app edge, tests pass explicit rolls.
+///
+/// Out-of-range rolls are forgiven, never rejected: an overshoot lands on the
+/// last entry via the `.min`, and a negative product saturates to index 0 in
+/// the `f32`→`usize` cast (a guarantee of `as`, not an accident). Every float,
+/// NaN included, maps to some valid entry. Panics only on an empty pool.
 pub fn pick<'a>(pool: &[&'a str], roll: f32) -> &'a str {
     let pool_len = pool.len() as f32;
 
@@ -196,7 +232,7 @@ mod tests {
         // question freezes on screen while the operator is still typing. 20
         // chars comfortably outlasts typical secret answers and still reads
         // as a real question mid-crawl.
-        const MIN_DECOY_CHARS: usize = 20;
+        const MIN_DECOY_CHARS: usize = 85;
 
         for lang in Language::ALL {
             for decoy in lang.translation().decoys {
