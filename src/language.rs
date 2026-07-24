@@ -29,7 +29,7 @@ impl Language {
     }
 }
 
-/// Everything the oracle says in one language. Like `Palette`, this travels by
+/// Everything the oracle says in one language. This travels by
 /// value and is looked up fresh each time — flipping `idioma` retranslates on
 /// the next read, no caching, no invalidation.
 #[derive(Debug, Copy, Clone)]
@@ -42,11 +42,14 @@ pub struct Translation {
     pub welcome_line: &'static str,
 }
 
-/// Map a random roll in `0.0..=1.0` onto one entry of a non-empty pool.
-/// Pure — the caller supplies the roll (`rand::random()` at the edge), tests
-/// supply explicit ones.
 pub fn pick<'a>(pool: &[&'a str], roll: f32) -> &'a str {
-    todo!("Danilo: multiply, floor, clamp — mind the roll == 1.0 edge")
+    let pool_len = pool.len() as f32;
+
+    let max_index = pool_len - 1.0;
+
+    let index = (pool_len * roll).min(max_index) as usize;
+
+    pool[index]
 }
 
 #[cfg(test)]
@@ -85,6 +88,22 @@ mod tests {
     fn pick_with_roll_exactly_one_clamps_to_the_last_entry() {
         // 1.0 × 4 = index 4 — one past the end. The clamp is the whole test.
         assert_eq!(pick(&POOL, 1.0), "quarto");
+    }
+
+    // The two pins below cannot fail against today's implementation — the
+    // `.min` absorbs any overshoot and the saturating f32→usize cast absorbs
+    // any negative. They exist to hold the total-function contract (any roll
+    // in, valid entry out, never a panic) against a future reshape of the
+    // arithmetic.
+
+    #[test]
+    fn pick_with_an_overshooting_roll_clamps_to_the_last_entry() {
+        assert_eq!(pick(&POOL, 1.5), "quarto");
+    }
+
+    #[test]
+    fn pick_with_a_negative_roll_clamps_to_the_first_entry() {
+        assert_eq!(pick(&POOL, -0.5), "primeiro");
     }
 
     #[test]
