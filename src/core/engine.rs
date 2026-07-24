@@ -133,7 +133,8 @@ impl Engine {
     fn handle_enter_key(&mut self) -> StateChange {
         if self.visible_buffer().is_empty() {
             // here means that the user somehow ended up with an empty input,
-            // we force the answer clean up to avoid hold wrong answer
+            // we force the answer and decoy_cursor clean up to avoid next question start with
+            // a staled answer or in a wrong cursor instead of in cursor 0
 
             self.answer_buffer.clear();
             self.decoy_cursor = 0;
