@@ -21,6 +21,7 @@ pub struct Translation {
     /// The opening line on a fresh ask screen.
     pub welcome_line: &'static str,
     pub intro: IntroTexts,
+    pub about: AboutTexts,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -30,6 +31,14 @@ pub struct IntroTexts {
     pub welcome: &'static str,
     pub disclaimer: &'static str,
     pub continue_btn: &'static str,
+}
+
+#[derive(Debug, Copy, Clone)]
+pub struct AboutTexts {
+    pub title: &'static str,
+    pub lore: &'static str,
+    pub table: &'static [(&'static str, &'static str)],
+    pub footer: &'static str,
 }
 
 impl Language {
@@ -87,6 +96,20 @@ impl Language {
                                  Tenha muito cuidado com o que você irá perguntar...",
                     continue_btn: "   CONTINUAR ▸   ",
                 },
+                about: AboutTexts {
+                    title: "SUED, O ORÁCULO",
+                    lore: "Uma entidade antiga que tudo vê e tudo sabe. Preso entre \
+                            mundos, responde às perguntas dos mortais tolos o \
+                            bastante para invocá-lo - {{nem sempre com a verdade que \
+                            deseja ouvir}}.",
+                    table: &[
+                        ("natureza", "oráculo onisciente"),
+                        ("humor", "vaidoso, sarcástico, imprevisível"),
+                        ("origem", "o além · desconhecida"),
+                        ("runtime", "rust · ratatui · crossterm"),
+                    ],
+                    footer: "sued-rs v0.1.0 · recriação do clássico brasileiro · use por sua conta e risco",
+                },
             },
             Language::EnUs => Translation {
                 decoys: &[
@@ -124,6 +147,20 @@ impl Language {
                                  Be very careful what you choose to ask...",
                     continue_btn: "   CONTINUE ▸   ",
                 },
+                about: AboutTexts {
+                    title: "SUED, THE ORACLE",
+                    lore: "An ancient entity that sees all and knows all. Trapped \
+                           between worlds, it answers the questions of mortals foolish \
+                           enough to summon it - {{though not always with the truth \
+                           they wish to hear}}.",
+                    table: &[
+                        ("nature", "omniscient oracle"),
+                        ("mood", "vain, sarcastic, unpredictable"),
+                        ("origin", "the beyond · unknown"),
+                        ("runtime", "rust · ratatui · crossterm"),
+                    ],
+                    footer: "sued-rs v0.1.0 · a recreation of the Brazilian classic · use at your own risk",
+                },
             },
             Language::EsEs => Translation {
                 decoys: &[
@@ -160,6 +197,20 @@ impl Language {
                     disclaimer: "Las personas débiles y sensibles no deben usar este programa.\n\
                                  Ten mucho cuidado con lo que vas a preguntar...",
                     continue_btn: "   CONTINUAR ▸   ",
+                },
+                about: AboutTexts {
+                    title: "SUED, EL ORÁCULO",
+                    lore: "Una entidad antigua que todo lo ve y todo lo sabe. Atrapada \
+                           entre mundos, responde a las preguntas de los mortales lo \
+                           bastante necios como para invocarla - {{aunque no siempre \
+                           con la verdad que desean oír}}.",
+                    table: &[
+                        ("naturaleza", "oráculo omnisciente"),
+                        ("humor", "vanidoso, sarcástico, impredecible"),
+                        ("origen", "el más allá · desconocido"),
+                        ("runtime", "rust · ratatui · crossterm"),
+                    ],
+                    footer: "sued-rs v0.1.0 · recreación del clásico brasileño · úsalo bajo tu propio riesgo",
                 },
             },
         }

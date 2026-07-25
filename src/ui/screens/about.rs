@@ -2,8 +2,8 @@
 
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout};
-use ratatui::style::Stylize;
-use ratatui::text::{Line, Span, Text};
+use ratatui::style::{Style, Stylize};
+use ratatui::text::{Line, Text};
 use ratatui::widgets::{Borders, Padding, Paragraph, Wrap};
 
 use crate::config::Configuration;
@@ -12,10 +12,12 @@ use crate::ui::screens::common::{
     DEMON_ART, DEMON_ART_HEIGHT, DEMON_ART_WIDTH, NavTab, colorfull_bordered_block,
     create_centered_rect, create_screen_block, render_nav_strip, table_row,
 };
+use crate::ui::template::styled_line;
 
 pub(super) fn render(frame: &mut Frame, config: Configuration) {
     let palette = config.theme().palette();
     let layout = create_screen_block(frame, palette);
+    let translation = config.language().translation();
 
     let [
         nav_layout,
@@ -53,47 +55,50 @@ pub(super) fn render(frame: &mut Frame, config: Configuration) {
         Paragraph::new(DEMON_ART).fg(palette.glow(random_flicker_value)),
         art_rect,
     );
-
     // Right column: lore text + spec table. Build both, then size their rects by
     // *content* — the lore's wrapped height comes from `line_count(width)` so it can
     // never clip, the table gets exactly its row count, a fixed gap sits between,
     // and `Fill(1)` spacers centre the whole group.
-    let text_para = Paragraph::new(Text::from(vec![
-        Line::from("SUED, O ORÁCULO".fg(palette.accent).bold()),
-        Line::from(" "),
-        Line::from(vec![
-            Span::raw("Uma entidade antiga que tudo vê e tudo sabe. Preso entre mundos, response às perguntas dos mortais tolos o bastante para invocá-lo - ").white(),
-            Span::raw("nem sempre com a verdade que deseja ouvir.").fg(palette.accent).bold(),
-        ]),
-    ]))
-    .left_aligned()
-    .wrap(Wrap { trim: false });
+    //
 
-    const KEY_WIDTH: usize = 12;
-    let rows = vec![
-        table_row("natureza", "oráculo onisciente", KEY_WIDTH, palette),
-        table_row(
-            "humor",
-            "vaidoso, sarcástico, imprevisível",
-            KEY_WIDTH,
-            palette,
-        ),
-        table_row("origem", "o além · desconhecida", KEY_WIDTH, palette),
-        table_row("runtime", "rust · ratatui · crossterm", KEY_WIDTH, palette),
+    let mut lore_rows = vec![
+        Line::from(translation.about.title.fg(palette.accent).bold()),
+        Line::from(" "),
     ];
 
-    let text_h = text_para.line_count(text_area.width) as u16;
+    lore_rows.extend(
+        translation
+            .about
+            .lore
+            .lines()
+            .map(|row| styled_line(row, Style::default().white(), palette.accent)),
+    );
+
+    let lore_block_paragraph = Paragraph::new(Text::from(lore_rows))
+        .left_aligned()
+        .wrap(Wrap { trim: false });
+
+    const KEY_WIDTH: usize = 12;
+
+    let lore_table_rows: Vec<_> = translation
+        .about
+        .table
+        .iter()
+        .map(|(label, value)| table_row(label, value, KEY_WIDTH, palette))
+        .collect();
+
+    let text_h = lore_block_paragraph.line_count(text_area.width) as u16;
     let [_, text_block, _gap, table_block, _] = Layout::vertical([
-        Constraint::Fill(1),                   // top spacer
-        Constraint::Length(text_h),            // lore, sized to its wrapped height
-        Constraint::Length(2),                 // breathing space between text + table
-        Constraint::Length(rows.len() as u16), // the spec table (one row each)
-        Constraint::Fill(1),                   // bottom spacer
+        Constraint::Fill(1),                              // top spacer
+        Constraint::Length(text_h),                       // lore, sized to its wrapped height
+        Constraint::Length(2),                            // breathing space between text + table
+        Constraint::Length(lore_table_rows.len() as u16), // the spec table (one row each)
+        Constraint::Fill(1),                              // bottom spacer
     ])
     .areas(text_area);
 
-    frame.render_widget(text_para, text_block);
-    frame.render_widget(Paragraph::new(rows), table_block);
+    frame.render_widget(lore_block_paragraph, text_block);
+    frame.render_widget(Paragraph::new(lore_table_rows), table_block);
 
     let status_block =
         colorfull_bordered_block(Some(Borders::TOP), palette).padding(Padding::horizontal(2));
@@ -103,11 +108,7 @@ pub(super) fn render(frame: &mut Frame, config: Configuration) {
     let [_, bottom_footer_layout] =
         Layout::vertical([Constraint::Fill(1), Constraint::Length(3)]).areas(footer_layout);
 
-    let footer_text = Paragraph::new(
-        "sued-rs v0.1.0 · recriação do clássico brasileiro · use por sua conta e risco",
-    )
-    .dim()
-    .centered();
+    let footer_text = Paragraph::new(translation.about.footer).dim().centered();
 
     frame.render_widget(footer_text, bottom_footer_layout);
 
