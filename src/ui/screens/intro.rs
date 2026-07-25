@@ -64,7 +64,6 @@ pub(super) fn render(frame: &mut Frame, config: Configuration) {
     );
 
     frame.render_widget(
-        // Paragraph::new("SUA ÚLTIMA ESPERANÇA DIVINA".dim()).centered(),  <<OLD
         Paragraph::new(translation.intro.subtitle.dim()).centered(),
         subtitle_area,
     );
