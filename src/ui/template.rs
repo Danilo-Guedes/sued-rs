@@ -17,7 +17,7 @@
 //! this module total.
 
 use ratatui::style::{Color, Style};
-use ratatui::text::Line;
+use ratatui::text::{Line, Span};
 
 /// Split `text` into `(fragment, emphasised)` runs at the `{{…}}` markers.
 ///
@@ -55,7 +55,18 @@ pub fn parse(text: &str) -> Vec<(&str, bool)> {
 /// emphasised runs wear `accent` (the accent replaces `base` rather than adding
 /// to it — an emphasised word is not a dim word in a different colour).
 pub fn styled_line(text: &str, base: Style, accent: Color) -> Line<'_> {
-    todo!("Danilo: parse, then map each segment to a Span and collect into a Line")
+    let spans: Vec<Span> = parse(text)
+        .into_iter()
+        .map(|(fragment, emphasised)| {
+            let style = if emphasised {
+                Style::default().fg(accent)
+            } else {
+                base
+            };
+            Span::styled(fragment, style)
+        })
+        .collect();
+    Line::from(spans)
 }
 
 #[cfg(test)]
