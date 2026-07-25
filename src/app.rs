@@ -107,10 +107,10 @@ impl App {
     pub fn new(parsed_json_config: Configuration) -> Self {
         App {
             screen: Screen::default(),
-            menu: MenuIndex::default(),
+            menu: MenuIndex::new(),
             started_at: Instant::now(),
             pending_cue: None,
-            config_navigation: ConfigIndex::default(),
+            config_navigation: ConfigIndex::new(),
             config_object: parsed_json_config,
             pending_save: None,
         }
@@ -239,8 +239,6 @@ impl App {
                         AppFlow::Stay
                     }
                     KeyPress::F5 => {
-                        engine.handle_key(KeyPress::F5);
-
                         engine.reset(pick(translations.decoys, rand::random()));
 
                         *previous_reply = None;
@@ -366,10 +364,6 @@ impl ConfigIndex {
     pub fn move_config_menu_up(&mut self) {
         let menu_size = Self::ALL.len();
         self.selected = (self.selected + menu_size - 1) % menu_size;
-    }
-
-    pub fn index(&self) -> usize {
-        self.selected
     }
 }
 
@@ -1718,7 +1712,7 @@ mod tests {
     #[test]
     fn a_new_question_draws_its_decoy_from_the_language_pool() {
         let mut hidden_typing = vec![KeyPress::Char(';')];
-        hidden_typing.extend(std::iter::repeat(KeyPress::Char('x')).take(50));
+        hidden_typing.extend(std::iter::repeat_n(KeyPress::Char('x'), 50));
         let app = ask_in_english(&hidden_typing);
 
         match &app.screen {
@@ -1751,7 +1745,7 @@ mod tests {
             KeyPress::Enter,     // reveal
         ]);
         feed(&mut app, &[KeyPress::F5, KeyPress::Char(';')]);
-        feed(&mut app, &vec![KeyPress::Char('x'); 45]);
+        feed(&mut app, &[KeyPress::Char('x'); 45]);
 
         match &app.screen {
             Screen::Asking { engine, .. } => {

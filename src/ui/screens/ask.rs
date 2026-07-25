@@ -32,6 +32,8 @@ pub(super) fn render(
 
     let palette = config.theme().palette();
 
+    let translation = config.language().translation();
+
     let layout = create_screen_block(frame, palette);
 
     let [
@@ -113,7 +115,7 @@ pub(super) fn render(
                         Some(last_reply) => Text::from(last_reply),
                         None => {
                             Text::from(vec![
-                                Line::from("Pergunte-me o que deseja saber, humano..."),
+                                Line::from(translation.welcome_line),
                                 Line::from(""), // blank row for breathing space
                                 Line::from(vec![
                                     Span::raw("— elogie-me antes da pergunta, e ").dim(),
