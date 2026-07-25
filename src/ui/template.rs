@@ -24,7 +24,31 @@ use ratatui::text::Line;
 /// Fragments borrow from `text` — nothing is copied. Empty fragments are never
 /// produced, so a marker at either end yields two segments, not three.
 pub fn parse(text: &str) -> Vec<(&str, bool)> {
-    todo!("Danilo: split on the {{ }} markers — no empty fragments, unclosed markers stay literal")
+    let mut rest = text;
+
+    let mut acc: Vec<(&str, bool)> = vec![];
+
+    while let Some((before, after)) = rest.split_once("{{") {
+        if let Some((styled, tail)) = after.split_once("}}") {
+            if !before.is_empty() {
+                acc.push((before, false));
+            }
+
+            if !styled.is_empty() {
+                acc.push((styled, true));
+            }
+
+            rest = tail;
+        } else {
+            break;
+        }
+    }
+
+    if !rest.is_empty() {
+        acc.push((rest, false));
+    }
+
+    acc
 }
 
 /// Build a styled [`Line`] from a marked-up `text`: plain runs wear `base`,
