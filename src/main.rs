@@ -3,7 +3,6 @@
 //! Terminal lifecycle (RAII guard) + the tick loop live here; the ratatui draw
 //! code lives in [`ui::screens`]. The pure prank logic is in [`core::engine`]
 //! and stays untouched.
-#![allow(dead_code)]
 
 mod app;
 mod audio;

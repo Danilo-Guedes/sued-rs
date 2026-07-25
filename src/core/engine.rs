@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 #[derive(Debug)]
 pub struct Engine {
     mode: Mode,
@@ -57,13 +55,13 @@ impl Engine {
             KeyPress::Char(char) => self.type_char(char),
             KeyPress::Enter => self.handle_enter_key(),
             KeyPress::Backspace => self.handle_backspace_key(),
-            KeyPress::F5 => StateChange::None,
-            KeyPress::Esc => StateChange::None,
-            KeyPress::Up => StateChange::None,
-            KeyPress::Down => StateChange::None,
-            KeyPress::Left => StateChange::None,
-            KeyPress::Right => StateChange::None,
-            KeyPress::CtrlC => StateChange::None,
+            KeyPress::F5
+            | KeyPress::Esc
+            | KeyPress::Up
+            | KeyPress::Down
+            | KeyPress::Left
+            | KeyPress::Right
+            | KeyPress::CtrlC => StateChange::None,
         }
     }
 
@@ -176,16 +174,13 @@ impl Engine {
     pub fn revealed(&self) -> Option<&str> {
         self.revealed.as_deref()
     }
-    pub fn mode(&self) -> Mode {
-        self.mode
-    }
 }
 
 #[cfg(test)]
 mod tests {
     const DECOY_STRING: &str = "Sued, o maior oráculo de todos, dono da verdade e da sabedoria";
 
-    const DENIED_STRING: &str = "Ahh, mas que pergunta medíocre, não vou gastar minhas energias para te responder, me pergunte algo mais obscuro";
+    const _DENIED_STRING: &str = "Ahh, mas que pergunta medíocre, não vou gastar minhas energias para te responder, me pergunte algo mais obscuro";
 
     use super::*;
 
@@ -611,6 +606,114 @@ mod tests {
             "once back inside the decoy, Backspace retracts a visible char again"
         );
         assert_eq!(engine.decoy_cursor, 2);
+    }
+
+    // ── The inert keys — the engine ignores them, it doesn't merely survive ──
+    // F5 and Ctrl-C both reach the engine and both mean nothing to it: F5's
+    // re-arm belongs to the app (it owns the decoy pool and the reply state),
+    // Ctrl-C's quit is app policy. "Inert" is a stronger promise than "silent":
+    // not just `StateChange::None`, but every field untouched. The two are
+    // written as a pair so the symmetry stays visible — if one ever grows
+    // behaviour, the twin sitting beside it makes that a decision instead of an
+    // accident.
+
+    /// An engine dirtied in every field at once, so an inert key has something
+    /// to disturb. The preconditions are the point: against a pristine engine,
+    /// a key that wrongly resets would pass for the wrong reason.
+    fn dirty_engine() -> Engine {
+        let mut engine = build_test_engine();
+
+        simulate_typing(&mut engine, "oi"); // Normal: visible "oi"
+        engine.handle_key(KeyPress::Char(';')); // → Hidden
+        simulate_typing(&mut engine, "42"); // secret answer + decoy advances
+        engine.handle_key(KeyPress::Enter); // reveal — consumes the question (G8)
+        simulate_typing(&mut engine, "x"); // re-dirty: stages an answer, paints a decoy char
+
+        assert_eq!(engine.mode, Mode::Hidden, "precondition: mode is dirty");
+        assert_eq!(
+            engine.answer_buffer, "x",
+            "precondition: an answer is staged"
+        );
+        assert!(
+            !engine.visible_buffer.is_empty(),
+            "precondition: the visible buffer holds decoy paint"
+        );
+        assert_ne!(
+            engine.decoy_cursor, 0,
+            "precondition: the decoy has advanced"
+        );
+        assert!(
+            engine.revealed.is_some(),
+            "precondition: an answer stands revealed"
+        );
+
+        engine
+    }
+
+    #[test]
+    fn f5_is_inert_to_the_engine() {
+        let mut engine = dirty_engine();
+        let visible_before = engine.visible_buffer.clone();
+        let cursor_before = engine.decoy_cursor;
+
+        let change = engine.handle_key(KeyPress::F5);
+
+        assert_eq!(
+            change,
+            StateChange::None,
+            "F5 reports no transition to the UI/audio layer"
+        );
+        assert_eq!(engine.mode, Mode::Hidden, "F5 must not flip the mode");
+        assert_eq!(
+            engine.answer_buffer, "x",
+            "F5 must not discard the staged answer — re-arming is the app's call"
+        );
+        assert_eq!(
+            engine.visible_buffer, visible_before,
+            "F5 must not repaint the visible buffer"
+        );
+        assert_eq!(
+            engine.decoy_cursor, cursor_before,
+            "F5 must not rewind the decoy cursor"
+        );
+        assert_eq!(
+            engine.revealed.as_deref(),
+            Some("42"),
+            "F5 must not drop the revealed answer"
+        );
+    }
+
+    #[test]
+    fn ctrl_c_is_inert_to_the_engine() {
+        let mut engine = dirty_engine();
+        let visible_before = engine.visible_buffer.clone();
+        let cursor_before = engine.decoy_cursor;
+
+        let change = engine.handle_key(KeyPress::CtrlC);
+
+        assert_eq!(
+            change,
+            StateChange::None,
+            "Ctrl-C reports no transition — quitting is app policy (G10)"
+        );
+        assert_eq!(engine.mode, Mode::Hidden, "Ctrl-C must not flip the mode");
+        assert_eq!(
+            engine.answer_buffer, "x",
+            "Ctrl-C must not discard the staged answer"
+        );
+        assert_eq!(
+            engine.visible_buffer, visible_before,
+            "Ctrl-C must not repaint the visible buffer"
+        );
+        assert_eq!(
+            engine.decoy_cursor, cursor_before,
+            "Ctrl-C must not rewind the decoy cursor"
+        );
+        assert_eq!(
+            engine.revealed.as_deref(),
+            Some("42"),
+            "Ctrl-C must not drop the revealed answer"
+        );
     }
 
     #[test]
