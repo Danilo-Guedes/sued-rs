@@ -55,11 +55,6 @@ pub(super) fn render(frame: &mut Frame, config: Configuration) {
         Paragraph::new(DEMON_ART).fg(palette.glow(random_flicker_value)),
         art_rect,
     );
-    // Right column: lore text + spec table. Build both, then size their rects by
-    // *content* — the lore's wrapped height comes from `line_count(width)` so it can
-    // never clip, the table gets exactly its row count, a fixed gap sits between,
-    // and `Fill(1)` spacers centre the whole group.
-    //
 
     let mut lore_rows = vec![
         Line::from(translation.about.title.fg(palette.accent).bold()),
@@ -74,31 +69,31 @@ pub(super) fn render(frame: &mut Frame, config: Configuration) {
             .map(|row| styled_line(row, Style::default().white(), palette.accent)),
     );
 
-    let lore_block_paragraph = Paragraph::new(Text::from(lore_rows))
+    let lore = Paragraph::new(Text::from(lore_rows))
         .left_aligned()
         .wrap(Wrap { trim: false });
 
     const KEY_WIDTH: usize = 12;
 
-    let lore_table_rows: Vec<_> = translation
+    let spec_rows: Vec<_> = translation
         .about
         .table
         .iter()
         .map(|(label, value)| table_row(label, value, KEY_WIDTH, palette))
         .collect();
 
-    let text_h = lore_block_paragraph.line_count(text_area.width) as u16;
+    let text_h = lore.line_count(text_area.width) as u16;
     let [_, text_block, _gap, table_block, _] = Layout::vertical([
-        Constraint::Fill(1),                              // top spacer
-        Constraint::Length(text_h),                       // lore, sized to its wrapped height
-        Constraint::Length(2),                            // breathing space between text + table
-        Constraint::Length(lore_table_rows.len() as u16), // the spec table (one row each)
-        Constraint::Fill(1),                              // bottom spacer
+        Constraint::Fill(1),                        // top spacer
+        Constraint::Length(text_h),                 // lore, sized to its wrapped height
+        Constraint::Length(2),                      // breathing space between text + table
+        Constraint::Length(spec_rows.len() as u16), // the spec table (one row each)
+        Constraint::Fill(1),                        // bottom spacer
     ])
     .areas(text_area);
 
-    frame.render_widget(lore_block_paragraph, text_block);
-    frame.render_widget(Paragraph::new(lore_table_rows), table_block);
+    frame.render_widget(lore, text_block);
+    frame.render_widget(Paragraph::new(spec_rows), table_block);
 
     let status_block =
         colorfull_bordered_block(Some(Borders::TOP), palette).padding(Padding::horizontal(2));
