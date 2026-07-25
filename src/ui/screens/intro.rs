@@ -2,8 +2,8 @@
 
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Flex, Layout};
-use ratatui::style::Stylize;
-use ratatui::text::{Line, Span, Text};
+use ratatui::style::{Style, Stylize};
+use ratatui::text::{Line, Text};
 use ratatui::widgets::{Borders, Padding, Paragraph, Wrap};
 
 use crate::config::Configuration;
@@ -12,9 +12,12 @@ use crate::ui::screens::common::{
     NavTab, SUED_BANNER, SUED_BANNER_HEIGHT, SUED_BANNER_WIDTH, colorfull_bordered_block,
     create_centered_rect, create_screen_block, render_nav_strip,
 };
+use crate::ui::template::styled_line;
 
 pub(super) fn render(frame: &mut Frame, config: Configuration) {
     let palette = config.theme().palette();
+
+    let translation = config.language().translation();
 
     let layout = create_screen_block(frame, palette);
 
@@ -61,7 +64,8 @@ pub(super) fn render(frame: &mut Frame, config: Configuration) {
     );
 
     frame.render_widget(
-        Paragraph::new("SUA ÚLTIMA ESPERANÇA DIVINA".dim()).centered(),
+        // Paragraph::new("SUA ÚLTIMA ESPERANÇA DIVINA".dim()).centered(),  <<OLD
+        Paragraph::new(translation.intro.subtitle.dim()).centered(),
         subtitle_area,
     );
 
@@ -80,27 +84,35 @@ pub(super) fn render(frame: &mut Frame, config: Configuration) {
         rule_band,
     );
 
-    let intro_texts = Text::from(vec![
-        Line::from("A T E N Ç Ã O".fg(palette.accent).bold()),
+    // A `Line` is a single row, so the multi-row blocks are split on `\n` here:
+    // the translation owns where the sentences break, the render turns each one
+    // into its own row.
+    let mut warning_rows = vec![
+        Line::from(translation.intro.attention.fg(palette.accent).bold()),
         Line::from(""), // blank row for breathing space
-        Line::from("Você está prestes a abrir uma porta para o desconhecido."),
-        Line::from("Aconselho acender uma vela e apagar as luzes antes de executar."),
-        Line::from(vec![
-            Span::raw("Para que "),
-            Span::raw("SUED ").fg(palette.accent).bold(),
-            Span::raw("responda, você deve elogiá-lo e em seguida pergunte com clareza."),
-        ]),
-        Line::from("Pessoas fracas e sensíveis não devem utilizar o programa."),
-        Line::from("Tenha muito cuidado com o que você irá perguntar..."),
+    ];
+    warning_rows.extend(
+        translation
+            .intro
+            .welcome
+            .lines()
+            .map(|row| styled_line(row, Style::default().dim(), palette.accent)),
+    );
+    warning_rows.extend(translation.intro.disclaimer.lines().map(Line::from));
+    warning_rows.extend([
         Line::from(""),
         Line::from(""),
         Line::from(
-            "   CONTINUAR ▸   "
+            translation
+                .intro
+                .continue_btn
                 .fg(palette.on_accent)
                 .bg(palette.accent)
                 .bold(),
         ),
     ]);
+
+    let intro_texts = Text::from(warning_rows);
 
     frame.render_widget(
         Paragraph::new(intro_texts)

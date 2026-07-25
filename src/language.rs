@@ -9,6 +9,29 @@ pub enum Language {
     EsEs,
 }
 
+/// Everything the oracle says in one language. This travels by
+/// value and is looked up fresh each time — flipping `idioma` retranslates on
+/// the next read, no caching, no invalidation.
+#[derive(Debug, Copy, Clone)]
+pub struct Translation {
+    /// Fake questions the decoy "types itself" from during hidden input.
+    pub decoys: &'static [&'static str],
+    /// Taunts for a question asked without a staged answer.
+    pub denials: &'static [&'static str],
+    /// The opening line on a fresh ask screen.
+    pub welcome_line: &'static str,
+    pub intro: IntroTexts,
+}
+
+#[derive(Debug, Copy, Clone)]
+pub struct IntroTexts {
+    pub subtitle: &'static str,
+    pub attention: &'static str,
+    pub welcome: &'static str,
+    pub disclaimer: &'static str,
+    pub continue_btn: &'static str,
+}
+
 impl Language {
     pub const ALL: [Language; 3] = [Language::PtBr, Language::EnUs, Language::EsEs];
 
@@ -53,6 +76,17 @@ impl Language {
                     "Minha bola de cristal embaçou de tédio, formule sua pergunta novamente",
                 ],
                 welcome_line: "Pergunte-me o que deseja saber, humano...",
+                intro: IntroTexts {
+                    subtitle: "SUA ÚLTIMA ESPERANÇA DIVINA",
+                    attention: "A T E N Ç Ã O",
+                    welcome: "Você está prestes a abrir uma porta para o desconhecido.\n\
+                              Aconselho acender uma vela e apagar as luzes antes de executar.\n\
+                              Para que {{SUED}} responda, você deve elogiá-lo e em seguida \
+                              pergunte com clareza.",
+                    disclaimer: "Pessoas fracas e sensíveis não devem utilizar o programa.\n\
+                                 Tenha muito cuidado com o que você irá perguntar...",
+                    continue_btn: "   CONTINUAR ▸   ",
+                },
             },
             Language::EnUs => Translation {
                 decoys: &[
@@ -78,6 +112,18 @@ impl Language {
                     "My crystal ball fogged over with boredom, phrase your question again",
                 ],
                 welcome_line: "Ask me what you wish to know, human...",
+                intro: IntroTexts {
+                    subtitle: "YOUR LAST DIVINE HOPE",
+                    attention: "A T T E N T I O N",
+                    welcome: "You are about to open a door to the unknown.\n\
+                              I advise you to light a candle and put out the lights before \
+                              running it.\n\
+                              For {{SUED}} to answer, you must flatter him and then ask with \
+                              clarity.",
+                    disclaimer: "The weak and the faint of heart should not use this program.\n\
+                                 Be very careful what you choose to ask...",
+                    continue_btn: "   CONTINUE ▸   ",
+                },
             },
             Language::EsEs => Translation {
                 decoys: &[
@@ -103,22 +149,21 @@ impl Language {
                     "Mi bola de cristal se empañó de aburrimiento, formula tu pregunta de nuevo",
                 ],
                 welcome_line: "Pregúntame lo que deseas saber, humano...",
+                intro: IntroTexts {
+                    subtitle: "TU ÚLTIMA ESPERANZA DIVINA",
+                    attention: "A T E N C I Ó N",
+                    welcome: "Estás a punto de abrir una puerta a lo desconocido.\n\
+                              Te aconsejo encender una vela y apagar las luces antes de \
+                              ejecutarlo.\n\
+                              Para que {{SUED}} responda, debes halagarlo y luego preguntar \
+                              con claridad.",
+                    disclaimer: "Las personas débiles y sensibles no deben usar este programa.\n\
+                                 Ten mucho cuidado con lo que vas a preguntar...",
+                    continue_btn: "   CONTINUAR ▸   ",
+                },
             },
         }
     }
-}
-
-/// Everything the oracle says in one language. This travels by
-/// value and is looked up fresh each time — flipping `idioma` retranslates on
-/// the next read, no caching, no invalidation.
-#[derive(Debug, Copy, Clone)]
-pub struct Translation {
-    /// Fake questions the decoy "types itself" from during hidden input.
-    pub decoys: &'static [&'static str],
-    /// Taunts for a question asked without a staged answer.
-    pub denials: &'static [&'static str],
-    /// The opening line on a fresh ask screen.
-    pub welcome_line: &'static str,
 }
 
 /// Map a random roll onto one entry of a non-empty `pool`: floor(roll × len),
