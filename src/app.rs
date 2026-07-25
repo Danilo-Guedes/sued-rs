@@ -11,8 +11,8 @@ use std::time::Instant;
 use crate::{
     audio::AudioCue,
     config::{ConfigOption, Configuration, Direction},
-    constants::{DECOY_STRING, DENIED_STRING},
     core::engine::{Engine, KeyPress, StateChange},
+    language::pick,
     ui::effects::reveal_is_complete,
 };
 
@@ -116,6 +116,7 @@ impl App {
         }
     }
     pub fn handle_key(&mut self, key: KeyPress) -> AppFlow {
+        let translations = self.config().language().translation();
         match &mut self.screen {
             Screen::Intro => match key {
                 KeyPress::Enter => {
@@ -130,7 +131,7 @@ impl App {
                 KeyPress::Enter => match MenuIndex::ALL[self.menu.index()] {
                     MenuOption::Ask => {
                         self.screen = Screen::Asking {
-                            engine: Engine::new(DECOY_STRING),
+                            engine: Engine::new(pick(translations.decoys, rand::random())),
                             replied_at: None,
                             denied_message: None,
                             previous_reply: None,
@@ -195,7 +196,7 @@ impl App {
                         *denied_message = None;
                         self.pending_cue = None;
 
-                        engine.reset();
+                        engine.reset(pick(translations.decoys, rand::random()));
                     } else {
                         match key {
                             // The lock only holds keys that would feed the
@@ -220,7 +221,7 @@ impl App {
                                 self.pending_cue = Some(AudioCue::JumpScare);
                             }
                             StateChange::Denied => {
-                                *denied_message = Some(DENIED_STRING);
+                                *denied_message = Some(pick(translations.denials, rand::random()));
                                 *replied_at = Some(Instant::now());
                                 self.pending_cue = Some(AudioCue::JumpScare);
                             }
@@ -239,6 +240,8 @@ impl App {
                     }
                     KeyPress::F5 => {
                         engine.handle_key(KeyPress::F5);
+
+                        engine.reset(pick(translations.decoys, rand::random()));
 
                         *previous_reply = None;
                         *replied_at = None;

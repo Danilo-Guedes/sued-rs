@@ -22,8 +22,7 @@ impl Language {
         }
     }
 
-    /// The oracle's words in this language — the text counterpart of
-    /// `Theme::palette()`: three literal tables, one per language.
+    /// The oracle's words in this language
     ///
     /// Every decoy deliberately trails off mid-clause: it paints as the fake
     /// question being "typed", and the operator's visible words continue the
