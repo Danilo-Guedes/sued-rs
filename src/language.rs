@@ -201,7 +201,7 @@ impl Language {
                     footer: "† suas escolhas foram registradas no além †",
                 },
                 common: CommonTexts {
-                    session: "sessão #999 ",
+                    session: "sessão #999",
                     online: "online",
                 },
             },
@@ -293,7 +293,7 @@ impl Language {
                     footer: "† your choices have been recorded in the beyond †",
                 },
                 common: CommonTexts {
-                    session: "session #999 ",
+                    session: "session #999",
                     online: "online",
                 },
             },
@@ -385,7 +385,7 @@ impl Language {
                     footer: "† tus decisiones han sido registradas en el más allá †",
                 },
                 common: CommonTexts {
-                    session: "sesión #999 ",
+                    session: "sesión #999",
                     online: "en línea",
                 },
             },
