@@ -10,7 +10,7 @@ use crate::config::Configuration;
 use crate::ui::effects::flicker_intensity;
 use crate::ui::screens::common::{
     DEMON_ART, DEMON_ART_HEIGHT, DEMON_ART_WIDTH, NavTab, colorfull_bordered_block,
-    create_centered_rect, create_screen_block, render_nav_strip, table_row,
+    create_centered_rect, create_screen_block, hint_line, render_nav_strip, table_row,
 };
 use crate::ui::template::styled_line;
 
@@ -118,11 +118,12 @@ pub(super) fn render(frame: &mut Frame, config: Configuration) {
     let [hints_area, page_area] =
         Layout::horizontal([Constraint::Fill(1), Constraint::Length(14)]).areas(status_inner);
 
-    let hints = Line::from(vec![
-        "[Esc]".fg(palette.accent).bold(),
-        " ".into(),
-        "voltar ao menu".dim(),
-    ]);
+    let hints = hint_line(translation.about.hints, palette);
     frame.render_widget(Paragraph::new(hints), hints_area);
-    frame.render_widget(Paragraph::new("SOBRE".dim()).right_aligned(), page_area);
+    frame.render_widget(
+        Paragraph::new(NavTab::About.label(language).to_uppercase())
+            .dim()
+            .right_aligned(),
+        page_area,
+    );
 }

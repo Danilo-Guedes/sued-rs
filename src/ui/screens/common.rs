@@ -92,6 +92,22 @@ pub(super) fn table_row(
     ])
 }
 
+/// The status-bar hint strip: accent-bold key, dim label, two spaces between
+/// pairs. The keys are glyphs (`[Esc]`, `[↑↓]`), so they carry no language and
+/// travel in the translation table only to keep each pair one unit of content.
+pub(super) fn hint_line(hints: &[(&'static str, &'static str)], palette: Palette) -> Line<'static> {
+    let mut spans: Vec<Span<'static>> = Vec::new();
+    for (i, (key, label)) in hints.iter().enumerate() {
+        if i > 0 {
+            spans.push("  ".into());
+        }
+        spans.push(Span::from(*key).fg(palette.accent).bold());
+        spans.push(" ".into());
+        spans.push(Span::from(*label).dim());
+    }
+    Line::from(spans)
+}
+
 /// A tab in the decorative top-nav strip. This is *orientation only* — it maps a
 /// screen to its label; it does not decide which screen you're on. The set is the
 /// four "destinations" (note: not the same as `MenuItem`, which also has `Exit`).
@@ -113,7 +129,7 @@ impl NavTab {
         NavTab::Config,
     ];
 
-    fn label(self, language: Language) -> &'static str {
+    pub(super) fn label(self, language: Language) -> &'static str {
         match self {
             NavTab::Intro => match language {
                 Language::PtBr => "Invocação",

@@ -6,7 +6,7 @@ use ratatui::style::{Style, Stylize};
 use ratatui::text::Line;
 use ratatui::widgets::{Block, Borders, Padding, Paragraph, Wrap};
 
-use super::common::{colorfull_bordered_block, render_nav_strip, step_badge, table_row};
+use super::common::{colorfull_bordered_block, hint_line, render_nav_strip, step_badge, table_row};
 
 use crate::config::Configuration;
 use crate::language::Translation;
@@ -57,14 +57,12 @@ pub(super) fn render(frame: &mut Frame, config: Configuration) {
     let [hints_area, page_area] =
         Layout::horizontal([Constraint::Fill(1), Constraint::Length(14)]).areas(status_inner);
 
-    let hints = Line::from(vec![
-        "[Esc]".fg(palette.accent).bold(),
-        " ".into(),
-        "voltar ao menu".dim(),
-    ]);
+    let hints = hint_line(translation.info.hints, palette);
     frame.render_widget(Paragraph::new(hints), hints_area);
     frame.render_widget(
-        Paragraph::new("INFORMAÇÕES".dim()).right_aligned(),
+        Paragraph::new(NavTab::Info.label(language).to_uppercase())
+            .dim()
+            .right_aligned(),
         page_area,
     );
 }

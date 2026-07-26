@@ -8,7 +8,7 @@ use ratatui::style::{Style, Stylize};
 use ratatui::text::{Line, Span, Text};
 use ratatui::widgets::{Block, Borders, Padding, Paragraph, Wrap};
 
-use super::common::{colorfull_bordered_block, create_centered_rect, render_nav_strip};
+use super::common::{colorfull_bordered_block, create_centered_rect, hint_line, render_nav_strip};
 use crate::config::Configuration;
 use crate::core::engine::Engine;
 use crate::ui::effects::{
@@ -225,23 +225,12 @@ pub(super) fn render(
     let [hints_area, page_area] =
         Layout::horizontal([Constraint::Fill(1), Constraint::Length(14)]).areas(status_inner);
 
-    let hints = Line::from(vec![
-        "[Enter]".fg(palette.accent).bold(),
-        " ".into(),
-        "perguntar".dim(),
-        "  ".into(),
-        "[F5]".fg(palette.accent).bold(),
-        " ".into(),
-        "recomeçar".dim(),
-        "  ".into(),
-        "[Esc]".fg(palette.accent).bold(),
-        " ".into(),
-        "menu".dim(),
-        "  ".into(),
-        "[Ctrl+C]".fg(palette.accent).bold(),
-        " ".into(),
-        "sair".dim(),
-    ]);
+    let hints = hint_line(translation.ask.hints, palette);
     frame.render_widget(Paragraph::new(hints), hints_area);
-    frame.render_widget(Paragraph::new("PERGUNTA").dim().right_aligned(), page_area);
+    frame.render_widget(
+        Paragraph::new(NavTab::Ask.label(language).to_uppercase())
+            .dim()
+            .right_aligned(),
+        page_area,
+    );
 }

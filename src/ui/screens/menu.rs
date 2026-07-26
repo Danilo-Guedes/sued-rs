@@ -9,7 +9,7 @@ use ratatui::widgets::{Block, Borders, Padding, Paragraph, Wrap};
 use crate::app::MenuIndex;
 use crate::config::Configuration;
 use crate::language::{Language, Translation};
-use crate::ui::screens::common::{colorfull_bordered_block, create_screen_block};
+use crate::ui::screens::common::{colorfull_bordered_block, create_screen_block, hint_line};
 use crate::ui::theme::Palette;
 
 pub(super) fn render(frame: &mut Frame, menu: &MenuIndex, config: Configuration) {
@@ -32,7 +32,7 @@ pub(super) fn render(frame: &mut Frame, menu: &MenuIndex, config: Configuration)
 
     render_menu_column(frame, menu_area, menu, palette, translation, language);
     render_disclaimer_column(frame, aviso_area, palette, translation);
-    render_status_bar(frame, status_layout, menu.index(), palette);
+    render_status_bar(frame, status_layout, menu.index(), palette, translation);
 }
 
 /// Left column — heading, the selectable list, a divider and a hint.
@@ -136,10 +136,7 @@ fn render_disclaimer_column(
             .flat_map(|phrase| [Line::from(""), Line::from(*phrase)]),
     );
 
-    frame.render_widget(
-        Paragraph::new(body).block(Block::new().padding(Padding::left(2))),
-        body_area,
-    );
+    frame.render_widget(Paragraph::new(body).block(Block::new()), body_area);
 
     let footer = vec![
         Line::from("☠ ☠ ☠").dim(),
@@ -149,7 +146,13 @@ fn render_disclaimer_column(
 }
 
 /// Bottom status bar — key hints on the left, page tag pinned right.
-fn render_status_bar(frame: &mut Frame, area: Rect, selected_menu: usize, palette: Palette) {
+fn render_status_bar(
+    frame: &mut Frame,
+    area: Rect,
+    selected_menu: usize,
+    palette: Palette,
+    translation: Translation,
+) {
     let block =
         colorfull_bordered_block(Some(Borders::TOP), palette).padding(Padding::horizontal(2));
     let inner = block.inner(area);
@@ -158,19 +161,7 @@ fn render_status_bar(frame: &mut Frame, area: Rect, selected_menu: usize, palett
     let [hints_area, page_area] =
         Layout::horizontal([Constraint::Fill(1), Constraint::Length(6)]).areas(inner);
 
-    let hints = Line::from(vec![
-        "[↑↓]".fg(palette.accent).bold(),
-        " ".into(),
-        "navegar".dim(),
-        "  ".into(),
-        "[Enter]".fg(palette.accent).bold(),
-        " ".into(),
-        "selecionar".dim(),
-        "  ".into(),
-        "[Esc]".fg(palette.accent).bold(),
-        " ".into(),
-        "voltar".dim(),
-    ]);
+    let hints = hint_line(translation.menu.hints, palette);
     frame.render_widget(Paragraph::new(hints), hints_area);
     frame.render_widget(
         Paragraph::new(format!("{}/{}", selected_menu + 1, MenuIndex::ALL.len(),).dim())

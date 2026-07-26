@@ -15,7 +15,8 @@ use crate::app::App;
 use crate::config::ConfigOption;
 use crate::language::Language;
 use crate::ui::screens::common::{
-    NavTab, colorfull_bordered_block, create_centered_rect, create_screen_block, render_nav_strip,
+    NavTab, colorfull_bordered_block, create_centered_rect, create_screen_block, hint_line,
+    render_nav_strip,
 };
 use crate::ui::theme::{Palette, Theme};
 
@@ -158,22 +159,12 @@ pub(super) fn render(frame: &mut Frame, app_state: &App) {
     let [hints_area, page_area] =
         Layout::horizontal([Constraint::Fill(1), Constraint::Length(12)]).areas(status_inner);
 
-    let hints = Line::from(vec![
-        "[↑↓]".fg(palette.accent).bold(),
-        " ".into(),
-        "navegar".dim(),
-        "    ".into(),
-        "[↔]".fg(palette.accent).bold(),
-        " ".into(),
-        "alterar".dim(),
-        "    ".into(),
-        "[Esc]".fg(palette.accent).bold(),
-        " ".into(),
-        "voltar".dim(),
-    ]);
+    let hints = hint_line(translation.config.hints, palette);
     frame.render_widget(Paragraph::new(hints), hints_area);
     frame.render_widget(
-        Paragraph::new("CONFIGURAÇÃO".dim()).right_aligned(),
+        Paragraph::new(NavTab::Config.label(language).to_uppercase())
+            .dim()
+            .right_aligned(),
         page_area,
     );
 }

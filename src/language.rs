@@ -36,6 +36,7 @@ pub struct IntroTexts {
     pub welcome: &'static str,
     pub disclaimer: &'static str,
     pub continue_btn: &'static str,
+    pub hints: &'static [(&'static str, &'static str)],
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -44,6 +45,7 @@ pub struct AboutTexts {
     pub lore: &'static str,
     pub table: &'static [(&'static str, &'static str)],
     pub footer: &'static str,
+    pub hints: &'static [(&'static str, &'static str)],
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -54,6 +56,7 @@ pub struct InfoTexts {
     pub shortcut_title: &'static str,
     pub shortcuts: &'static [(&'static str, &'static str)],
     pub terminal_hint: &'static str,
+    pub hints: &'static [(&'static str, &'static str)],
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -64,6 +67,7 @@ pub struct AskTexts {
     pub connection: &'static str,
     pub waiting: &'static str,
     pub talk_with_me: &'static str,
+    pub hints: &'static [(&'static str, &'static str)],
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -77,6 +81,7 @@ pub struct ConfigTexts {
     pub yes: &'static str,
     pub no: &'static str,
     pub footer: &'static str,
+    pub hints: &'static [(&'static str, &'static str)],
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -86,6 +91,7 @@ pub struct MenuTexts {
     pub attention: &'static str,
     pub disclaimer: &'static [&'static str],
     pub your_last_hope: &'static str,
+    pub hints: &'static [(&'static str, &'static str)],
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -147,6 +153,7 @@ impl Language {
                     disclaimer: "Pessoas fracas e sensíveis não devem utilizar o programa.\n\
                                  Tenha muito cuidado com o que você irá perguntar...",
                     continue_btn: "   CONTINUAR ▸   ",
+                    hints: &[("[Enter]", "continuar"), ("[Esc]", "sair")],
                 },
                 about: AboutTexts {
                     title: "SUED, O ORÁCULO",
@@ -161,6 +168,7 @@ impl Language {
                         ("runtime", "rust · ratatui · crossterm"),
                     ],
                     footer: "sued-rs v0.1.0 · recriação do clássico brasileiro · use por sua conta e risco",
+                    hints: &[("[Esc]", "voltar ao menu")],
                 },
                 info: InfoTexts {
                     title: "▚ O RITUAL ▞",
@@ -180,6 +188,7 @@ impl Language {
                         ("[Ctrl+C]", "encerrar sessão"),
                     ],
                     terminal_hint: "⌁ terminal 80×24 recomendado",
+                    hints: &[("[Esc]", "voltar ao menu")],
                 },
                 ask: AskTexts {
                     sued_speak: " SUED FALA ",
@@ -188,6 +197,12 @@ impl Language {
                     connection: "conexão com o além estabelecida.",
                     waiting: "aguardando oferenda do mortal",
                     talk_with_me: " FALE COMIGO... ",
+                    hints: &[
+                        ("[Enter]", "perguntar"),
+                        ("[F5]", "recomeçar"),
+                        ("[Esc]", "menu"),
+                        ("[Ctrl+C]", "sair"),
+                    ],
                 },
                 config: ConfigTexts {
                     configuration: "▓ CONFIGURAÇÃO ▓",
@@ -199,6 +214,7 @@ impl Language {
                     yes: "SIM",
                     no: "NÃO",
                     footer: "† suas escolhas foram registradas no além †",
+                    hints: &[("[↑↓]", "navegar"), ("[↔]", "alterar"), ("[Esc]", "voltar")],
                 },
                 menu: MenuTexts {
                     choose_your_destiny: "▚ ESCOLHA SEU DESTINO ▞",
@@ -210,6 +226,11 @@ impl Language {
                         "Tenha cuidado com o que irá perguntar...",
                     ],
                     your_last_hope: "sua última esperança divina",
+                    hints: &[
+                        ("[↑↓]", "navegar"),
+                        ("[Enter]", "selecionar"),
+                        ("[Esc]", "voltar"),
+                    ],
                 },
                 common: CommonTexts {
                     session: "sessão #999",
@@ -250,6 +271,7 @@ impl Language {
                     disclaimer: "The weak and the faint of heart should not use this program.\n\
                                  Be very careful what you choose to ask...",
                     continue_btn: "   CONTINUE ▸   ",
+                    hints: &[("[Enter]", "continue"), ("[Esc]", "quit")],
                 },
                 about: AboutTexts {
                     title: "SUED, THE ORACLE",
@@ -264,6 +286,7 @@ impl Language {
                         ("runtime", "rust · ratatui · crossterm"),
                     ],
                     footer: "sued-rs v0.1.0 · a recreation of the Brazilian classic · use at your own risk",
+                    hints: &[("[Esc]", "back to menu")],
                 },
                 info: InfoTexts {
                     title: "▚ THE RITUAL ▞",
@@ -283,6 +306,7 @@ impl Language {
                         ("[Ctrl+C]", "end session"),
                     ],
                     terminal_hint: "⌁ 80×24 terminal recommended",
+                    hints: &[("[Esc]", "back to menu")],
                 },
                 ask: AskTexts {
                     sued_speak: " SUED SPEAKS ",
@@ -291,6 +315,12 @@ impl Language {
                     connection: "connection to the beyond established.",
                     waiting: "awaiting the mortal's offering",
                     talk_with_me: " SPEAK TO ME... ",
+                    hints: &[
+                        ("[Enter]", "ask"),
+                        ("[F5]", "start over"),
+                        ("[Esc]", "menu"),
+                        ("[Ctrl+C]", "quit"),
+                    ],
                 },
                 config: ConfigTexts {
                     configuration: "▓ CONFIGURATION ▓",
@@ -302,6 +332,7 @@ impl Language {
                     yes: "YES",
                     no: "NO",
                     footer: "† your choices have been recorded in the beyond †",
+                    hints: &[("[↑↓]", "navigate"), ("[↔]", "change"), ("[Esc]", "back")],
                 },
                 menu: MenuTexts {
                     choose_your_destiny: "▚ CHOOSE YOUR DESTINY ▞",
@@ -313,6 +344,11 @@ impl Language {
                         "Be careful what you ask...",
                     ],
                     your_last_hope: "your last divine hope",
+                    hints: &[
+                        ("[↑↓]", "navigate"),
+                        ("[Enter]", "select"),
+                        ("[Esc]", "back"),
+                    ],
                 },
                 common: CommonTexts {
                     session: "session #999",
@@ -353,6 +389,7 @@ impl Language {
                     disclaimer: "Las personas débiles y sensibles no deben usar este programa.\n\
                                  Ten mucho cuidado con lo que vas a preguntar...",
                     continue_btn: "   CONTINUAR ▸   ",
+                    hints: &[("[Enter]", "continuar"), ("[Esc]", "salir")],
                 },
                 about: AboutTexts {
                     title: "SUED, EL ORÁCULO",
@@ -367,6 +404,7 @@ impl Language {
                         ("runtime", "rust · ratatui · crossterm"),
                     ],
                     footer: "sued-rs v0.1.0 · recreación del clásico brasileño · úsalo bajo tu propio riesgo",
+                    hints: &[("[Esc]", "volver al menú")],
                 },
                 info: InfoTexts {
                     title: "▚ EL RITUAL ▞",
@@ -386,6 +424,7 @@ impl Language {
                         ("[Ctrl+C]", "cerrar sesión"),
                     ],
                     terminal_hint: "⌁ terminal 80×24 recomendado",
+                    hints: &[("[Esc]", "volver al menú")],
                 },
                 ask: AskTexts {
                     sued_speak: " SUED HABLA ",
@@ -394,6 +433,12 @@ impl Language {
                     connection: "conexión con el más allá establecida.",
                     waiting: "aguardando la ofrenda del mortal",
                     talk_with_me: " HÁBLAME... ",
+                    hints: &[
+                        ("[Enter]", "preguntar"),
+                        ("[F5]", "reiniciar"),
+                        ("[Esc]", "menú"),
+                        ("[Ctrl+C]", "salir"),
+                    ],
                 },
                 config: ConfigTexts {
                     configuration: "▓ CONFIGURACIÓN ▓",
@@ -405,6 +450,7 @@ impl Language {
                     yes: "SÍ",
                     no: "NO",
                     footer: "† tus decisiones han sido registradas en el más allá †",
+                    hints: &[("[↑↓]", "navegar"), ("[↔]", "cambiar"), ("[Esc]", "volver")],
                 },
                 menu: MenuTexts {
                     choose_your_destiny: "▚ ELIGE TU DESTINO ▞",
@@ -416,6 +462,11 @@ impl Language {
                         "Ten cuidado con lo que vas a preguntar...",
                     ],
                     your_last_hope: "tu última esperanza divina",
+                    hints: &[
+                        ("[↑↓]", "navegar"),
+                        ("[Enter]", "seleccionar"),
+                        ("[Esc]", "volver"),
+                    ],
                 },
                 common: CommonTexts {
                     session: "sesión #999",
