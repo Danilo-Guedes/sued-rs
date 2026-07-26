@@ -192,7 +192,7 @@ pub(super) fn render_nav_strip(
         translation.common.session.dim(),
         "· ".dim(),
         "●".fg(palette.accent),
-        " online".dim(),
+        translation.common.online.dim(),
     ]);
     frame.render_widget(Paragraph::new(session).right_aligned(), session_area);
 }
