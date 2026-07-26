@@ -17,7 +17,8 @@ use crate::ui::template::styled_line;
 pub(super) fn render(frame: &mut Frame, config: Configuration) {
     let palette = config.theme().palette();
     let layout = create_screen_block(frame, palette);
-    let translation = config.language().translation();
+    let language = config.language();
+    let translation = language.translation();
 
     let [
         nav_layout,
@@ -34,7 +35,14 @@ pub(super) fn render(frame: &mut Frame, config: Configuration) {
     ])
     .areas(layout);
 
-    render_nav_strip(frame, nav_layout, NavTab::About, palette);
+    render_nav_strip(
+        frame,
+        nav_layout,
+        NavTab::About,
+        palette,
+        language,
+        translation,
+    );
 
     let [art_area, text_area, _empty] = Layout::horizontal([
         Constraint::Fill(1),

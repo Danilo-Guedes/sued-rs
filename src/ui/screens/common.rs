@@ -8,6 +8,7 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Padding, Paragraph};
 
 use crate::constants::APP_TITLE;
+use crate::language::{Language, Translation};
 use crate::ui::theme::Palette;
 
 /// The demon face — verbatim quadrant-block art (11 rows), shown on the
@@ -112,18 +113,47 @@ impl NavTab {
         NavTab::Config,
     ];
 
-    fn label(self) -> &'static str {
+    fn label(self, language: Language) -> &'static str {
         match self {
-            NavTab::Intro => "Invocação",
-            NavTab::Ask => "Pergunta",
-            NavTab::Info => "Informações",
-            NavTab::About => "Sobre",
-            NavTab::Config => "Configuração",
+            NavTab::Intro => match language {
+                Language::PtBr => "Invocação",
+                Language::EnUs => "Invocation",
+                Language::EsEs => "Invocación",
+            },
+            NavTab::Ask => match language {
+                Language::PtBr => "Pergunta",
+                Language::EnUs => "Question",
+                Language::EsEs => "Pregunta",
+            },
+            NavTab::Info => match language {
+                Language::PtBr => "Informações",
+                Language::EnUs => "Information",
+                Language::EsEs => "Información",
+            },
+
+            NavTab::About => match language {
+                Language::PtBr => "Sobre",
+                Language::EnUs => "About",
+                Language::EsEs => "Sobre",
+            },
+
+            NavTab::Config => match language {
+                Language::PtBr => "Configuração",
+                Language::EnUs => "Configuration",
+                Language::EsEs => "Configuración",
+            },
         }
     }
 }
 
-pub(super) fn render_nav_strip(frame: &mut Frame, area: Rect, active: NavTab, palette: Palette) {
+pub(super) fn render_nav_strip(
+    frame: &mut Frame,
+    area: Rect,
+    active: NavTab,
+    palette: Palette,
+    language: Language,
+    translation: Translation,
+) {
     // `area` must now be 2 rows tall: one row of tabs plus the red underline.
     let block = Block::new()
         .borders(Borders::BOTTOM)
@@ -146,20 +176,20 @@ pub(super) fn render_nav_strip(frame: &mut Frame, area: Rect, active: NavTab, pa
         if active == *tab {
             // Active: uppercased, black-on-red chip (leading/trailing space = padding).
             spans.push(
-                Span::from(format!(" {} ", tab.label().to_uppercase()))
+                Span::from(format!(" {} ", tab.label(language).to_uppercase()))
                     .fg(palette.accent)
                     .bg(palette.on_accent)
                     .bold(),
             );
         } else {
-            spans.push(tab.label().dim());
+            spans.push(tab.label(language).dim());
         }
     }
     frame.render_widget(Paragraph::new(Line::from(spans)), tabs_area);
 
     // Session badge — static placeholder for now; wire it to real state later.
     let session = Line::from(vec![
-        "sessão #999 ".dim(),
+        translation.common.session.dim(),
         "· ".dim(),
         "●".fg(palette.accent),
         " online".dim(),

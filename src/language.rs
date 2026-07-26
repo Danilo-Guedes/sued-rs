@@ -26,6 +26,7 @@ pub struct Translation {
     pub ask: AskTexts,
     pub config: ConfigTexts,
     // pub menu: MenuTexts,
+    pub common: CommonTexts,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -84,8 +85,13 @@ pub struct ConfigTexts {
 //     pub example: &'static str,
 //     pub attention: &'static str,
 //     pub disclaimer: &'static str,
-//     pub your_lat_hope: &'static str,
+//     pub your_last_hope: &'static str,
 // }
+
+#[derive(Debug, Copy, Clone)]
+pub struct CommonTexts {
+    pub session: &'static str,
+}
 
 impl Language {
     pub const ALL: [Language; 3] = [Language::PtBr, Language::EnUs, Language::EsEs];
@@ -193,6 +199,9 @@ impl Language {
                     no: "NÃO",
                     footer: "† suas escolhas foram registradas no além †",
                 },
+                common: CommonTexts {
+                    session: "sessão #999 ",
+                },
             },
             Language::EnUs => Translation {
                 decoys: &[
@@ -281,6 +290,9 @@ impl Language {
                     no: "NO",
                     footer: "† your choices have been recorded in the beyond †",
                 },
+                common: CommonTexts {
+                    session: "session #999 ",
+                },
             },
             Language::EsEs => Translation {
                 decoys: &[
@@ -368,6 +380,9 @@ impl Language {
                     yes: "SÍ",
                     no: "NO",
                     footer: "† tus decisiones han sido registradas en el más allá †",
+                },
+                common: CommonTexts {
+                    session: "sesión #999 ",
                 },
             },
         }

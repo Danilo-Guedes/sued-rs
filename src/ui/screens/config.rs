@@ -22,16 +22,19 @@ use crate::ui::theme::{Palette, Theme};
 const FORM_WIDTH: u16 = 64;
 
 /// Pads the label column so every value starts at the same column.
-const LABEL_WIDTH: usize = 12;
+const LABEL_WIDTH: usize = 14;
 
 pub(super) fn render(frame: &mut Frame, app_state: &App) {
-    let palette = app_state.config().theme().palette();
+    let config = app_state.config();
+
+    let palette = config.theme().palette();
 
     let layout = create_screen_block(frame, palette);
 
-    let translation = app_state.config().language().translation();
+    let language = config.language();
 
-    let config = app_state.config();
+    let translation = language.translation();
+
     let focused = app_state.focused_option();
 
     let [nav_layout, center_layout, status_layout] = Layout::vertical([
@@ -41,7 +44,14 @@ pub(super) fn render(frame: &mut Frame, app_state: &App) {
     ])
     .areas(layout);
 
-    render_nav_strip(frame, nav_layout, NavTab::Config, palette);
+    render_nav_strip(
+        frame,
+        nav_layout,
+        NavTab::Config,
+        palette,
+        language,
+        translation,
+    );
 
     let form_area = create_centered_rect(
         center_layout,
