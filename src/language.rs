@@ -18,13 +18,12 @@ pub struct Translation {
     pub decoys: &'static [&'static str],
     /// Taunts for a question asked without a staged answer.
     pub denials: &'static [&'static str],
-    /// The opening line on a fresh ask screen.
-    pub welcome_line: &'static str,
 
     ///SCREENS TEXTS
     pub intro: IntroTexts,
     pub about: AboutTexts,
     pub info: InfoTexts,
+    pub ask: AskTexts,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -52,6 +51,16 @@ pub struct InfoTexts {
     pub shortcut_title: &'static str,
     pub shortcuts: &'static [(&'static str, &'static str)],
     pub terminal_hint: &'static str,
+}
+
+#[derive(Debug, Copy, Clone)]
+pub struct AskTexts {
+    pub sued_speak: &'static str,
+    pub welcome_line: &'static str,
+    pub praise: &'static str,
+    pub connection: &'static str,
+    pub waiting: &'static str,
+    pub talk_with_me: &'static str,
 }
 
 impl Language {
@@ -97,7 +106,6 @@ impl Language {
                     "Não. O véu não se abre para perguntas tão rasas, mergulhe mais fundo",
                     "Minha bola de cristal embaçou de tédio, formule sua pergunta novamente",
                 ],
-                welcome_line: "Pergunte-me o que deseja saber, humano...",
                 intro: IntroTexts {
                     subtitle: "SUA ÚLTIMA ESPERANÇA DIVINA",
                     attention: "A T E N Ç Ã O",
@@ -142,6 +150,14 @@ impl Language {
                     ],
                     terminal_hint: "⌁ terminal 80×24 recomendado",
                 },
+                ask: AskTexts {
+                    sued_speak: " SUED FALA ",
+                    welcome_line: "Pergunte-me o que deseja saber, humano...",
+                    praise: "— elogie-me antes da pergunta, e {{talvez}} eu responda.",
+                    connection: "conexão com o além estabelecida.",
+                    waiting: "aguardando oferenda do mortal",
+                    talk_with_me: " FALE COMIGO... ",
+                },
             },
             Language::EnUs => Translation {
                 decoys: &[
@@ -166,7 +182,6 @@ impl Language {
                     "No. The veil does not part for questions so shallow, dig deeper",
                     "My crystal ball fogged over with boredom, phrase your question again",
                 ],
-                welcome_line: "Ask me what you wish to know, human...",
                 intro: IntroTexts {
                     subtitle: "YOUR LAST DIVINE HOPE",
                     attention: "A T T E N T I O N",
@@ -212,6 +227,14 @@ impl Language {
                     ],
                     terminal_hint: "⌁ 80×24 terminal recommended",
                 },
+                ask: AskTexts {
+                    sued_speak: " SUED SPEAKS ",
+                    welcome_line: "Ask me what you wish to know, human...",
+                    praise: "— flatter me before you ask, and {{maybe}} I shall answer.",
+                    connection: "connection to the beyond established.",
+                    waiting: "awaiting the mortal's offering",
+                    talk_with_me: " SPEAK TO ME... ",
+                },
             },
             Language::EsEs => Translation {
                 decoys: &[
@@ -236,7 +259,6 @@ impl Language {
                     "No. El velo no se abre ante preguntas tan superficiales, sumérgete más hondo",
                     "Mi bola de cristal se empañó de aburrimiento, formula tu pregunta de nuevo",
                 ],
-                welcome_line: "Pregúntame lo que deseas saber, humano...",
                 intro: IntroTexts {
                     subtitle: "TU ÚLTIMA ESPERANZA DIVINA",
                     attention: "A T E N C I Ó N",
@@ -281,6 +303,14 @@ impl Language {
                         ("[Ctrl+C]", "cerrar sesión"),
                     ],
                     terminal_hint: "⌁ terminal 80×24 recomendado",
+                },
+                ask: AskTexts {
+                    sued_speak: " SUED HABLA ",
+                    welcome_line: "Pregúntame lo que deseas saber, humano...",
+                    praise: "— halágame antes de la pregunta, y {{quizá}} te responda.",
+                    connection: "conexión con el más allá establecida.",
+                    waiting: "aguardando la ofrenda del mortal",
+                    talk_with_me: " HÁBLAME... ",
                 },
             },
         }
@@ -398,7 +428,7 @@ mod tests {
     fn every_language_has_a_welcome_line() {
         for lang in Language::ALL {
             assert!(
-                !lang.translation().welcome_line.is_empty(),
+                !lang.translation().ask.welcome_line.is_empty(),
                 "{lang:?} has an empty welcome line"
             );
         }
@@ -437,8 +467,8 @@ mod tests {
         for (i, a) in Language::ALL.iter().enumerate() {
             for b in &Language::ALL[i + 1..] {
                 assert_ne!(
-                    a.translation().welcome_line,
-                    b.translation().welcome_line,
+                    a.translation().ask.welcome_line,
+                    b.translation().ask.welcome_line,
                     "{a:?} and {b:?} share a welcome line — copy-paste drift"
                 );
             }

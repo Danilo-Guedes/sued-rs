@@ -4,7 +4,7 @@ use std::time::{Duration, Instant};
 
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Offset};
-use ratatui::style::Stylize;
+use ratatui::style::{Style, Stylize};
 use ratatui::text::{Line, Span, Text};
 use ratatui::widgets::{Block, Borders, Padding, Paragraph, Wrap};
 
@@ -18,6 +18,7 @@ use crate::ui::effects::{
 use crate::ui::screens::common::{
     DEMON_ART, DEMON_ART_HEIGHT, DEMON_ART_WIDTH, NavTab, create_screen_block,
 };
+use crate::ui::template::styled_line;
 
 pub(super) fn render(
     frame: &mut Frame,
@@ -115,13 +116,13 @@ pub(super) fn render(
                         Some(last_reply) => Text::from(last_reply),
                         None => {
                             Text::from(vec![
-                                Line::from(translation.welcome_line),
+                                Line::from(translation.ask.welcome_line),
                                 Line::from(""), // blank row for breathing space
-                                Line::from(vec![
-                                    Span::raw("— elogie-me antes da pergunta, e ").dim(),
-                                    Span::raw("talvez").fg(palette.accent),
-                                    Span::raw(" eu responda.").dim(),
-                                ]),
+                                styled_line(
+                                    translation.ask.praise,
+                                    Style::default().dim(),
+                                    palette.accent,
+                                ),
                             ])
                         }
                     }
@@ -142,7 +143,7 @@ pub(super) fn render(
         .block(
             colorfull_bordered_block(None, palette)
                 .bg(flash_bg)
-                .title(" SUED FALA ")
+                .title(translation.ask.sued_speak)
                 .padding(Padding::new(2, 2, 1, 1)),
         )
         .wrap(Wrap { trim: false });
@@ -159,13 +160,13 @@ pub(super) fn render(
         Line::from(vec![
             Span::raw(">").fg(palette.accent),
             Span::raw(" "),
-            Span::raw("conexão com o além estabelecida.").dim(),
+            Span::raw(translation.ask.connection).dim(),
         ]),
         Line::from(""),
         Line::from(vec![
             Span::raw(">").fg(palette.accent),
             Span::raw(" "),
-            Span::raw("aguardando oferenda do mortal").dim(),
+            Span::raw(translation.ask.waiting).dim(),
             underline_cursor,
         ]),
     ]);
@@ -202,7 +203,7 @@ pub(super) fn render(
 
     frame.render_widget(
         Paragraph::new(typed)
-            .block(colorfull_bordered_block(None, palette).title(" FALE COMIGO... "))
+            .block(colorfull_bordered_block(None, palette).title(translation.ask.talk_with_me))
             .wrap(Wrap { trim: false }),
         input_layout,
     );
