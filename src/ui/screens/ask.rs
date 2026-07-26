@@ -185,7 +185,10 @@ pub(super) fn render(
         sued_logs_layout,
     );
 
-    let sued_finished_speaking = match replied_at {
+    // The render-side twin of the input lock in `App::handle_key`: keys are only
+    // swallowed while SueD is mid-reveal. "Never spoke" is not a locked state —
+    // it is a fresh screen, so the cursor must already be blinking.
+    let input_is_unlocked = match replied_at {
         Some(inst) => {
             let current_sued_words = match denied_message {
                 Some(denied_msg) => denied_msg,
@@ -195,10 +198,10 @@ pub(super) fn render(
             };
             reveal_is_complete(current_sued_words, inst.elapsed())
         }
-        None => false,
+        None => true,
     };
 
-    let rendered_cursor = if sued_finished_speaking && cursor_on(time_elapsed_from_the_start_at) {
+    let rendered_cursor = if input_is_unlocked && cursor_on(time_elapsed_from_the_start_at) {
         Span::raw(CURSOR_CHAR.to_string()).fg(palette.accent)
     } else {
         Span::raw("")
