@@ -228,7 +228,7 @@ pub(super) fn render(
         " ".into(),
         "menu".dim(),
         "  ".into(),
-        "[Ctrl-C]".fg(palette.accent).bold(),
+        "[Ctrl+C]".fg(palette.accent).bold(),
         " ".into(),
         "sair".dim(),
     ]);

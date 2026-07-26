@@ -27,7 +27,7 @@ and does **not** connect to the network; the "oracle" is the person at the keybo
 - **The prank, end-to-end** — the hidden-mode (`;`) toggle, the decoy that "types
   itself," and the reveal.
 - **The full spooky TUI** — five keyboard-navigable screens with a merged full-bleed
-  red frame, demon ASCII art and the SUED banner (arrows · Enter · Esc · Ctrl-C).
+  red frame, demon ASCII art and the SUED banner (arrows · Enter · Esc · Ctrl+C).
 - **A pure, tested core** — the trick logic lives in an I/O-free engine; 33 tests green.
 
 Still landing: looping dread audio + a jump-scare sting, terror effects (a char-by-char

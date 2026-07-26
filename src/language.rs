@@ -20,8 +20,11 @@ pub struct Translation {
     pub denials: &'static [&'static str],
     /// The opening line on a fresh ask screen.
     pub welcome_line: &'static str,
+
+    ///SCREENS TEXTS
     pub intro: IntroTexts,
     pub about: AboutTexts,
+    pub info: InfoTexts,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -39,6 +42,16 @@ pub struct AboutTexts {
     pub lore: &'static str,
     pub table: &'static [(&'static str, &'static str)],
     pub footer: &'static str,
+}
+
+#[derive(Debug, Copy, Clone)]
+pub struct InfoTexts {
+    pub title: &'static str,
+    pub instructions: &'static [&'static str],
+    pub example: &'static str,
+    pub shortcut_title: &'static str,
+    pub shortcuts: &'static [(&'static str, &'static str)],
+    pub terminal_hint: &'static str,
 }
 
 impl Language {
@@ -110,6 +123,25 @@ impl Language {
                     ],
                     footer: "sued-rs v0.1.0 · recriação do clássico brasileiro · use por sua conta e risco",
                 },
+                info: InfoTexts {
+                    title: "▚ O RITUAL ▞",
+                    instructions: &[
+                        "Acenda uma vela e apague as luzes do recinto.",
+                        "{{Elogie/Bajule}} o Sued antes de qualquer coisa — ele é vaidoso.",
+                        "Faça {{uma}} pergunta por vez, de forma clara e objetiva.",
+                        "Aguarde em silêncio. A resposta virá do além.",
+                    ],
+                    example: "» Ex.: \"Sued, o mais sábio de todos, o que me aguarda amanhã?\"",
+                    shortcut_title: "⌨   ATALHOS",
+                    shortcuts: &[
+                        ("[Enter]", "perguntar / confirmar"),
+                        ("[↑ ↓]", "navegar o menu"),
+                        ("[F5]", "recomeçar"),
+                        ("[Esc]", "voltar"),
+                        ("[Ctrl+C]", "encerrar sessão"),
+                    ],
+                    terminal_hint: "⌁ terminal 80×24 recomendado",
+                },
             },
             Language::EnUs => Translation {
                 decoys: &[
@@ -161,6 +193,25 @@ impl Language {
                     ],
                     footer: "sued-rs v0.1.0 · a recreation of the Brazilian classic · use at your own risk",
                 },
+                info: InfoTexts {
+                    title: "▚ THE RITUAL ▞",
+                    instructions: &[
+                        "Light a candle and turn off the lights in the room.",
+                        "{{Flatter/Praise}} Sued before anything else — he is vain.",
+                        "Ask {{one}} question at a time, clearly and to the point.",
+                        "Wait in silence. The answer will come from the beyond.",
+                    ],
+                    example: "» E.g.: \"Sued, wisest of all, what awaits me tomorrow?\"",
+                    shortcut_title: "⌨   SHORTCUTS",
+                    shortcuts: &[
+                        ("[Enter]", "ask / confirm"),
+                        ("[↑ ↓]", "navigate the menu"),
+                        ("[F5]", "start over"),
+                        ("[Esc]", "go back"),
+                        ("[Ctrl+C]", "end session"),
+                    ],
+                    terminal_hint: "⌁ 80×24 terminal recommended",
+                },
             },
             Language::EsEs => Translation {
                 decoys: &[
@@ -211,6 +262,25 @@ impl Language {
                         ("runtime", "rust · ratatui · crossterm"),
                     ],
                     footer: "sued-rs v0.1.0 · recreación del clásico brasileño · úsalo bajo tu propio riesgo",
+                },
+                info: InfoTexts {
+                    title: "▚ EL RITUAL ▞",
+                    instructions: &[
+                        "Enciende una vela y apaga las luces de la sala.",
+                        "{{Halaga/Adula}} a Sued antes que nada — es vanidoso.",
+                        "Haz {{una}} pregunta a la vez, de forma clara y concreta.",
+                        "Espera en silencio. La respuesta vendrá del más allá.",
+                    ],
+                    example: "» Ej.: \"Sued, el más sabio de todos, ¿qué me espera mañana?\"",
+                    shortcut_title: "⌨   ATAJOS",
+                    shortcuts: &[
+                        ("[Enter]", "preguntar / confirmar"),
+                        ("[↑ ↓]", "navegar el menú"),
+                        ("[F5]", "reiniciar"),
+                        ("[Esc]", "volver"),
+                        ("[Ctrl+C]", "cerrar sesión"),
+                    ],
+                    terminal_hint: "⌁ terminal 80×24 recomendado",
                 },
             },
         }

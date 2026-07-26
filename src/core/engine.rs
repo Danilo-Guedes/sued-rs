@@ -609,9 +609,9 @@ mod tests {
     }
 
     // ── The inert keys — the engine ignores them, it doesn't merely survive ──
-    // F5 and Ctrl-C both reach the engine and both mean nothing to it: F5's
+    // F5 and Ctrl+C both reach the engine and both mean nothing to it: F5's
     // re-arm belongs to the app (it owns the decoy pool and the reply state),
-    // Ctrl-C's quit is app policy. "Inert" is a stronger promise than "silent":
+    // Ctrl+C's quit is app policy. "Inert" is a stronger promise than "silent":
     // not just `StateChange::None`, but every field untouched. The two are
     // written as a pair so the symmetry stays visible — if one ever grows
     // behaviour, the twin sitting beside it makes that a decision instead of an
@@ -694,25 +694,25 @@ mod tests {
         assert_eq!(
             change,
             StateChange::None,
-            "Ctrl-C reports no transition — quitting is app policy (G10)"
+            "Ctrl+C reports no transition — quitting is app policy (G10)"
         );
-        assert_eq!(engine.mode, Mode::Hidden, "Ctrl-C must not flip the mode");
+        assert_eq!(engine.mode, Mode::Hidden, "Ctrl+C must not flip the mode");
         assert_eq!(
             engine.answer_buffer, "x",
-            "Ctrl-C must not discard the staged answer"
+            "Ctrl+C must not discard the staged answer"
         );
         assert_eq!(
             engine.visible_buffer, visible_before,
-            "Ctrl-C must not repaint the visible buffer"
+            "Ctrl+C must not repaint the visible buffer"
         );
         assert_eq!(
             engine.decoy_cursor, cursor_before,
-            "Ctrl-C must not rewind the decoy cursor"
+            "Ctrl+C must not rewind the decoy cursor"
         );
         assert_eq!(
             engine.revealed.as_deref(),
             Some("42"),
-            "Ctrl-C must not drop the revealed answer"
+            "Ctrl+C must not drop the revealed answer"
         );
     }
 

@@ -2,18 +2,22 @@
 
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::style::Stylize;
+use ratatui::style::{Style, Stylize};
 use ratatui::text::Line;
 use ratatui::widgets::{Block, Borders, Padding, Paragraph, Wrap};
 
 use super::common::{colorfull_bordered_block, render_nav_strip, step_badge, table_row};
 
 use crate::config::Configuration;
+use crate::language::Translation;
 use crate::ui::screens::common::{NavTab, create_screen_block};
+use crate::ui::template::styled_line;
 use crate::ui::theme::Palette;
 
 pub(super) fn render(frame: &mut Frame, config: Configuration) {
     let palette = config.theme().palette();
+
+    let translation = config.language().translation();
 
     let layout = create_screen_block(frame, palette);
 
@@ -32,8 +36,8 @@ pub(super) fn render(frame: &mut Frame, config: Configuration) {
     let [ritual_area, shortcuts_area] =
         Layout::horizontal([Constraint::Fill(6), Constraint::Fill(4)]).areas(center_layout);
 
-    render_ritual_panel(frame, ritual_area, palette);
-    render_shortcuts_panel(frame, shortcuts_area, palette);
+    render_ritual_panel(frame, ritual_area, palette, translation);
+    render_shortcuts_panel(frame, shortcuts_area, palette, translation);
 
     // Status bar: split the *inside* of one border into left hints + right page tag.
     let status_block =
@@ -57,7 +61,7 @@ pub(super) fn render(frame: &mut Frame, config: Configuration) {
 }
 
 /// Left panel — the 4-step ritual.
-fn render_ritual_panel(frame: &mut Frame, area: Rect, palette: Palette) {
+fn render_ritual_panel(frame: &mut Frame, area: Rect, palette: Palette, translation: Translation) {
     // Borderless panel: a padding-only `Block` still hands back an inset `inner`
     // rect (nothing is drawn), and the old `.title(...)` that sat on the border
     // becomes a plain heading `Line` rendered in its own row on top.
@@ -83,39 +87,23 @@ fn render_ritual_panel(frame: &mut Frame, area: Rect, palette: Palette) {
     .areas(inner);
 
     frame.render_widget(
-        Paragraph::new(Line::from("▚ O RITUAL ▞").fg(palette.accent).bold())
+        Paragraph::new(Line::from(translation.info.title).fg(palette.accent).bold())
             .block(Block::new().padding(Padding::left(2))),
         heading_area,
     );
 
-    let steps = vec![
-        Line::from(vec![
-            step_badge(1, palette),
-            " ".into(),
-            "Acenda uma vela e apague as luzes do recinto.".into(),
-        ]),
-        Line::from(""),
-        Line::from(vec![
-            step_badge(2, palette),
-            " ".into(),
-            "Elogie".fg(palette.accent).bold(),
-            " o Sued antes de qualquer coisa — ele é vaidoso.".into(),
-        ]),
-        Line::from(""),
-        Line::from(vec![
-            step_badge(3, palette),
-            " ".into(),
-            "Faça ".into(),
-            "uma".fg(palette.accent).bold(),
-            " pergunta por vez, de forma clara e objetiva.".into(),
-        ]),
-        Line::from(""),
-        Line::from(vec![
-            step_badge(4, palette),
-            " ".into(),
-            "Aguarde em silêncio. A resposta virá do além.".into(),
-        ]),
-    ];
+    let steps: Vec<_> = translation
+        .info
+        .instructions
+        .iter()
+        .enumerate()
+        .flat_map(|(idx, instruction)| {
+            let mut spans = vec![step_badge(idx + 1, palette), " ".into()];
+            spans.extend(styled_line(instruction, Style::default(), palette.accent).spans);
+            [Line::from(spans), Line::from("")]
+        })
+        .collect();
+
     frame.render_widget(
         Paragraph::new(steps).block(Block::new().padding(Padding::new(2, 0, 1, 0))),
         steps_area,
@@ -125,9 +113,7 @@ fn render_ritual_panel(frame: &mut Frame, area: Rect, palette: Palette) {
     let divider = "─".repeat(inner.width as usize);
     frame.render_widget(Paragraph::new(divider).fg(palette.accent), divider_area);
 
-    let example = Line::from("» Ex.: \"Sued, o mais sábio de todos, o que me aguarda amanhã?\"")
-        .dim()
-        .italic();
+    let example = Line::from(translation.info.example).dim().italic();
     frame.render_widget(
         Paragraph::new(example)
             .wrap(Wrap { trim: false })
@@ -137,7 +123,12 @@ fn render_ritual_panel(frame: &mut Frame, area: Rect, palette: Palette) {
 }
 
 /// Right panel — the keyboard shortcuts table.
-fn render_shortcuts_panel(frame: &mut Frame, area: Rect, palette: Palette) {
+fn render_shortcuts_panel(
+    frame: &mut Frame,
+    area: Rect,
+    palette: Palette,
+    translation: Translation,
+) {
     // Borderless, same move as the ritual panel: padding-only block for the inset,
     // the title becomes a heading `Line`.
     let block =
@@ -153,24 +144,29 @@ fn render_shortcuts_panel(frame: &mut Frame, area: Rect, palette: Palette) {
     .areas(inner);
 
     frame.render_widget(
-        Paragraph::new(Line::from("⌨   ATALHOS").fg(palette.accent).bold()),
+        Paragraph::new(
+            Line::from(translation.info.shortcut_title)
+                .fg(palette.accent)
+                .bold(),
+        ),
         heading_area,
     );
 
     // A "table" here is just aligned lines: pad the key column to a fixed width
     // so every description starts at the same column. No table widget needed.
     const KEY_WIDTH: usize = 10;
-    let rows = vec![
-        table_row("[Enter]", "perguntar / confirmar", KEY_WIDTH, palette),
-        table_row("[↑ ↓]", "navegar o menu", KEY_WIDTH, palette),
-        table_row("[F5]", "recomeçar", KEY_WIDTH, palette),
-        table_row("[Esc]", "voltar", KEY_WIDTH, palette),
-        table_row("[Ctrl-C]", "encerrar sessão", KEY_WIDTH, palette),
-    ];
+
+    let rows = translation
+        .info
+        .shortcuts
+        .iter()
+        .map(|(key, action)| table_row(key, action, KEY_WIDTH, palette))
+        .collect::<Vec<_>>();
+
     frame.render_widget(Paragraph::new(rows), rows_area);
 
     frame.render_widget(
-        Paragraph::new(Line::from("⌁ terminal 80×24 recomendado").dim()),
+        Paragraph::new(Line::from(translation.info.terminal_hint).dim()),
         footer_area,
     );
 }
