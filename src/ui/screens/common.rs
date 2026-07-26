@@ -68,7 +68,7 @@ pub(super) fn colorfull_bordered_block(
 }
 
 /// Accent "chip" for a step number: black glyphs on the accent colour.
-pub(super) fn step_badge(n: u8, palette: Palette) -> Span<'static> {
+pub(super) fn step_badge(n: usize, palette: Palette) -> Span<'static> {
     Span::from(format!(" {n} "))
         .black()
         .bg(palette.accent)

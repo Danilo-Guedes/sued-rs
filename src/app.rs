@@ -766,7 +766,7 @@ mod tests {
 
     // ── Input locks once SUED has replied ────────────────────────────────────
     // After the oracle speaks (a denial OR a reveal), plain keystrokes must stop
-    // reaching the input — only the hint-bar keys (Enter/F5/Esc/Ctrl-C) still act.
+    // reaching the input — only the hint-bar keys (Enter/F5/Esc/Ctrl+C) still act.
 
     #[test]
     fn keystrokes_are_ignored_after_a_denial() {
@@ -1180,10 +1180,10 @@ mod tests {
         assert_eq!(app.take_pending_save(), None);
     }
 
-    // ── G10: Ctrl-C is a door, not a kill ────────────────────────────────────
-    // Ctrl-C used to be intercepted in `main::translate_key` and never reached
+    // ── G10: Ctrl+C is a door, not a kill ────────────────────────────────────
+    // Ctrl+C used to be intercepted in `main::translate_key` and never reached
     // `handle_key`, so quitting from the config screen skipped the exit-write and
-    // the visit's edits silently died. Now Ctrl-C is an ordinary `KeyPress`:
+    // the visit's edits silently died. Now Ctrl+C is an ordinary `KeyPress`:
     // every screen answers Quit, and the config screen queues its save first —
     // the same promise Esc makes, kept on the impatient exit too. (`main` drains
     // `pending_save` before it honours `Quit`, so queueing is all App must do.)
@@ -1223,14 +1223,14 @@ mod tests {
             assert_eq!(
                 flow,
                 AppFlow::Quit,
-                "Ctrl-C on the {screen} screen must quit"
+                "Ctrl+C on the {screen} screen must quit"
             );
         }
     }
 
     #[test]
     fn ctrl_c_from_config_queues_the_changed_config_for_saving() {
-        // The hole G10 exists to close: change a value, then quit with Ctrl-C
+        // The hole G10 exists to close: change a value, then quit with Ctrl+C
         // instead of Esc. The edit must ride out with the quit.
         let mut app = on_config(&[KeyPress::Right]);
 
@@ -1246,7 +1246,7 @@ mod tests {
         assert_eq!(
             app.take_pending_save(),
             Some(live),
-            "Ctrl-C from config must queue the live config, exactly like Esc"
+            "Ctrl+C from config must queue the live config, exactly like Esc"
         );
     }
 
@@ -1259,7 +1259,7 @@ mod tests {
 
         assert!(
             app.take_pending_save().is_some(),
-            "Ctrl-C from config queues a save even when nothing changed"
+            "Ctrl+C from config queues a save even when nothing changed"
         );
     }
 
@@ -1280,7 +1280,7 @@ mod tests {
     #[test]
     fn ctrl_c_still_quits_while_sued_is_speaking() {
         // The G8 lock swallows keys while the crawl runs — but the panic button
-        // must never be locked. (F5 and Esc pass; Ctrl-C joins them.)
+        // must never be locked. (F5 and Esc pass; Ctrl+C joins them.)
         let mut app = drive(&ASK_AND_REVEAL); // reply clock ticking, crawl unfinished
 
         let flow = app.handle_key(KeyPress::CtrlC);
@@ -1288,7 +1288,7 @@ mod tests {
         assert_eq!(
             flow,
             AppFlow::Quit,
-            "the mid-reveal input lock must not hold Ctrl-C"
+            "the mid-reveal input lock must not hold Ctrl+C"
         );
     }
 
