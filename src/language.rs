@@ -91,6 +91,7 @@ pub struct ConfigTexts {
 #[derive(Debug, Copy, Clone)]
 pub struct CommonTexts {
     pub session: &'static str,
+    pub online: &'static str,
 }
 
 impl Language {
@@ -201,6 +202,7 @@ impl Language {
                 },
                 common: CommonTexts {
                     session: "sessão #999 ",
+                    online: "online",
                 },
             },
             Language::EnUs => Translation {
@@ -292,6 +294,7 @@ impl Language {
                 },
                 common: CommonTexts {
                     session: "session #999 ",
+                    online: "online",
                 },
             },
             Language::EsEs => Translation {
@@ -383,6 +386,7 @@ impl Language {
                 },
                 common: CommonTexts {
                     session: "sesión #999 ",
+                    online: "en línea",
                 },
             },
         }
