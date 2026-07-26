@@ -10,7 +10,7 @@ use crate::config::Configuration;
 use crate::ui::effects::flicker_intensity;
 use crate::ui::screens::common::{
     NavTab, SUED_BANNER, SUED_BANNER_HEIGHT, SUED_BANNER_WIDTH, colorfull_bordered_block,
-    create_centered_rect, create_screen_block, render_nav_strip,
+    create_centered_rect, create_screen_block, hint_line, render_nav_strip,
 };
 use crate::ui::template::styled_line;
 
@@ -130,15 +130,7 @@ pub(super) fn render(frame: &mut Frame, config: Configuration) {
         atencao_area.centered_horizontally(Constraint::Percentage(50)),
     );
 
-    let status_texts = Line::from(vec![
-        "[Enter]".fg(palette.accent).bold(),
-        " ".into(),
-        "continuar".dim(),
-        "  ".into(),
-        "[Esc]".fg(palette.accent).bold(),
-        " ".into(),
-        "sair".dim(),
-    ]);
+    let status_texts = hint_line(translation.intro.hints, palette);
 
     frame.render_widget(
         Paragraph::new(status_texts).block(
