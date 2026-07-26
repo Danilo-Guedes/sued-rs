@@ -8,11 +8,16 @@ use ratatui::widgets::{Block, Borders, Padding, Paragraph, Wrap};
 
 use crate::app::MenuIndex;
 use crate::config::Configuration;
+use crate::language::{Language, Translation};
 use crate::ui::screens::common::{colorfull_bordered_block, create_screen_block};
 use crate::ui::theme::Palette;
 
 pub(super) fn render(frame: &mut Frame, menu: &MenuIndex, config: Configuration) {
     let palette = config.theme().palette();
+
+    let language = config.language();
+
+    let translation = language.translation();
 
     let layout = create_screen_block(frame, palette);
 
@@ -25,13 +30,20 @@ pub(super) fn render(frame: &mut Frame, menu: &MenuIndex, config: Configuration)
     let [menu_area, aviso_area] =
         Layout::horizontal([Constraint::Fill(5), Constraint::Fill(4)]).areas(center_layout);
 
-    render_menu_column(frame, menu_area, menu, palette);
-    render_disclaimer_column(frame, aviso_area, palette);
+    render_menu_column(frame, menu_area, menu, palette, translation, language);
+    render_disclaimer_column(frame, aviso_area, palette, translation);
     render_status_bar(frame, status_layout, menu.index(), palette);
 }
 
 /// Left column — heading, the selectable list, a divider and a hint.
-fn render_menu_column(frame: &mut Frame, area: Rect, menu: &MenuIndex, palette: Palette) {
+fn render_menu_column(
+    frame: &mut Frame,
+    area: Rect,
+    menu: &MenuIndex,
+    palette: Palette,
+    translation: Translation,
+    language: Language,
+) {
     // Split a fixed block (heading + list + divider, no wrap) from the hint below
     // (which *does* wrap). Keeping them in separate rects lets the long hint reflow
     // while the full-width selection bar simply clips instead of shoving the whole
@@ -42,20 +54,15 @@ fn render_menu_column(frame: &mut Frame, area: Rect, menu: &MenuIndex, palette: 
     let width = list_area.width as usize;
     let mut lines: Vec<Line> = vec![
         Line::from(""),
-        Line::from("▚ ESCOLHA SEU DESTINO ▞")
+        Line::from(translation.menu.choose_your_destiny)
             .fg(palette.accent)
             .bold(),
         Line::from(""),
     ];
 
     for (idx, item) in MenuIndex::ALL.iter().enumerate() {
-        let label = item.label();
+        let label = item.label(language);
         if idx == menu.index() {
-            // Full-width accent bar. A background only paints the cells that hold a
-            // char, so to make the red bar span the column we pad with spaces out to
-            // `width` (leaving 2 cells for the `⏎` glyph + a right margin). This is
-            // the same "spacing is empty cells you place yourself" idiom as the
-            // answer screen — the bar doesn't stretch, you fill it.
             let head = format!(" ▶  {label}");
             let pad = width.saturating_sub(head.chars().count() + 3);
             let bar = format!("{head}{}⏎ ", " ".repeat(pad));
@@ -77,11 +84,7 @@ fn render_menu_column(frame: &mut Frame, area: Rect, menu: &MenuIndex, palette: 
         list_area,
     );
 
-    let hint = Line::from(
-        "» Faça sua pergunta ao oráculo. Elogie-o primeiro, depois pergunte de forma clara e objetiva.",
-    )
-    .dim()
-    .italic();
+    let hint = Line::from(translation.menu.example).dim().italic();
     // Wrap the hint at the divider's width (the "line above"), not the whole
     // column — carve a left sub-rect that matches the ~70% divider.
     let [hint_sub, _] = Layout::horizontal([
@@ -98,7 +101,12 @@ fn render_menu_column(frame: &mut Frame, area: Rect, menu: &MenuIndex, palette: 
 }
 
 /// Right column — the ATENÇÃO warning, with a bottom-pinned footer.
-fn render_disclaimer_column(frame: &mut Frame, area: Rect, palette: Palette) {
+fn render_disclaimer_column(
+    frame: &mut Frame,
+    area: Rect,
+    palette: Palette,
+    translation: Translation,
+) {
     // One block owns the column's full-height left border: render it over the whole
     // `area`, then lay the content into its `inner`. A `Block` is *moved* into
     // `.block()`, so it can't be shared by two Paragraphs — but the fix isn't a
@@ -113,16 +121,20 @@ fn render_disclaimer_column(frame: &mut Frame, area: Rect, palette: Palette) {
     let [body_area, footer_area] =
         Layout::vertical([Constraint::Fill(1), Constraint::Length(2)]).areas(inner);
 
-    let body = vec![
+    let mut body = vec![
         Line::from(""),
-        Line::from("⚠ ATENÇÃO").fg(palette.accent).bold(),
-        Line::from(""),
-        Line::from("Pessoas fracas e sensíveis não devem utilizar o programa.").dim(),
-        Line::from(""),
-        Line::from("Acenda uma vela. Apague as luzes.").dim(),
-        Line::from(""),
-        Line::from("Tenha cuidado com o que irá perguntar...").dim(),
+        Line::from(translation.menu.attention)
+            .fg(palette.accent)
+            .bold(),
     ];
+
+    body.extend(
+        translation
+            .menu
+            .disclaimer
+            .iter()
+            .flat_map(|phrase| [Line::from(""), Line::from(*phrase)]),
+    );
 
     frame.render_widget(
         Paragraph::new(body).block(Block::new().padding(Padding::left(2))),
@@ -131,7 +143,7 @@ fn render_disclaimer_column(frame: &mut Frame, area: Rect, palette: Palette) {
 
     let footer = vec![
         Line::from("☠ ☠ ☠").dim(),
-        Line::from("sua última esperança divina").dim().italic(),
+        Line::from(translation.menu.your_last_hope).dim().italic(),
     ];
     frame.render_widget(Paragraph::new(footer).centered(), footer_area);
 }
