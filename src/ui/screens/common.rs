@@ -190,8 +190,10 @@ pub(super) fn render_nav_strip(
     // Session badge — static placeholder for now; wire it to real state later.
     let session = Line::from(vec![
         translation.common.session.dim(),
+        " ".into(),
         "· ".dim(),
         "●".fg(palette.accent),
+        " ".into(),
         translation.common.online.dim(),
     ]);
     frame.render_widget(Paragraph::new(session).right_aligned(), session_area);
