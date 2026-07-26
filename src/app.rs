@@ -12,7 +12,7 @@ use crate::{
     audio::AudioCue,
     config::{ConfigOption, Configuration, Direction},
     core::engine::{Engine, KeyPress, StateChange},
-    language::pick,
+    language::{Language, pick},
     ui::effects::reveal_is_complete,
 };
 
@@ -59,13 +59,35 @@ pub enum MenuOption {
 }
 
 impl MenuOption {
-    pub fn label(&self) -> &'static str {
+    pub fn label(&self, language: Language) -> &'static str {
         match self {
-            MenuOption::Ask => "PERGUNTAR AO ORÁCULO",
-            MenuOption::Info => "INFORMAÇÕES",
-            MenuOption::About => "SOBRE O SUED",
-            MenuOption::Config => "CONFIGURAÇÃO",
-            MenuOption::Exit => "SAIR",
+            MenuOption::Ask => match language {
+                Language::PtBr => "PERGUNTAR AO ORÁCULO",
+                Language::EnUs => "ASK THE ORACLE",
+                Language::EsEs => "PREGUNTAR AL ORÁCULO",
+            },
+
+            MenuOption::Info => match language {
+                Language::PtBr => "INFORMAÇÕES",
+                Language::EnUs => "INFORMATION",
+                Language::EsEs => "INFORMACIÓN",
+            },
+
+            MenuOption::About => match language {
+                Language::PtBr => "SOBRE O SUED",
+                Language::EnUs => "ABOUT SUED",
+                Language::EsEs => "SOBRE SUED",
+            },
+            MenuOption::Config => match language {
+                Language::PtBr => "CONFIGURAÇÃO",
+                Language::EnUs => "CONFIGURATION",
+                Language::EsEs => "CONFIGURACIÓN",
+            },
+            MenuOption::Exit => match language {
+                Language::PtBr => "SAIR",
+                Language::EnUs => "EXIT",
+                Language::EsEs => "SALIR",
+            },
         }
     }
 }

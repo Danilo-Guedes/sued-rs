@@ -25,7 +25,7 @@ pub struct Translation {
     pub info: InfoTexts,
     pub ask: AskTexts,
     pub config: ConfigTexts,
-    // pub menu: MenuTexts,
+    pub menu: MenuTexts,
     pub common: CommonTexts,
 }
 
@@ -79,14 +79,14 @@ pub struct ConfigTexts {
     pub footer: &'static str,
 }
 
-// #[derive(Debug, Copy, Clone)]
-// pub struct MenuTexts {
-//     pub choose_your_destiny: &'static str,
-//     pub example: &'static str,
-//     pub attention: &'static str,
-//     pub disclaimer: &'static str,
-//     pub your_last_hope: &'static str,
-// }
+#[derive(Debug, Copy, Clone)]
+pub struct MenuTexts {
+    pub choose_your_destiny: &'static str,
+    pub example: &'static str,
+    pub attention: &'static str,
+    pub disclaimer: &'static [&'static str],
+    pub your_last_hope: &'static str,
+}
 
 #[derive(Debug, Copy, Clone)]
 pub struct CommonTexts {
@@ -200,6 +200,17 @@ impl Language {
                     no: "NÃO",
                     footer: "† suas escolhas foram registradas no além †",
                 },
+                menu: MenuTexts {
+                    choose_your_destiny: "▚ ESCOLHA SEU DESTINO ▞",
+                    example: "» Faça sua pergunta ao oráculo. Elogie-o primeiro, depois pergunte de forma clara e objetiva.",
+                    attention: "⚠ ATENÇÃO",
+                    disclaimer: &[
+                        "Pessoas fracas e sensíveis não devem utilizar o programa.",
+                        "Acenda uma vela. Apague as luzes.",
+                        "Tenha cuidado com o que irá perguntar...",
+                    ],
+                    your_last_hope: "sua última esperança divina",
+                },
                 common: CommonTexts {
                     session: "sessão #999",
                     online: "online",
@@ -292,6 +303,17 @@ impl Language {
                     no: "NO",
                     footer: "† your choices have been recorded in the beyond †",
                 },
+                menu: MenuTexts {
+                    choose_your_destiny: "▚ CHOOSE YOUR DESTINY ▞",
+                    example: "» Ask the oracle your question. Flatter him first, then ask clearly and to the point.",
+                    attention: "⚠ ATTENTION",
+                    disclaimer: &[
+                        "The weak and the sensitive should not use this program.",
+                        "Light a candle. Turn off the lights.",
+                        "Be careful what you ask...",
+                    ],
+                    your_last_hope: "your last divine hope",
+                },
                 common: CommonTexts {
                     session: "session #999",
                     online: "online",
@@ -383,6 +405,17 @@ impl Language {
                     yes: "SÍ",
                     no: "NO",
                     footer: "† tus decisiones han sido registradas en el más allá †",
+                },
+                menu: MenuTexts {
+                    choose_your_destiny: "▚ ELIGE TU DESTINO ▞",
+                    example: "» Haz tu pregunta al oráculo. Halágalo primero, luego pregunta de forma clara y concreta.",
+                    attention: "⚠ ATENCIÓN",
+                    disclaimer: &[
+                        "Las personas débiles y sensibles no deben utilizar el programa.",
+                        "Enciende una vela. Apaga las luces.",
+                        "Ten cuidado con lo que vas a preguntar...",
+                    ],
+                    your_last_hope: "tu última esperanza divina",
                 },
                 common: CommonTexts {
                     session: "sesión #999",
