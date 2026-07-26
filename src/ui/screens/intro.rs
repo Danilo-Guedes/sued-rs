@@ -17,7 +17,9 @@ use crate::ui::template::styled_line;
 pub(super) fn render(frame: &mut Frame, config: Configuration) {
     let palette = config.theme().palette();
 
-    let translation = config.language().translation();
+    let language = config.language();
+
+    let translation = language.translation();
 
     let layout = create_screen_block(frame, palette);
 
@@ -38,7 +40,14 @@ pub(super) fn render(frame: &mut Frame, config: Configuration) {
     ])
     .areas(layout);
 
-    render_nav_strip(frame, nav_layout, NavTab::Intro, palette);
+    render_nav_strip(
+        frame,
+        nav_layout,
+        NavTab::Intro,
+        palette,
+        language,
+        translation,
+    );
 
     let [banner_area, _gap, subtitle_area] = Layout::vertical([
         Constraint::Length(SUED_BANNER_HEIGHT),

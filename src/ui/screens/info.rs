@@ -17,7 +17,9 @@ use crate::ui::theme::Palette;
 pub(super) fn render(frame: &mut Frame, config: Configuration) {
     let palette = config.theme().palette();
 
-    let translation = config.language().translation();
+    let language = config.language();
+
+    let translation = language.translation();
 
     let layout = create_screen_block(frame, palette);
 
@@ -28,7 +30,14 @@ pub(super) fn render(frame: &mut Frame, config: Configuration) {
     ])
     .areas(layout);
 
-    render_nav_strip(frame, nav_layout, NavTab::Info, palette);
+    render_nav_strip(
+        frame,
+        nav_layout,
+        NavTab::Info,
+        palette,
+        language,
+        translation,
+    );
 
     // The body is two side-by-side panels. Each panel is its own fn that takes
     // only its `Rect`, so it owns its internal layout — the screen fn just hands

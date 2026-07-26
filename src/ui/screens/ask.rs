@@ -33,7 +33,9 @@ pub(super) fn render(
 
     let palette = config.theme().palette();
 
-    let translation = config.language().translation();
+    let language = config.language();
+
+    let translation = language.translation();
 
     let layout = create_screen_block(frame, palette);
 
@@ -54,7 +56,14 @@ pub(super) fn render(
     ])
     .areas(layout);
 
-    render_nav_strip(frame, nav_layout, NavTab::Ask, palette);
+    render_nav_strip(
+        frame,
+        nav_layout,
+        NavTab::Ask,
+        palette,
+        language,
+        translation,
+    );
 
     let [_, center_art_rect, _] = Layout::horizontal([
         Constraint::Fill(1),
