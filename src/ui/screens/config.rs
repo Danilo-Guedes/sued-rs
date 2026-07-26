@@ -29,6 +29,8 @@ pub(super) fn render(frame: &mut Frame, app_state: &App) {
 
     let layout = create_screen_block(frame, palette);
 
+    let translation = app_state.config().language().translation();
+
     let config = app_state.config();
     let focused = app_state.focused_option();
 
@@ -57,7 +59,7 @@ pub(super) fn render(frame: &mut Frame, app_state: &App) {
         _gap_below_divider,
         confirm_area,
     ] = Layout::vertical([
-        Constraint::Length(1), // ▓ CONFIGURAÇÃO ▓
+        Constraint::Length(1),
         Constraint::Length(1), // subtitle
         Constraint::Fill(1),
         Constraint::Length(7), // 4 rows + a blank line between each
@@ -69,17 +71,17 @@ pub(super) fn render(frame: &mut Frame, app_state: &App) {
     .areas(form_area);
 
     frame.render_widget(
-        Paragraph::new(Line::from("▓ CONFIGURAÇÃO ▓").fg(palette.accent).bold()).centered(),
+        Paragraph::new(
+            Line::from(translation.config.configuration)
+                .fg(palette.accent)
+                .bold(),
+        )
+        .centered(),
         heading_area,
     );
 
     frame.render_widget(
-        Paragraph::new(
-            Line::from("ajuste o ritual ao seu gosto — o oráculo observa")
-                .dim()
-                .italic(),
-        )
-        .centered(),
+        Paragraph::new(Line::from(translation.config.subtitle).dim().italic()).centered(),
         subtitle_area,
     );
 
@@ -91,32 +93,35 @@ pub(super) fn render(frame: &mut Frame, app_state: &App) {
         .into_iter()
         .map(|l| (l.label(), l == config.language()))
         .collect();
-    let animation_chips = [("SIM", config.animations()), ("NÃO", !config.animations())];
+    let animation_chips = [
+        (translation.config.yes, config.animations()),
+        (translation.config.no, !config.animations()),
+    ];
 
     let rows = vec![
         option_row(
-            "TEMA",
+            translation.config.theme,
             &theme_chips,
             focused == ConfigOption::Theme,
             palette,
         ),
         Line::from(""),
         option_row(
-            "ANIMAÇÕES",
+            translation.config.animations,
             &animation_chips,
             focused == ConfigOption::Animations,
             palette,
         ),
         Line::from(""),
         volume_row(
-            "VOLUME",
+            translation.config.volume,
             config.audio_volume(),
             focused == ConfigOption::Volume,
             palette,
         ),
         Line::from(""),
         option_row(
-            "IDIOMA",
+            translation.config.language,
             &language_chips,
             focused == ConfigOption::Language,
             palette,
@@ -131,12 +136,7 @@ pub(super) fn render(frame: &mut Frame, app_state: &App) {
     frame.render_widget(Paragraph::new(divider).fg(palette.accent), divider_area);
 
     frame.render_widget(
-        Paragraph::new(
-            Line::from("† suas escolhas foram registradas no além †")
-                .dim()
-                .italic(),
-        )
-        .centered(),
+        Paragraph::new(Line::from(translation.config.footer).dim().italic()).centered(),
         confirm_area,
     );
 

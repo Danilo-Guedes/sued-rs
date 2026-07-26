@@ -24,6 +24,8 @@ pub struct Translation {
     pub about: AboutTexts,
     pub info: InfoTexts,
     pub ask: AskTexts,
+    pub config: ConfigTexts,
+    // pub menu: MenuTexts,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -62,6 +64,28 @@ pub struct AskTexts {
     pub waiting: &'static str,
     pub talk_with_me: &'static str,
 }
+
+#[derive(Debug, Copy, Clone)]
+pub struct ConfigTexts {
+    pub configuration: &'static str,
+    pub subtitle: &'static str,
+    pub theme: &'static str,
+    pub animations: &'static str,
+    pub volume: &'static str,
+    pub language: &'static str,
+    pub yes: &'static str,
+    pub no: &'static str,
+    pub footer: &'static str,
+}
+
+// #[derive(Debug, Copy, Clone)]
+// pub struct MenuTexts {
+//     pub choose_your_destiny: &'static str,
+//     pub example: &'static str,
+//     pub attention: &'static str,
+//     pub disclaimer: &'static str,
+//     pub your_lat_hope: &'static str,
+// }
 
 impl Language {
     pub const ALL: [Language; 3] = [Language::PtBr, Language::EnUs, Language::EsEs];
@@ -158,6 +182,17 @@ impl Language {
                     waiting: "aguardando oferenda do mortal",
                     talk_with_me: " FALE COMIGO... ",
                 },
+                config: ConfigTexts {
+                    configuration: "▓ CONFIGURAÇÃO ▓",
+                    subtitle: "ajuste o ritual ao seu gosto — o oráculo observa",
+                    theme: "TEMA",
+                    animations: "ANIMAÇÕES",
+                    volume: "VOLUME",
+                    language: "IDIOMA",
+                    yes: "SIM",
+                    no: "NÃO",
+                    footer: "† suas escolhas foram registradas no além †",
+                },
             },
             Language::EnUs => Translation {
                 decoys: &[
@@ -235,6 +270,17 @@ impl Language {
                     waiting: "awaiting the mortal's offering",
                     talk_with_me: " SPEAK TO ME... ",
                 },
+                config: ConfigTexts {
+                    configuration: "▓ CONFIGURATION ▓",
+                    subtitle: "tune the ritual to your taste — the oracle watches",
+                    theme: "THEME",
+                    animations: "ANIMATIONS",
+                    volume: "VOLUME",
+                    language: "LANGUAGE",
+                    yes: "YES",
+                    no: "NO",
+                    footer: "† your choices have been recorded in the beyond †",
+                },
             },
             Language::EsEs => Translation {
                 decoys: &[
@@ -311,6 +357,17 @@ impl Language {
                     connection: "conexión con el más allá establecida.",
                     waiting: "aguardando la ofrenda del mortal",
                     talk_with_me: " HÁBLAME... ",
+                },
+                config: ConfigTexts {
+                    configuration: "▓ CONFIGURACIÓN ▓",
+                    subtitle: "ajusta el ritual a tu gusto — el oráculo observa",
+                    theme: "TEMA",
+                    animations: "ANIMACIONES",
+                    volume: "VOLUMEN",
+                    language: "IDIOMA",
+                    yes: "SÍ",
+                    no: "NO",
+                    footer: "† tus decisiones han sido registradas en el más allá †",
                 },
             },
         }
