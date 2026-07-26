@@ -109,7 +109,7 @@ fn render_ritual_panel(frame: &mut Frame, area: Rect, palette: Palette, translat
         steps_area,
     );
 
-    // Red rule separating the steps from the example (sized from the rect).
+    // Line separating the steps from the example (sized from the rect).
     let divider = "─".repeat(inner.width as usize);
     frame.render_widget(Paragraph::new(divider).fg(palette.accent), divider_area);
 
