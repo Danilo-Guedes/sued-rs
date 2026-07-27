@@ -179,10 +179,10 @@ pub fn shake_offset(
 #[cfg(test)]
 mod tests {
     use super::{
-        CURSOR_BLINK_MS, CURSOR_CHAR, FLASH_MS, FLICKER_CHANCE, MIN_FLICKER_VALUE,
-        REVEAL_MS_PER_CHAR, SHAKE_MAX_CELLS, SHAKE_MS, cursor_on, flash_intensity,
-        flicker_intensity, reveal_is_complete, shake_offset, typewriter_len, typewriter_reveal,
-        typewriter_slice,
+        CURSOR_BLINK_MS, CURSOR_CHAR, FLASH_MS, FLICKER_CHANCE, MAX_THINKING_MS, MIN_FLICKER_VALUE,
+        MIN_THINKING_MS, REVEAL_MS_PER_CHAR, SHAKE_MAX_CELLS, SHAKE_MS, cursor_on, flash_intensity,
+        flicker_intensity, is_thinking, reveal_elapsed, reveal_is_complete, shake_offset,
+        thinking_duration, typewriter_len, typewriter_reveal, typewriter_slice,
     };
     use std::time::Duration;
 
@@ -715,5 +715,129 @@ mod tests {
             shake_offset(Duration::ZERO, 1.0, 1.0, true),
             (SHAKE_MAX_CELLS, SHAKE_MAX_CELLS)
         );
+    }
+
+    // ── G13 · the thinking pause ─────────────────────────────────────────────
+    //
+    // Between Enter and the first revealed character the oracle PONDERS. An
+    // instantaneous answer reads robotic and breaks the seance, so a randomized
+    // 3-6s beat is inserted in front of the crawl.
+    //
+    // ⚠ THE SAME-CLOCK RULE (the G8 lesson, and the whole reason `reveal_elapsed`
+    // exists as a named function instead of an inline `saturating_sub`): FIVE
+    // call sites read this clock — `typewriter_reveal`, `flash_intensity`,
+    // `shake_offset`, and `reveal_is_complete` in BOTH `ask.rs` and `app.rs`.
+    // Every one of them must see the SHIFTED clock. If a single site keeps
+    // reading the raw elapsed, the input unlocks (or the flash fires) while
+    // SueD is still thinking, and the bug will only show up in front of an
+    // audience.
+
+    /// The duration a roll of `r` buys, expressed from the constants so the spec
+    /// survives retuning the range.
+    fn thinking_ms(fraction: f64) -> Duration {
+        let span = (MAX_THINKING_MS - MIN_THINKING_MS) as f64;
+        Duration::from_millis(MIN_THINKING_MS + (span * fraction) as u64)
+    }
+
+    #[test]
+    fn the_shortest_ponder_is_the_floor() {
+        assert_eq!(thinking_duration(0.0), Duration::from_millis(MIN_THINKING_MS));
+    }
+
+    #[test]
+    fn the_longest_ponder_is_the_ceiling() {
+        // `rand::random::<f32>()` yields 0.0..1.0, so exactly 1.0 never arrives
+        // from today's caller — pinned anyway, because an inclusive roll from a
+        // future caller must not overshoot the range. Same reasoning as `pick`.
+        assert_eq!(thinking_duration(1.0), Duration::from_millis(MAX_THINKING_MS));
+    }
+
+    #[test]
+    fn a_midpoint_roll_lands_midway_through_the_range() {
+        // The lerp: floor + roll x span. Half a roll buys half the span, NOT
+        // half the ceiling — 4.5s, not 3s.
+        assert_eq!(thinking_duration(0.5), thinking_ms(0.5));
+    }
+
+    #[test]
+    fn the_oracle_is_thinking_the_instant_it_is_asked() {
+        assert!(is_thinking(Duration::ZERO, thinking_ms(0.5)));
+    }
+
+    #[test]
+    fn the_oracle_is_still_thinking_one_millisecond_before_time() {
+        let ponder = thinking_ms(0.5);
+        let almost = ponder - Duration::from_millis(1);
+        assert!(is_thinking(almost, ponder));
+    }
+
+    #[test]
+    fn the_ponder_ends_exactly_when_it_runs_out() {
+        // THE BOUNDARY, and the one worth getting right: `<` not `<=`. Off by one
+        // here and the pause either never ends or ends a tick early.
+        let ponder = thinking_ms(0.5);
+        assert!(!is_thinking(ponder, ponder));
+    }
+
+    #[test]
+    fn the_oracle_stops_thinking_once_it_speaks() {
+        let ponder = thinking_ms(0.5);
+        assert!(!is_thinking(ponder + Duration::from_secs(10), ponder));
+    }
+
+    #[test]
+    fn nothing_is_revealed_while_the_oracle_ponders() {
+        // The reveal clock must read ZERO for the whole pause — not a small
+        // number, ZERO — so `typewriter_len` yields no characters and the box
+        // stays empty until SueD actually speaks.
+        let ponder = thinking_ms(0.5);
+        assert_eq!(reveal_elapsed(Duration::ZERO, ponder), Duration::ZERO);
+        assert_eq!(
+            reveal_elapsed(ponder - Duration::from_millis(1), ponder),
+            Duration::ZERO
+        );
+        assert_eq!(reveal_elapsed(ponder, ponder), Duration::ZERO);
+    }
+
+    #[test]
+    fn the_reveal_clock_starts_the_moment_the_ponder_ends() {
+        let ponder = thinking_ms(0.5);
+        assert_eq!(
+            reveal_elapsed(ponder + after_chars(3), ponder),
+            after_chars(3)
+        );
+    }
+
+    #[test]
+    fn the_input_stays_locked_for_the_whole_ponder() {
+        // THE CONTRACT PIN — this is the same-clock rule as an executable claim,
+        // and it is the one that would have caught the G8 bug. A short secret
+        // finishes its crawl in ~165ms, far less than the 3s floor, so WITHOUT
+        // the shift this passes trivially at t=0 and fails everywhere after.
+        let secret = "42";
+        let ponder = thinking_ms(0.5);
+
+        for fraction in [0.0, 0.25, 0.5, 0.75, 0.99] {
+            let since_asked = ponder.mul_f64(fraction);
+            assert!(
+                !reveal_is_complete(secret, reveal_elapsed(since_asked, ponder)),
+                "input unlocked {fraction} of the way through the ponder — \
+                 a consumer is reading the raw clock instead of the shifted one"
+            );
+        }
+    }
+
+    #[test]
+    fn the_reveal_still_completes_after_the_ponder() {
+        // The other half of the pin: the pause must DELAY the unlock, not
+        // prevent it. Without this, "never unlock" would pass the test above.
+        let secret = "42";
+        let ponder = thinking_ms(0.5);
+        let long_after = ponder + after_chars(100);
+
+        assert!(reveal_is_complete(
+            secret,
+            reveal_elapsed(long_after, ponder)
+        ));
     }
 }
