@@ -652,4 +652,61 @@ mod tests {
             }
         }
     }
+
+    // ── ConfigTexts::label_width — the padding column, DERIVED not declared ───
+    //
+    // `config.rs::styled_label` pads every option label out to a shared column
+    // so the values line up. That width is a hand-written `LABEL_WIDTH: usize`
+    // and the padding is `LABEL_WIDTH - label.chars().count()` — a raw `usize`
+    // subtraction. A label longer than the constant underflows: panic in debug,
+    // an attempt to allocate ~1.8×10¹⁹ spaces in release. Raising the constant
+    // (12 → 14, 2026-07-26) moved that cliff without removing it.
+    //
+    // Deriving the width from the labels themselves removes it: if the width IS
+    // the longest label, the subtraction cannot go negative. These pin the
+    // derivation; the padding then has nothing left to get wrong.
+
+    #[test]
+    fn label_width_in_portuguese_is_animacoes() {
+        // ANIMAÇÕES is 9 CHARS but 11 BYTES. `.len()` would answer 11 and
+        // silently over-pad every row — this is the char-vs-byte tripwire.
+        assert_eq!(Language::PtBr.translation().config.label_width(), 9);
+    }
+
+    #[test]
+    fn label_width_in_english_is_animations() {
+        assert_eq!(Language::EnUs.translation().config.label_width(), 10);
+    }
+
+    #[test]
+    fn label_width_in_spanish_is_animaciones() {
+        // The widest of the three, and the reason a fixed 12 was ever unsafe.
+        assert_eq!(Language::EsEs.translation().config.label_width(), 11);
+    }
+
+    #[test]
+    fn every_config_label_fits_inside_the_derived_width() {
+        // THE CONTRACT PIN — the other three only pin today's content, and all
+        // three would still pass if `label_width` forgot a field, because
+        // ANIMAÇÕES/ANIMATIONS/ANIMACIONES happens to be the longest in every
+        // language. This one fails the moment a label is left out of the max,
+        // and it is what actually guarantees the subtraction is total.
+        for lang in Language::ALL {
+            let config = lang.translation().config;
+            let width = config.label_width();
+            for label in [
+                config.theme,
+                config.animations,
+                config.volume,
+                config.language,
+            ] {
+                assert!(
+                    label.chars().count() <= width,
+                    "{lang:?}: label {label:?} is {} chars but label_width() says {width} \
+                     — the padding subtraction would underflow",
+                    label.chars().count()
+                );
+            }
+        }
+    }
 }
