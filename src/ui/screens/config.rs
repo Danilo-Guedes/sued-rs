@@ -23,7 +23,7 @@ use crate::ui::theme::{Palette, Theme};
 const FORM_WIDTH: u16 = 64;
 
 /// Pads the label column so every value starts at the same column.
-const LABEL_WIDTH: usize = 14;
+const LABEL_GAP: usize = 3;
 
 pub(super) fn render(frame: &mut Frame, app_state: &App) {
     let config = app_state.config();
@@ -35,6 +35,8 @@ pub(super) fn render(frame: &mut Frame, app_state: &App) {
     let language = config.language();
 
     let translation = language.translation();
+
+    let max_label_width = translation.config.max_label_width();
 
     let focused = app_state.focused_option();
 
@@ -115,6 +117,7 @@ pub(super) fn render(frame: &mut Frame, app_state: &App) {
             &theme_chips,
             focused == ConfigOption::Theme,
             palette,
+            max_label_width,
         ),
         Line::from(""),
         option_row(
@@ -122,6 +125,7 @@ pub(super) fn render(frame: &mut Frame, app_state: &App) {
             &animation_chips,
             focused == ConfigOption::Animations,
             palette,
+            max_label_width,
         ),
         Line::from(""),
         volume_row(
@@ -129,6 +133,7 @@ pub(super) fn render(frame: &mut Frame, app_state: &App) {
             config.audio_volume(),
             focused == ConfigOption::Volume,
             palette,
+            max_label_width,
         ),
         Line::from(""),
         option_row(
@@ -136,6 +141,7 @@ pub(super) fn render(frame: &mut Frame, app_state: &App) {
             &language_chips,
             focused == ConfigOption::Language,
             palette,
+            max_label_width,
         ),
     ];
     frame.render_widget(
@@ -174,8 +180,9 @@ fn option_row(
     chips: &[(&str, bool)],
     is_focused: bool,
     palette: Palette,
+    max_label_width: usize,
 ) -> Line<'static> {
-    let mut spans = styled_label(label, is_focused, palette);
+    let mut spans = styled_label(label, is_focused, palette, max_label_width);
 
     for (i, &(text, selected)) in chips.iter().enumerate() {
         if i > 0 {
@@ -193,12 +200,18 @@ fn option_row(
     Line::from(spans)
 }
 
-fn volume_row(label: &str, percent: u8, is_focused: bool, palette: Palette) -> Line<'static> {
+fn volume_row(
+    label: &str,
+    percent: u8,
+    is_focused: bool,
+    palette: Palette,
+    max_label_width: usize,
+) -> Line<'static> {
     const BAR_WIDTH: usize = 24;
 
     let filled = BAR_WIDTH * percent.min(100) as usize / 100;
 
-    let mut spans = styled_label(label, is_focused, palette);
+    let mut spans = styled_label(label, is_focused, palette, max_label_width);
     spans.extend([
         Span::from("█".repeat(filled)).fg(palette.accent),
         Span::from("░".repeat(BAR_WIDTH - filled)).dim(),
@@ -208,9 +221,14 @@ fn volume_row(label: &str, percent: u8, is_focused: bool, palette: Palette) -> L
     Line::from(spans)
 }
 
-fn styled_label(label: &str, is_focused: bool, palette: Palette) -> Vec<Span<'static>> {
+fn styled_label(
+    label: &str,
+    is_focused: bool,
+    palette: Palette,
+    max_label_width: usize,
+) -> Vec<Span<'static>> {
     let text = Span::from(label.to_string());
-    let pad = " ".repeat(LABEL_WIDTH - label.chars().count());
+    let pad = " ".repeat(max_label_width + LABEL_GAP - label.chars().count());
     let text = if is_focused {
         text.bg(palette.accent).fg(palette.on_accent)
     } else {

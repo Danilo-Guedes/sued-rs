@@ -84,6 +84,19 @@ pub struct ConfigTexts {
     pub hints: &'static [(&'static str, &'static str)],
 }
 
+impl ConfigTexts {
+    /// Width of the label column in CHARS — the longest option label in this
+    /// language. Derived rather than declared so the padding subtraction in
+    /// `config.rs` cannot underflow.
+    pub fn max_label_width(&self) -> usize {
+        [self.theme, self.animations, self.volume, self.language]
+            .into_iter()
+            .map(|label| label.chars().count())
+            .max()
+            .unwrap_or(0)
+    }
+}
+
 #[derive(Debug, Copy, Clone)]
 pub struct MenuTexts {
     pub choose_your_destiny: &'static str,
@@ -670,18 +683,18 @@ mod tests {
     fn label_width_in_portuguese_is_animacoes() {
         // ANIMAÇÕES is 9 CHARS but 11 BYTES. `.len()` would answer 11 and
         // silently over-pad every row — this is the char-vs-byte tripwire.
-        assert_eq!(Language::PtBr.translation().config.label_width(), 9);
+        assert_eq!(Language::PtBr.translation().config.max_label_width(), 9);
     }
 
     #[test]
     fn label_width_in_english_is_animations() {
-        assert_eq!(Language::EnUs.translation().config.label_width(), 10);
+        assert_eq!(Language::EnUs.translation().config.max_label_width(), 10);
     }
 
     #[test]
     fn label_width_in_spanish_is_animaciones() {
         // The widest of the three, and the reason a fixed 12 was ever unsafe.
-        assert_eq!(Language::EsEs.translation().config.label_width(), 11);
+        assert_eq!(Language::EsEs.translation().config.max_label_width(), 11);
     }
 
     #[test]
@@ -693,7 +706,7 @@ mod tests {
         // and it is what actually guarantees the subtraction is total.
         for lang in Language::ALL {
             let config = lang.translation().config;
-            let width = config.label_width();
+            let width = config.max_label_width();
             for label in [
                 config.theme,
                 config.animations,
