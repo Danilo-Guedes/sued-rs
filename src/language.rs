@@ -180,7 +180,11 @@ impl Language {
                         ("origem", "o além · desconhecida"),
                         ("runtime", "rust · ratatui · crossterm"),
                     ],
-                    footer: "sued-rs v0.1.0 · recriação do clássico brasileiro · use por sua conta e risco",
+                    footer: concat!(
+                        "sued-rs v",
+                        env!("CARGO_PKG_VERSION"),
+                        " · recriação do clássico brasileiro · use por sua conta e risco"
+                    ),
                     hints: &[("[Esc]", "voltar ao menu")],
                 },
                 info: InfoTexts {
@@ -298,7 +302,11 @@ impl Language {
                         ("origin", "the beyond · unknown"),
                         ("runtime", "rust · ratatui · crossterm"),
                     ],
-                    footer: "sued-rs v0.1.0 · a recreation of the Brazilian classic · use at your own risk",
+                    footer: concat!(
+                        "sued-rs v",
+                        env!("CARGO_PKG_VERSION"),
+                        " · a recreation of the Brazilian classic · use at your own risk"
+                    ),
                     hints: &[("[Esc]", "back to menu")],
                 },
                 info: InfoTexts {
@@ -416,7 +424,11 @@ impl Language {
                         ("origen", "el más allá · desconocido"),
                         ("runtime", "rust · ratatui · crossterm"),
                     ],
-                    footer: "sued-rs v0.1.0 · recreación del clásico brasileño · úsalo bajo tu propio riesgo",
+                    footer: concat!(
+                        "sued-rs v",
+                        env!("CARGO_PKG_VERSION"),
+                        " · recreación del clásico brasileño · úsalo bajo tu propio riesgo"
+                    ),
                     hints: &[("[Esc]", "volver al menú")],
                 },
                 info: InfoTexts {
@@ -720,6 +732,33 @@ mod tests {
                     label.chars().count()
                 );
             }
+        }
+    }
+
+    // ── The version in the UI must BE the crate version, not a copy of it ────
+    //
+    // `AboutTexts.footer` carried a hand-typed "sued-rs v0.1.0" in all three
+    // languages. Bumping `Cargo.toml` for the v1.0.0 tag would have left the
+    // About screen — the one screen whose job is saying what this program is —
+    // confidently announcing v0.1.0, three times over.
+    //
+    // ⚠ THIS IS A TRIPWIRE, NOT A SPEC: it passes today whether the version is
+    // hardcoded or derived, because the crate really is at the hardcoded value.
+    // It goes red at exactly the moment the bug would ship — the version bump —
+    // which is the whole point. Same class as the decoy-length and
+    // cross-language-distinct pins: dormant until content drifts.
+
+    #[test]
+    fn every_about_footer_carries_the_real_crate_version() {
+        let version = env!("CARGO_PKG_VERSION");
+
+        for lang in Language::ALL {
+            let footer = lang.translation().about.footer;
+            assert!(
+                footer.contains(version),
+                "{lang:?} about footer says {footer:?} but the crate is v{version} \
+                 — read the version from Cargo.toml with env!(\"CARGO_PKG_VERSION\")"
+            );
         }
     }
 }
