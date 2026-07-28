@@ -38,6 +38,10 @@ const SHAKE_MAX_CELLS: i16 = 2;
 const MAX_THINKING_MS: u64 = 6_000;
 const MIN_THINKING_MS: u64 = 3_000;
 
+// 3 DOTS ANIMATION
+const DOT_CYCLE_MS: u64 = 400;
+const DOTS_WIDTH: u64 = 3;
+
 /// How many characters of the answer should be visible after `elapsed` time has
 /// passed since the reveal began, clamped to `total`.
 ///
@@ -197,13 +201,18 @@ pub fn reveal_elapsed(since_asked: Duration, thinking_for: Duration) -> Duration
     since_asked.saturating_sub(thinking_for)
 }
 
+pub fn thinking_dots(elapsed: Duration) -> usize {
+    (elapsed.as_millis() as u64 / DOT_CYCLE_MS % DOTS_WIDTH + 1) as usize
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
-        CURSOR_BLINK_MS, CURSOR_CHAR, FLASH_MS, FLICKER_CHANCE, MAX_THINKING_MS, MIN_FLICKER_VALUE,
-        MIN_THINKING_MS, REVEAL_MS_PER_CHAR, SHAKE_MAX_CELLS, SHAKE_MS, cursor_on, flash_intensity,
-        flicker_intensity, is_thinking, reveal_elapsed, reveal_is_complete, shake_offset,
-        thinking_duration, typewriter_len, typewriter_reveal, typewriter_slice,
+        CURSOR_BLINK_MS, CURSOR_CHAR, DOT_CYCLE_MS, FLASH_MS, FLICKER_CHANCE, MAX_THINKING_MS,
+        MIN_FLICKER_VALUE, MIN_THINKING_MS, REVEAL_MS_PER_CHAR, SHAKE_MAX_CELLS, SHAKE_MS,
+        cursor_on, flash_intensity, flicker_intensity, is_thinking, reveal_elapsed,
+        reveal_is_complete, shake_offset, thinking_dots, thinking_duration, typewriter_len,
+        typewriter_reveal, typewriter_slice,
     };
     use std::time::Duration;
 
@@ -866,5 +875,68 @@ mod tests {
             secret,
             reveal_elapsed(long_after, ponder)
         ));
+    }
+
+    // ── G13 · the waiting dots ───────────────────────────────────────────────
+    //
+    // Once the incantation has finished typing there is still 0.5-3.5s of ponder
+    // left (the spell length is fixed, the pause is rolled), so the line would
+    // otherwise sit frozen. Trailing dots cycle 1 -> 2 -> 3 to keep it reading as
+    // pending. Same family as `cursor_on`: a pure step function of elapsed, with
+    // the randomness and the real clock both left outside.
+    //
+    // ⚠ It never returns 0. A zero state would drop the trailing mark for a beat
+    // and the text would visibly jump; the dots are there to say "still working",
+    // and an empty frame says the opposite.
+
+    /// Elapsed expressed as "n dot cycles' worth", derived from the constant so
+    /// the spec survives retuning the cycle speed.
+    fn after_dot_cycles(n: u64) -> Duration {
+        Duration::from_millis(n * DOT_CYCLE_MS)
+    }
+
+    #[test]
+    fn the_wait_opens_with_a_single_dot() {
+        assert_eq!(thinking_dots(Duration::ZERO), 1);
+    }
+
+    #[test]
+    fn each_cycle_adds_a_dot() {
+        assert_eq!(thinking_dots(after_dot_cycles(1)), 2);
+        assert_eq!(thinking_dots(after_dot_cycles(2)), 3);
+    }
+
+    #[test]
+    fn the_dots_wrap_back_to_one_after_three() {
+        assert_eq!(
+            thinking_dots(after_dot_cycles(3)),
+            1,
+            "the fourth cycle restarts the run — not a fourth dot, not an empty frame"
+        );
+        assert_eq!(thinking_dots(after_dot_cycles(4)), 2);
+    }
+
+    #[test]
+    fn a_dot_holds_for_its_whole_cycle() {
+        // A step function, not a continuous one: mid-cycle must look identical to
+        // the start of it, or the dots stutter between frames instead of ticking.
+        let mid = after_dot_cycles(1) + Duration::from_millis(DOT_CYCLE_MS / 2);
+        assert_eq!(thinking_dots(mid), thinking_dots(after_dot_cycles(1)));
+    }
+
+    #[test]
+    fn the_dot_count_never_leaves_one_through_three() {
+        // THE CONTRACT PIN — the cases above only sample the first few cycles.
+        // A wrong modulus (or an off-by-one on the `+ 1`) shows up here as a 0 or
+        // a 4, at some cycle nobody thought to write a case for. Sweeps well past
+        // MAX_THINKING_MS so no real ponder can reach an untested value.
+        for tenth_second in 0..=100 {
+            let elapsed = Duration::from_millis(tenth_second * 100);
+            let dots = thinking_dots(elapsed);
+            assert!(
+                (1..=3).contains(&dots),
+                "at {elapsed:?} the dot count was {dots} — outside 1..=3"
+            );
+        }
     }
 }

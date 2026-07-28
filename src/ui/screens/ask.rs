@@ -13,7 +13,7 @@ use crate::config::Configuration;
 use crate::core::engine::Engine;
 use crate::ui::effects::{
     CURSOR_CHAR, cursor_on, flash_intensity, flicker_intensity, is_thinking, reveal_elapsed,
-    reveal_is_complete, shake_offset, typewriter_reveal,
+    reveal_is_complete, shake_offset, thinking_dots, typewriter_reveal,
 };
 use crate::ui::screens::common::{
     DEMON_ART, DEMON_ART_HEIGHT, DEMON_ART_WIDTH, NavTab, create_screen_block,
@@ -30,6 +30,7 @@ pub(super) fn render(
     config: Configuration,
     previous_reply: Option<&str>,
     thinking_for: Duration,
+    spell: &'static str,
 ) {
     let time_elapsed_from_the_start_at = started_at.elapsed();
 
@@ -41,6 +42,8 @@ pub(super) fn render(
 
     let since_asked = replied_at.map(|t| t.elapsed());
     let pondering = since_asked.is_some_and(|e| is_thinking(e, thinking_for));
+
+    let casting_for: Option<Duration> = since_asked.filter(|_| pondering);
 
     // How long SueD has been SPEAKING — the raw clock minus the ponder.
     // Every reveal-side effect below reads THIS and nothing reads the raw
@@ -119,10 +122,15 @@ pub(super) fn render(
 
     let elapsed_duration = speaking_for.unwrap_or(Duration::ZERO);
 
-    let final_sued_words = match engine.revealed() {
-        Some(answer) => Text::from(typewriter_reveal(answer, elapsed_duration)),
-        None => {
-            match denied_message {
+    let final_sued_words = match casting_for {
+        Some(spell_elapsed) => Text::from(if reveal_is_complete(spell, spell_elapsed) {
+            format!("{spell}{}", ".".repeat(thinking_dots(spell_elapsed)))
+        } else {
+            typewriter_reveal(spell, spell_elapsed)
+        }),
+        None => match engine.revealed() {
+            Some(answer) => Text::from(typewriter_reveal(answer, elapsed_duration)),
+            None => match denied_message {
                 Some(denied_str) => Text::from(typewriter_reveal(denied_str, elapsed_duration)),
                 None => {
                     match previous_reply {
@@ -140,8 +148,8 @@ pub(super) fn render(
                         }
                     }
                 }
-            }
-        }
+            },
+        },
     };
 
     let flash_effect = speaking_for.map_or(0, |e| flash_intensity(e, config.animations()));

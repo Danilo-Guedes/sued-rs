@@ -36,6 +36,7 @@ pub enum Screen {
         denied_message: Option<&'static str>,
         previous_reply: Option<String>,
         thinking_for: Duration,
+        spell: &'static str,
     },
     Info,
     About,
@@ -156,6 +157,7 @@ impl App {
                             denied_message: None,
                             previous_reply: None,
                             thinking_for: Duration::ZERO,
+                            spell: pick(translations.ask.spells, rand::random()),
                         };
                         AppFlow::Stay
                     }
@@ -194,6 +196,7 @@ impl App {
                 denied_message,
                 previous_reply,
                 thinking_for,
+                spell,
             } => {
                 // The conversation guard (G8). Three time-paths converge on the
                 // ordinary key handling below: SueD never spoke → fall straight
@@ -242,11 +245,13 @@ impl App {
                                 *denied_message = None;
                                 *replied_at = Some(Instant::now());
                                 *thinking_for = thinking_duration(rand::random());
+                                *spell = pick(translations.ask.spells, rand::random());
                             }
                             StateChange::Denied => {
                                 *denied_message = Some(pick(translations.denials, rand::random()));
                                 *replied_at = Some(Instant::now());
                                 *thinking_for = thinking_duration(rand::random());
+                                *spell = pick(translations.ask.spells, rand::random());
                             }
                             _ => {}
                         }
@@ -625,8 +630,7 @@ mod tests {
                 engine,
                 replied_at,
                 denied_message,
-                previous_reply: _,
-                thinking_for: _,
+                ..
             } => {
                 assert_eq!(engine.revealed(), Some("42"));
                 assert!(replied_at.is_some(), "the reveal clock started");
@@ -1426,7 +1430,7 @@ mod tests {
                 replied_at,
                 denied_message,
                 previous_reply,
-                thinking_for: _,
+                ..
             } => {
                 assert_eq!(
                     previous_reply.as_deref(),
@@ -1615,7 +1619,7 @@ mod tests {
                 replied_at,
                 denied_message,
                 previous_reply,
-                thinking_for: _,
+                ..
             } => {
                 assert_eq!(
                     previous_reply, &None,
