@@ -12,14 +12,15 @@ use super::common::{colorfull_bordered_block, create_centered_rect, hint_line, r
 use crate::config::Configuration;
 use crate::core::engine::Engine;
 use crate::ui::effects::{
-    CURSOR_CHAR, cursor_on, flash_intensity, flicker_intensity, reveal_is_complete, shake_offset,
-    typewriter_reveal,
+    CURSOR_CHAR, cursor_on, flash_intensity, flicker_intensity, is_thinking, reveal_elapsed,
+    reveal_is_complete, shake_offset, typewriter_reveal,
 };
 use crate::ui::screens::common::{
     DEMON_ART, DEMON_ART_HEIGHT, DEMON_ART_WIDTH, NavTab, create_screen_block,
 };
 use crate::ui::template::styled_line;
 
+#[allow(clippy::too_many_arguments)]
 pub(super) fn render(
     frame: &mut Frame,
     engine: &Engine,
@@ -28,6 +29,7 @@ pub(super) fn render(
     started_at: &Instant,
     config: Configuration,
     previous_reply: Option<&str>,
+    thinking_for: Duration,
 ) {
     let time_elapsed_from_the_start_at = started_at.elapsed();
 
@@ -36,6 +38,16 @@ pub(super) fn render(
     let language = config.language();
 
     let translation = language.translation();
+
+    let since_asked = replied_at.map(|t| t.elapsed());
+    let pondering = since_asked.is_some_and(|e| is_thinking(e, thinking_for));
+
+    // How long SueD has been SPEAKING — the raw clock minus the ponder.
+    // Every reveal-side effect below reads THIS and nothing reads the raw
+    // elapsed, `None` still means "SueD never spoke", so each consumer keeps its rest value.
+    let speaking_for: Option<Duration> = since_asked
+        .filter(|_| !pondering)
+        .map(|asked_at| reveal_elapsed(asked_at, thinking_for));
 
     let layout = create_screen_block(frame, palette);
 
@@ -82,13 +94,8 @@ pub(super) fn render(
 
     let screen = frame.area();
 
-    let (x_offset, y_offset) = replied_at.map_or((0, 0), |t| {
-        shake_offset(
-            t.elapsed(),
-            rand::random(),
-            rand::random(),
-            config.animations(),
-        )
+    let (x_offset, y_offset) = speaking_for.map_or((0, 0), |dur| {
+        shake_offset(dur, rand::random(), rand::random(), config.animations())
     });
 
     let demon_rect = demon_rect
@@ -110,10 +117,7 @@ pub(super) fn render(
         Constraint::Fill(1),
     );
 
-    let elapsed_duration = match replied_at {
-        Some(instant) => instant.elapsed(),
-        None => Duration::ZERO,
-    };
+    let elapsed_duration = speaking_for.unwrap_or(Duration::ZERO);
 
     let final_sued_words = match engine.revealed() {
         Some(answer) => Text::from(typewriter_reveal(answer, elapsed_duration)),
@@ -140,7 +144,7 @@ pub(super) fn render(
         }
     };
 
-    let flash_effect = replied_at.map_or(0, |t| flash_intensity(t.elapsed(), config.animations()));
+    let flash_effect = speaking_for.map_or(0, |e| flash_intensity(e, config.animations()));
 
     let flash_bg = if flash_effect > 0 {
         palette.glow(flash_effect)
@@ -185,20 +189,21 @@ pub(super) fn render(
         sued_logs_layout,
     );
 
-    // The render-side twin of the input lock in `App::handle_key`: keys are only
-    // swallowed while SueD is mid-reveal. "Never spoke" is not a locked state —
-    // it is a fresh screen, so the cursor must already be blinking.
-    let input_is_unlocked = match replied_at {
-        Some(inst) => {
-            let current_sued_words = match denied_message {
-                Some(denied_msg) => denied_msg,
-                None => engine
-                    .revealed()
-                    .expect("a reply clock with no reply words is a bug"),
-            };
-            reveal_is_complete(current_sued_words, inst.elapsed())
+    let input_is_unlocked = if pondering {
+        false // still pondering — locked
+    } else {
+        match speaking_for {
+            Some(elapsed) => {
+                let current_sued_words = match denied_message {
+                    Some(denied_msg) => denied_msg,
+                    None => engine
+                        .revealed()
+                        .expect("a reply clock with no reply words is a bug"),
+                };
+                reveal_is_complete(current_sued_words, elapsed)
+            }
+            None => true, // genuinely never spoke
         }
-        None => true,
     };
 
     let rendered_cursor = if input_is_unlocked && cursor_on(time_elapsed_from_the_start_at) {

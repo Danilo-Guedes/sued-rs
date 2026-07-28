@@ -6,14 +6,13 @@
 //! screen, `Screen::Asking` simply *owns* one `Engine` and forwards keys to it.
 //!
 
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use crate::{
-    audio::AudioCue,
     config::{ConfigOption, Configuration, Direction},
     core::engine::{Engine, KeyPress, StateChange},
     language::{Language, pick},
-    ui::effects::reveal_is_complete,
+    ui::effects::{is_thinking, reveal_elapsed, reveal_is_complete, thinking_duration},
 };
 
 #[derive(Debug)]
@@ -21,7 +20,6 @@ pub struct App {
     screen: Screen,
     menu: MenuIndex,
     started_at: Instant,
-    pending_cue: Option<AudioCue>,
     config_object: Configuration,
     config_navigation: ConfigIndex,
     pending_save: Option<Configuration>,
@@ -37,6 +35,7 @@ pub enum Screen {
         replied_at: Option<Instant>,
         denied_message: Option<&'static str>,
         previous_reply: Option<String>,
+        thinking_for: Duration,
     },
     Info,
     About,
@@ -131,7 +130,6 @@ impl App {
             screen: Screen::default(),
             menu: MenuIndex::new(),
             started_at: Instant::now(),
-            pending_cue: None,
             config_navigation: ConfigIndex::new(),
             config_object: parsed_json_config,
             pending_save: None,
@@ -157,6 +155,7 @@ impl App {
                             replied_at: None,
                             denied_message: None,
                             previous_reply: None,
+                            thinking_for: Duration::ZERO,
                         };
                         AppFlow::Stay
                     }
@@ -194,6 +193,7 @@ impl App {
                 replied_at,
                 denied_message,
                 previous_reply,
+                thinking_for,
             } => {
                 // The conversation guard (G8). Three time-paths converge on the
                 // ordinary key handling below: SueD never spoke → fall straight
@@ -208,15 +208,16 @@ impl App {
                             .expect("a reply clock with no reply words is a bug"),
                     };
 
-                    let sued_finished_speaking =
-                        reveal_is_complete(current_sued_words, sued_replied_at.elapsed());
+                    let sued_finished_speaking = reveal_is_complete(
+                        current_sued_words,
+                        reveal_elapsed(sued_replied_at.elapsed(), *thinking_for),
+                    );
 
                     if sued_finished_speaking {
                         // Keep the words before `engine.reset()` drops them.
                         *previous_reply = Some(current_sued_words.to_string());
                         *replied_at = None;
                         *denied_message = None;
-                        self.pending_cue = None;
 
                         engine.reset(pick(translations.decoys, rand::random()));
                     } else {
@@ -240,12 +241,12 @@ impl App {
                             StateChange::Revealed => {
                                 *denied_message = None;
                                 *replied_at = Some(Instant::now());
-                                self.pending_cue = Some(AudioCue::JumpScare);
+                                *thinking_for = thinking_duration(rand::random());
                             }
                             StateChange::Denied => {
                                 *denied_message = Some(pick(translations.denials, rand::random()));
                                 *replied_at = Some(Instant::now());
-                                self.pending_cue = Some(AudioCue::JumpScare);
+                                *thinking_for = thinking_duration(rand::random());
                             }
                             _ => {}
                         }
@@ -266,7 +267,6 @@ impl App {
                         *previous_reply = None;
                         *replied_at = None;
                         *denied_message = None;
-                        self.pending_cue = None;
                         AppFlow::Stay
                     }
                     KeyPress::CtrlC => AppFlow::Quit,
@@ -336,10 +336,6 @@ impl App {
         &self.started_at
     }
 
-    pub fn take_cue(&mut self) -> Option<AudioCue> {
-        self.pending_cue.take()
-    }
-
     pub fn config(&self) -> Configuration {
         self.config_object
     }
@@ -350,6 +346,31 @@ impl App {
 
     pub fn take_pending_save(&mut self) -> Option<Configuration> {
         self.pending_save.take()
+    }
+
+    /// True while SueD has been asked but has not started speaking yet.
+    ///
+    /// `main`'s tick loop watches this and fires the reply sting on the FALLING
+    /// edge — the instant the ponder ends. That transition happens with no
+    /// keypress at all, which is why the old `pending_cue` seam could not express
+    /// it: that one was drained inside the keypress block, so it fired the sting
+    /// at Enter, seconds before SueD actually spoke. It was removed with G13.
+    ///
+    /// ⚠ This is deliberately LEVEL-triggered — it answers "is SueD pondering
+    /// *right now*", and stays true for the whole pause. The "play the sting
+    /// exactly once" guarantee therefore lives entirely in `main`'s
+    /// `was_pondering && !pondering_now` edge check, which no test covers
+    /// (it is two operators at the I/O edge). Do not "simplify" that call site
+    /// into a plain level test, or the sting replays every tick for 3-6s.
+    pub fn is_pondering(&self) -> bool {
+        match &self.screen {
+            Screen::Asking {
+                replied_at: Some(asked_at),
+                thinking_for,
+                ..
+            } => is_thinking(asked_at.elapsed(), *thinking_for),
+            _ => false,
+        }
     }
 }
 
@@ -392,7 +413,7 @@ impl ConfigIndex {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{audio::AudioCue, core::engine::KeyPress};
+    use crate::core::engine::KeyPress;
     use std::time::Duration;
 
     /// Replay a sequence of keystrokes from a fresh app, handing back the final
@@ -605,6 +626,7 @@ mod tests {
                 replied_at,
                 denied_message,
                 previous_reply: _,
+                thinking_for: _,
             } => {
                 assert_eq!(engine.revealed(), Some("42"));
                 assert!(replied_at.is_some(), "the reveal clock started");
@@ -877,63 +899,6 @@ mod tests {
         }
     }
 
-    #[test]
-    fn a_reveal_queues_the_jump_scare_cue() {
-        let mut state = drive(&[
-            KeyPress::Enter,
-            KeyPress::Enter,     // → Asking
-            KeyPress::Char(';'), // Hidden
-            KeyPress::Char('4'),
-            KeyPress::Char('2'), // secret answer "42"
-            KeyPress::Enter,     // reveal
-        ]);
-        assert_eq!(state.take_cue(), Some(AudioCue::JumpScare));
-    }
-
-    #[test]
-    fn a_denial_queues_the_jump_scare_cue() {
-        let mut state = drive(&[
-            KeyPress::Enter,
-            KeyPress::Enter, // → Asking
-            KeyPress::Char('o'),
-            KeyPress::Char('i'), // a question typed in the open
-            KeyPress::Enter,     // empty answer → Denied
-        ]);
-        assert_eq!(state.take_cue(), Some(AudioCue::JumpScare));
-    }
-
-    #[test]
-    fn take_cue_drains_so_the_sound_fires_once() {
-        let mut state = drive(&[
-            KeyPress::Enter,
-            KeyPress::Enter,
-            KeyPress::Char(';'),
-            KeyPress::Char('4'),
-            KeyPress::Enter, // reveal
-        ]);
-        assert_eq!(
-            state.take_cue(),
-            Some(AudioCue::JumpScare),
-            "the first drain gets the cue"
-        );
-        assert_eq!(
-            state.take_cue(),
-            None,
-            "the second drain is empty — a reply plays its sound exactly once"
-        );
-    }
-
-    #[test]
-    fn plain_typing_queues_no_cue() {
-        let mut state = drive(&[
-            KeyPress::Enter,
-            KeyPress::Enter,
-            KeyPress::Char('o'),
-            KeyPress::Char('i'), // typed a question, but no Enter yet
-        ]);
-        assert_eq!(state.take_cue(), None, "no reply yet → nothing to play");
-    }
-
     // ── Config screen: [←→] alter values, immediate-apply ─────────────────────
     // Slice A of M5: the config lives in `App.config` (no draft). `[↑↓]` move the
     // row cursor; `[←→]` alter the selected row's value and apply it live. Discrete
@@ -1122,12 +1087,6 @@ mod tests {
             "Enter must not alter any setting"
         );
     }
-
-    // ── Config persistence seam (Slice B): queue a save on config exit ─────────
-    // The simplified model: leaving the config screen (Esc) queues the live config
-    // for `main` to write, drained with `take_pending_save()` — the twin of the
-    // `pending_cue`/`take_cue` seam. No disk baseline: `App` stays I/O-free and we
-    // write once per visit, changed or not. Reading happens only at startup.
 
     #[test]
     fn leaving_config_queues_the_changed_config_for_saving() {
@@ -1374,7 +1333,7 @@ mod tests {
     fn enter_with_an_empty_question_earns_no_reply_at_all() {
         // An empty offering is ignored outright: no denial, no reply clock,
         // nothing to play. The taunt is reserved for mortals who actually ask.
-        let mut app = drive(&[KeyPress::Enter, KeyPress::Enter, KeyPress::Enter]);
+        let app = drive(&[KeyPress::Enter, KeyPress::Enter, KeyPress::Enter]);
 
         match &app.screen {
             Screen::Asking {
@@ -1387,7 +1346,6 @@ mod tests {
             }
             other => panic!("expected Asking, got {other:?}"),
         }
-        assert_eq!(app.take_cue(), None, "and no sting queued either");
     }
 
     #[test]
@@ -1468,6 +1426,7 @@ mod tests {
                 replied_at,
                 denied_message,
                 previous_reply,
+                thinking_for: _,
             } => {
                 assert_eq!(
                     previous_reply.as_deref(),
@@ -1656,6 +1615,7 @@ mod tests {
                 replied_at,
                 denied_message,
                 previous_reply,
+                thinking_for: _,
             } => {
                 assert_eq!(
                     previous_reply, &None,
@@ -1805,5 +1765,75 @@ mod tests {
             }
             other => panic!("expected Asking, got {other:?}"),
         }
+    }
+
+    // ── G13 · the ponder, and what replaced the cue tests ────────────────────
+    //
+    // Four tests died with the `pending_cue` seam (`a_reveal_queues_the_jump_scare_cue`,
+    // `a_denial_queues_the_jump_scare_cue`, `take_cue_drains_so_the_sound_fires_once`,
+    // `plain_typing_queues_no_cue`). Their CLAIMS all survived — the sting still
+    // fires, for both outcomes, exactly once, and never before a reply — but the
+    // mechanism moved to `main`'s falling-edge check on `is_pondering()`. These
+    // pin the app-side half, which is the half that decides WHEN the edge happens.
+    //
+    // ⚠ Worth remembering why the fourth one had to go rather than being kept:
+    // `plain_typing_queues_no_cue` asserted `take_cue() == None` and kept PASSING
+    // after the seam was gutted, because a negative assertion goes vacuous once
+    // its subject disappears. The three that broke did their job; the one that
+    // survived had quietly stopped testing anything.
+
+    #[test]
+    fn a_reveal_makes_sued_ponder_before_it_speaks() {
+        let app = drive(&ASK_AND_REVEAL);
+        assert!(
+            app.is_pondering(),
+            "the reveal must open with a ponder — without it the sting fires at \
+             Enter and SueD answers instantly, which is what G13 exists to stop"
+        );
+    }
+
+    #[test]
+    fn a_denial_makes_sued_ponder_before_it_speaks() {
+        // The ponder is NOT reveal-only (Danilo's call 2026-07-27): SueD weighing
+        // a mortal before rejecting them sells the seance better than an instant
+        // refusal, and it keeps one clock rule instead of two.
+        let app = drive(&ASK_AND_BE_DENIED);
+        assert!(
+            app.is_pondering(),
+            "a denial must ponder too, or denials skip the pause and the sting \
+             fires early for exactly one of the two outcomes"
+        );
+    }
+
+    #[test]
+    fn typing_without_asking_never_ponders() {
+        // No reply clock, no ponder, no falling edge — so nothing can play before
+        // a question is actually offered.
+        let app = drive(&[
+            KeyPress::Enter,
+            KeyPress::Enter, // → Asking
+            KeyPress::Char('o'),
+            KeyPress::Char('i'), // typed, but never submitted
+        ]);
+        assert!(
+            !app.is_pondering(),
+            "no question asked yet — nothing to ponder"
+        );
+    }
+
+    #[test]
+    fn the_ponder_ends_so_the_sting_has_a_falling_edge() {
+        // The other half of the pair: `is_pondering` must eventually go false, or
+        // `main`'s `was_pondering && !pondering_now` never fires and the reply is
+        // silent forever. "Always pondering" would satisfy the two pins above.
+        let mut app = drive(&ASK_AND_REVEAL);
+        assert!(app.is_pondering(), "precondition: the ponder started");
+
+        finish_the_reveal(&mut app);
+
+        assert!(
+            !app.is_pondering(),
+            "the ponder must end — otherwise the sting never gets its edge"
+        );
     }
 }
