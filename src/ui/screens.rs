@@ -22,6 +22,7 @@ pub fn render(frame: &mut Frame, app: &App) {
             denied_message,
             previous_reply,
             thinking_for,
+            spell,
         } => ask::render(
             frame,
             engine,
@@ -31,6 +32,7 @@ pub fn render(frame: &mut Frame, app: &App) {
             app.config(),
             previous_reply.as_deref(),
             *thinking_for,
+            spell,
         ),
         Screen::Info => info::render(frame, app.config()),
         Screen::About => about::render(frame, app.config()),

@@ -68,6 +68,7 @@ pub struct AskTexts {
     pub waiting: &'static str,
     pub talk_with_me: &'static str,
     pub hints: &'static [(&'static str, &'static str)],
+    pub spells: &'static [&'static str],
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -220,6 +221,16 @@ impl Language {
                         ("[Esc]", "menu"),
                         ("[Ctrl+C]", "sair"),
                     ],
+                    spells: &[
+                        "folheando os livros proibidos das trevas",
+                        "cobrando favores antigos do outro lado",
+                        "consultando o desconhecido nas sombras",
+                        "invocando ecos distantes do abismo",
+                        "despertando os que dormem sob a terra",
+                        "acendendo as velas pretas do ritual",
+                        "abrindo as portas trancadas do submundo",
+                        "negociando com as sombras do porão",
+                    ],
                 },
                 config: ConfigTexts {
                     configuration: "▓ CONFIGURAÇÃO ▓",
@@ -342,6 +353,16 @@ impl Language {
                         ("[Esc]", "menu"),
                         ("[Ctrl+C]", "quit"),
                     ],
+                    spells: &[
+                        "leafing through the forbidden dark books",
+                        "calling in old favors from the other side",
+                        "consulting the unknown in the shadows",
+                        "invoking distant echoes from the abyss",
+                        "waking those who sleep beneath the earth",
+                        "lighting the black candles of the rite",
+                        "unlocking the doors of the underworld",
+                        "bargaining with the shadows in the cellar",
+                    ],
                 },
                 config: ConfigTexts {
                     configuration: "▓ CONFIGURATION ▓",
@@ -463,6 +484,16 @@ impl Language {
                         ("[F5]", "reiniciar"),
                         ("[Esc]", "menú"),
                         ("[Ctrl+C]", "salir"),
+                    ],
+                    spells: &[
+                        "hojeando los libros prohibidos y malditos",
+                        "cobrando viejos favores del otro lado",
+                        "consultando lo desconocido en las sombras",
+                        "invocando ecos lejanos del abismo",
+                        "despertando a los que duermen bajo tierra",
+                        "encendiendo las velas negras del ritual",
+                        "forzando las puertas del inframundo",
+                        "negociando con las sombras del sótano",
                     ],
                 },
                 config: ConfigTexts {
