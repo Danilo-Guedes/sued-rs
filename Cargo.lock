@@ -1926,7 +1926,7 @@ dependencies = [
 
 [[package]]
 name = "sued-rs"
-version = "1.0.0"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
