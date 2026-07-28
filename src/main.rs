@@ -102,6 +102,8 @@ fn run(
 ) -> Result<()> {
     let mut last_volume = app_state.config().audio_volume();
 
+    let mut was_pondering = false;
+
     audio.set_volume(last_volume);
 
     audio.start_ambience(); // the dread bed loops for the whole session
@@ -126,6 +128,12 @@ fn run(
             last_volume = current_volume;
         }
 
+        let pondering_now = app_state.is_pondering();
+        if was_pondering && !pondering_now {
+            audio.play(AudioCue::JumpScare); // SueD starts speaking NOW
+        }
+        was_pondering = pondering_now;
+
         // 4. POLL — wait up to `TICK` for an event. Returns false on timeout (no input).
         if event::poll(TICK)? {
             // 5. READ — only now, knowing an event is waiting, so this won't block.
@@ -140,9 +148,6 @@ fn run(
                             .with_context(|| format!("saving {}", config_file_path.display()))?;
                     }
 
-                    if let Some(cue) = app_state.take_cue() {
-                        audio.play(cue);
-                    }
                     if flow == AppFlow::Quit {
                         return Ok(());
                     }

@@ -33,6 +33,11 @@ const SHAKE_MS: u64 = 700;
 
 const SHAKE_MAX_CELLS: i16 = 2;
 
+// THINKING PAUSE CONSTANTS
+
+const MAX_THINKING_MS: u64 = 6_000;
+const MIN_THINKING_MS: u64 = 3_000;
+
 /// How many characters of the answer should be visible after `elapsed` time has
 /// passed since the reveal began, clamped to `total`.
 ///
@@ -174,6 +179,22 @@ pub fn shake_offset(
     let y_offset = (roll_y * 2.0 - 1.0) * left as f32;
 
     (x_offset as i16, y_offset as i16)
+}
+
+pub fn thinking_duration(roll: f32) -> Duration {
+    let span = (MAX_THINKING_MS - MIN_THINKING_MS) as f32;
+
+    let millis = MIN_THINKING_MS + (roll.clamp(0.0, 1.0) * span) as u64;
+
+    Duration::from_millis(millis)
+}
+
+pub fn is_thinking(since_asked: Duration, thinking_for: Duration) -> bool {
+    thinking_for > since_asked
+}
+
+pub fn reveal_elapsed(since_asked: Duration, thinking_for: Duration) -> Duration {
+    since_asked.saturating_sub(thinking_for)
 }
 
 #[cfg(test)]
@@ -741,7 +762,10 @@ mod tests {
 
     #[test]
     fn the_shortest_ponder_is_the_floor() {
-        assert_eq!(thinking_duration(0.0), Duration::from_millis(MIN_THINKING_MS));
+        assert_eq!(
+            thinking_duration(0.0),
+            Duration::from_millis(MIN_THINKING_MS)
+        );
     }
 
     #[test]
@@ -749,7 +773,10 @@ mod tests {
         // `rand::random::<f32>()` yields 0.0..1.0, so exactly 1.0 never arrives
         // from today's caller — pinned anyway, because an inclusive roll from a
         // future caller must not overshoot the range. Same reasoning as `pick`.
-        assert_eq!(thinking_duration(1.0), Duration::from_millis(MAX_THINKING_MS));
+        assert_eq!(
+            thinking_duration(1.0),
+            Duration::from_millis(MAX_THINKING_MS)
+        );
     }
 
     #[test]
