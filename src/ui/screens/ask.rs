@@ -123,11 +123,19 @@ pub(super) fn render(
     let elapsed_duration = speaking_for.unwrap_or(Duration::ZERO);
 
     let final_sued_words = match casting_for {
+        // Accent, where every reply is plain white — so the incantation reads as
+        // SueD *acting* and the answer as SueD *speaking*. The colour switch is
+        // what makes the reply land; a white spell would just look like the answer
+        // arriving early and then changing its mind.
+        //
+        // Safe against the reply flash: `flash_bg` is driven by `speaking_for`,
+        // which is `None` for the whole ponder, so accent-on-accent can't happen.
         Some(spell_elapsed) => Text::from(if reveal_is_complete(spell, spell_elapsed) {
             format!("{spell}{}", ".".repeat(thinking_dots(spell_elapsed)))
         } else {
             typewriter_reveal(spell, spell_elapsed)
-        }),
+        })
+        .fg(palette.accent),
         None => match engine.revealed() {
             Some(answer) => Text::from(typewriter_reveal(answer, elapsed_duration)),
             None => match denied_message {
