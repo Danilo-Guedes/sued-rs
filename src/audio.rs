@@ -8,7 +8,10 @@
 
 pub const LAUGH_MIN_SECS: u64 = 40;
 pub const LAUGH_MAX_SECS: u64 = 120;
+
+#[cfg(feature = "audio")]
 const SILENCE_DB: f32 = -60.0; // mirrors kira's Decibels::SILENCE
+
 pub const MAX_ALLOWED_VOLUME: u8 = 100;
 
 #[cfg(feature = "audio")]
@@ -62,6 +65,7 @@ pub fn laugh_interval(roll: f32) -> Duration {
 /// Pure and kira-free on purpose (like [`laugh_interval`]): it's arithmetic, so
 /// it compiles and is tested in both the audio and the silent build, with no
 /// sound card anywhere. Only the caller wraps the result in `Decibels(..)`.
+#[cfg(feature = "audio")]
 pub fn volume_db(percent: u8) -> f32 {
     if percent == 0 {
         return SILENCE_DB;
@@ -233,7 +237,7 @@ mod cadence_tests {
 //
 // Assertions use a tolerance rather than `==`: these are f32 and the expected
 // values are irrational-ish, so pinning exact bits would be testing the FPU.
-#[cfg(test)]
+#[cfg(all(test, feature = "audio"))]
 mod volume_tests {
     use super::{SILENCE_DB, volume_db};
 
