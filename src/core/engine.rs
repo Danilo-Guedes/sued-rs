@@ -174,6 +174,10 @@ impl Engine {
     pub fn revealed(&self) -> Option<&str> {
         self.revealed.as_deref()
     }
+
+    pub fn decoy_chars_remaining(&self) -> usize {
+        self.decoy_char_list.len() - self.decoy_cursor
+    }
 }
 
 #[cfg(test)]
@@ -732,5 +736,121 @@ mod tests {
             "Backspace removes the revealed decoy char, leaving the Normal-typed text intact"
         );
         assert_eq!(engine.decoy_cursor, 0);
+    }
+
+    // ── G14 · decoy exhaustion ───────────────────────────────────────────────
+    //
+    // The engine reports only the FACT — how much decoy is left. Deciding that
+    // "20 left" means "warn the operator" is *policy*, and policy lives in `App`
+    // beside `THUNDER_AT_CHARS_REMAINING`, so retuning that dial never reaches
+    // into `core/`. Same split as `Key` vs `KeyEvent`: this module stays pure.
+
+    #[test]
+    fn a_fresh_engine_still_owes_the_whole_decoy() {
+        let engine = Engine::new("abcde");
+
+        assert_eq!(
+            engine.decoy_chars_remaining(),
+            5,
+            "nothing typed yet, so every decoy char is still owed"
+        );
+    }
+
+    #[test]
+    fn each_hidden_keystroke_spends_exactly_one_decoy_char() {
+        let mut engine = Engine::new("abcde");
+        engine.handle_key(KeyPress::Char(';')); // → Hidden
+
+        simulate_typing(&mut engine, "x");
+        assert_eq!(engine.decoy_chars_remaining(), 4);
+
+        simulate_typing(&mut engine, "y");
+        assert_eq!(
+            engine.decoy_chars_remaining(),
+            3,
+            "one hidden keystroke spends exactly one decoy char — that 1:1 is \
+             what lets `chars remaining` mean `answer characters you have left`, \
+             which is the number the operator is actually reasoning about"
+        );
+    }
+
+    #[test]
+    fn toggling_hidden_mode_spends_no_decoy() {
+        let mut engine = Engine::new("abcde");
+
+        engine.handle_key(KeyPress::Char(';')); // into Hidden
+        engine.handle_key(KeyPress::Char(';')); // straight back out
+
+        assert_eq!(
+            engine.decoy_chars_remaining(),
+            5,
+            "`;` switches mode, it does not type — the decoy must be untouched"
+        );
+    }
+
+    #[test]
+    fn normal_mode_typing_spends_no_decoy() {
+        let mut engine = Engine::new("abcde");
+
+        simulate_typing(&mut engine, "oi"); // the visible question, typed for real
+
+        assert_eq!(
+            engine.decoy_chars_remaining(),
+            5,
+            "only HIDDEN keystrokes draw the decoy down; visible typing is the \
+             operator writing the question the audience can see"
+        );
+    }
+
+    #[test]
+    fn remaining_bottoms_out_at_zero_and_never_wraps() {
+        // ⚠ THIS IS THE BUG G14 EXISTS TO SIGNPOST. Past the end,
+        // `consume_decoy_buffer`'s `.get()` returns `None`, nothing is written,
+        // and the fake question silently stops growing while the operator keeps
+        // typing. If this ever underflowed instead of resting at 0, a `usize`
+        // would report ~18 quintillion, `remaining <= threshold` would go false,
+        // and the warning would fire NEVER instead of always.
+        let mut engine = Engine::new("ab");
+        engine.handle_key(KeyPress::Char(';')); // → Hidden
+
+        simulate_typing(&mut engine, "xxxxx"); // five keystrokes into a two-char decoy
+
+        assert_eq!(
+            engine.decoy_chars_remaining(),
+            0,
+            "an exhausted decoy owes zero, and keeps owing zero however long the \
+             operator keeps typing"
+        );
+    }
+
+    #[test]
+    fn a_hidden_backspace_gives_a_decoy_char_back() {
+        let mut engine = Engine::new("abcde");
+        engine.handle_key(KeyPress::Char(';')); // → Hidden
+        simulate_typing(&mut engine, "xy");
+
+        engine.handle_key(KeyPress::Backspace);
+
+        assert_eq!(
+            engine.decoy_chars_remaining(),
+            4,
+            "backspace rewinds the cursor, so one more decoy char is owed again"
+        );
+    }
+
+    #[test]
+    fn reset_owes_the_whole_of_the_new_decoy() {
+        let mut engine = Engine::new("ab");
+        engine.handle_key(KeyPress::Char(';'));
+        simulate_typing(&mut engine, "xx"); // spend it entirely
+
+        engine.reset("abcdefghij");
+
+        assert_eq!(
+            engine.decoy_chars_remaining(),
+            10,
+            "a new decoy is a clean slate — and this is the exact moment the \
+             thunder re-arms up in `App`"
+        );
     }
 }

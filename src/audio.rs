@@ -30,6 +30,8 @@ pub enum AudioCue {
     JumpScare,
     /// random demonic laughter (`assets/laugh.ogg`) running in background.
     Laugh,
+    //thunder sound effect
+    Thunder,
 }
 
 pub fn laugh_interval(roll: f32) -> Duration {
@@ -105,6 +107,7 @@ struct Player {
     ambience_sound: StaticSoundData,
     laugh_sound: StaticSoundData,
     jump_scare_sound: StaticSoundData,
+    thunder_sound: StaticSoundData,
 }
 
 #[cfg(feature = "audio")]
@@ -128,11 +131,15 @@ impl Audio {
         let jump_scare_sound =
             StaticSoundData::from_cursor(Cursor::new(include_bytes!("../assets/jump_scare.ogg")))?;
 
+        let thunder_sound =
+            StaticSoundData::from_cursor(Cursor::new(include_bytes!("../assets/thunder.ogg")))?;
+
         let player = Player {
             manager: audio_manager,
             ambience_sound,
             laugh_sound,
             jump_scare_sound,
+            thunder_sound,
         };
 
         Ok(Audio {
@@ -160,6 +167,9 @@ impl Audio {
             }
             AudioCue::JumpScare => {
                 let _ = player.manager.play(player.jump_scare_sound.clone());
+            }
+            AudioCue::Thunder => {
+                let _ = player.manager.play(player.thunder_sound.clone());
             }
         }
     }

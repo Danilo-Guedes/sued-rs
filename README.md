@@ -36,16 +36,51 @@ reveal, flicker, screen-shake), and config/CLI (themes, languages, `--no-sound`)
 ## Build & run
 
 ```sh
-cargo run            # build and run (no audio by default)
+cargo run            # build and run (audio ON by default)
 cargo test           # run the unit tests
+cargo run -- --no-sound       # run silent
 ```
 
-Audio is an optional feature so the project builds without ALSA dev headers:
+Audio is a Cargo feature, on by default. Turn it off at build time if you don't
+want the ALSA dev headers as a dependency:
 
 ```sh
-cargo run --features audio    # with sound (Linux needs: sudo apt install libasound2-dev)
+cargo run --no-default-features   # builds with no audio at all
 ```
+
+On Linux an audio build needs `sudo apt install libasound2-dev`.
 
 ## License
 
 Dual-licensed under either **MIT** or **Apache-2.0**, at your option.
+
+This covers the **code**. The bundled audio is third-party and carries its own
+terms, listed below.
+
+## Audio credits
+
+Four sound files ship with this crate, embedded into the binary at compile time.
+Each carries its own licence. All were transcoded to Ogg Vorbis for the build;
+any other change is noted per file.
+
+**`assets/ambience.ogg`** — the looping dread bed
+"Dark horror ambience" by **LukaCafuka** — [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/)
+<https://freesound.org/people/LukaCafuka/sounds/758478/>
+
+**`assets/laugh.ogg`** — the intermittent laughter
+"Evil Laugh 1" by **prometheus_crr** — [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/)
+<https://freesound.org/people/prometheus_crr/sounds/593305/>
+
+**`assets/jump_scare.ogg`** — the reply sting
+"Piano Scare" by **ERT3001** — [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/)
+<https://freesound.org/people/ERT3001/sounds/723292/>
+
+**`assets/thunder.ogg`** — the decoy-exhaustion warning
+"rock_breaking" (from *Yo Frankie!*) by the **Blender Foundation**
+[CC-BY 3.0](https://creativecommons.org/licenses/by/3.0/) —
+<https://opengameart.org/content/rockbreaking>
+*Modified: transcoded from FLAC to Ogg Vorbis.*
+
+CC0 files require no attribution; it is given here as a courtesy. The CC-BY file
+**does** require it, which is why its entry names the author, the licence and the
+modification.
