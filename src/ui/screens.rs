@@ -23,6 +23,7 @@ pub fn render(frame: &mut Frame, app: &App) {
             previous_reply,
             thinking_for,
             spell,
+            thunder_played: _,
         } => ask::render(
             frame,
             engine,

@@ -9,22 +9,35 @@
 use std::time::{Duration, Instant};
 
 use crate::{
+    audio::AudioCue,
     config::{ConfigOption, Configuration, Direction},
     core::engine::{Engine, KeyPress, StateChange},
     language::{Language, pick},
     ui::effects::{is_thinking, reveal_elapsed, reveal_is_complete, thinking_duration},
 };
 
+pub const THUNDER_AT_CHARS_REMAINING: usize = 20;
+
 #[derive(Debug)]
 pub struct App {
     screen: Screen,
     menu: MenuIndex,
     started_at: Instant,
+    pending_cue: Option<AudioCue>,
     config_object: Configuration,
     config_navigation: ConfigIndex,
     pending_save: Option<Configuration>,
 }
 
+// `Asking` is 201 bytes against clippy's 200-byte threshold — one byte over,
+// which `thunder_played` tipped. There is exactly ONE `Screen` in the program
+// (`App.screen`, never in a collection), so the "waste" this lint is protecting
+// against totals 207 bytes, once. Boxing would buy that back with a heap
+// allocation per screen transition and a pointer indirection on every `engine`
+// access — and `engine` is read in the render path, which runs every tick.
+// ⏳ Revisit at G11+G12: folding these fields into `Option<Reply>` reshapes the
+// variant anyway, and may drop it back under the threshold on its own.
+#[allow(clippy::large_enum_variant)]
 #[derive(Default, Debug)]
 pub enum Screen {
     #[default]
@@ -37,6 +50,7 @@ pub enum Screen {
         previous_reply: Option<String>,
         thinking_for: Duration,
         spell: &'static str,
+        thunder_played: bool,
     },
     Info,
     About,
@@ -132,6 +146,7 @@ impl App {
             menu: MenuIndex::new(),
             started_at: Instant::now(),
             config_navigation: ConfigIndex::new(),
+            pending_cue: None,
             config_object: parsed_json_config,
             pending_save: None,
         }
@@ -158,6 +173,7 @@ impl App {
                             previous_reply: None,
                             thinking_for: Duration::ZERO,
                             spell: pick(translations.ask.spells, rand::random()),
+                            thunder_played: false,
                         };
                         AppFlow::Stay
                     }
@@ -197,6 +213,7 @@ impl App {
                 previous_reply,
                 thinking_for,
                 spell,
+                thunder_played,
             } => {
                 // The conversation guard (G8). Three time-paths converge on the
                 // ordinary key handling below: SueD never spoke → fall straight
@@ -223,6 +240,10 @@ impl App {
                         *denied_message = None;
 
                         engine.reset(pick(translations.decoys, rand::random()));
+                        // A new decoy owes a new warning. This is the SECOND
+                        // `engine.reset` site (F5 is the other) — re-arming
+                        // belongs wherever a decoy begins, not to one key.
+                        *thunder_played = false;
                     } else {
                         match key {
                             // The lock only holds keys that would feed the
@@ -246,12 +267,14 @@ impl App {
                                 *replied_at = Some(Instant::now());
                                 *thinking_for = thinking_duration(rand::random());
                                 *spell = pick(translations.ask.spells, rand::random());
+                                *thunder_played = false;
                             }
                             StateChange::Denied => {
                                 *denied_message = Some(pick(translations.denials, rand::random()));
                                 *replied_at = Some(Instant::now());
                                 *thinking_for = thinking_duration(rand::random());
                                 *spell = pick(translations.ask.spells, rand::random());
+                                *thunder_played = false;
                             }
                             _ => {}
                         }
@@ -272,11 +295,20 @@ impl App {
                         *previous_reply = None;
                         *replied_at = None;
                         *denied_message = None;
+                        *thunder_played = false;
                         AppFlow::Stay
                     }
                     KeyPress::CtrlC => AppFlow::Quit,
                     other_char => {
                         engine.handle_key(other_char);
+
+                        if !*thunder_played
+                            && (engine.decoy_chars_remaining() <= THUNDER_AT_CHARS_REMAINING)
+                        {
+                            self.pending_cue = Some(AudioCue::Thunder);
+                            *thunder_played = true;
+                        }
+
                         AppFlow::Stay
                     }
                 }
@@ -339,6 +371,10 @@ impl App {
 
     pub fn started_at(&self) -> &Instant {
         &self.started_at
+    }
+
+    pub fn take_pending_cue(&mut self) -> Option<AudioCue> {
+        self.pending_cue.take()
     }
 
     pub fn config(&self) -> Configuration {
@@ -1838,6 +1874,193 @@ mod tests {
         assert!(
             !app.is_pondering(),
             "the ponder must end — otherwise the sting never gets its edge"
+        );
+    }
+
+    // ── G14 · thunder at decoy exhaustion ────────────────────────────────────
+    //
+    // ⚠ THE SEAM IS `pending_cue` REVIVED, AND THAT IS CORRECT HERE FOR THE
+    // EXACT REASON IT FAILED FOR G13. G13's ponder→speak transition happens on a
+    // TIMER with no keypress, so a queue drained inside `main`'s keypress block
+    // could never see it — which is why that seam was deleted. G14's threshold
+    // crossing is the opposite: it happens *inside* `handle_key`, caused by a
+    // keystroke. A keypress-driven event wants a keypress-drained queue.
+    //
+    // Shape these pin: `Engine::decoy_chars_remaining()` (pure fact) +
+    // `THUNDER_AT_CHARS_REMAINING` (policy) + `thunder_spent` on `Screen::Asking`
+    // (per-decoy memory, re-armed wherever `engine.reset` is called) +
+    // `App::pending_cue`/`take_pending_cue` (mirrors `pending_save`).
+
+    /// Menu → Asking → Hidden, ready to burn decoy.
+    const ASK_IN_HIDDEN: [KeyPress; 3] = [
+        KeyPress::Enter,     // Intro → Menu
+        KeyPress::Enter,     // Menu → Asking
+        KeyPress::Char(';'), // → Hidden
+    ];
+
+    /// The ask screen's engine, for tests that need to read the decoy down.
+    fn engine_of(app: &App) -> &Engine {
+        match &app.screen {
+            Screen::Asking { engine, .. } => engine,
+            other => panic!("expected Asking, got {other:?}"),
+        }
+    }
+
+    /// Type hidden chars until the decoy is exactly `remaining` from spent.
+    ///
+    /// Driven by the engine's own count rather than a fixed keystroke total,
+    /// because the decoy is picked at random from a pool of 86–113 char strings
+    /// — no constant would land on the threshold for every roll.
+    fn type_hidden_until_remaining(app: &mut App, remaining: usize) {
+        for _ in 0..500 {
+            if engine_of(app).decoy_chars_remaining() <= remaining {
+                return;
+            }
+            app.handle_key(KeyPress::Char('x'));
+        }
+        panic!("never reached {remaining} remaining — is the app still in Hidden mode?");
+    }
+
+    #[test]
+    fn crossing_the_threshold_queues_the_thunder() {
+        let mut app = drive(&ASK_IN_HIDDEN);
+
+        type_hidden_until_remaining(&mut app, THUNDER_AT_CHARS_REMAINING);
+
+        assert_eq!(
+            app.take_pending_cue(),
+            Some(AudioCue::Thunder),
+            "at {THUNDER_AT_CHARS_REMAINING} chars left the operator must be told \
+             to land the answer — today the fake question just stops growing \
+             mid-performance and nothing warns anyone"
+        );
+    }
+
+    #[test]
+    fn nothing_is_queued_while_the_decoy_is_still_comfortable() {
+        let mut app = drive(&ASK_IN_HIDDEN);
+
+        type_hidden_until_remaining(&mut app, THUNDER_AT_CHARS_REMAINING + 5);
+
+        assert_eq!(
+            app.take_pending_cue(),
+            None,
+            "still five chars of runway beyond the line — warning this early \
+             trains the operator to ignore it"
+        );
+    }
+
+    #[test]
+    fn the_thunder_strikes_once_per_decoy_not_once_per_keystroke() {
+        // ⚠ EDGE-triggered, not level-triggered. `remaining <= threshold` stays
+        // true for every keystroke after the crossing, so a plain level test
+        // would fire the sting on all twenty of the remaining keys — a stuck
+        // alarm rather than a warning. Same trap as `is_pondering` in G13.
+        let mut app = drive(&ASK_IN_HIDDEN);
+        type_hidden_until_remaining(&mut app, THUNDER_AT_CHARS_REMAINING);
+        assert!(
+            app.take_pending_cue().is_some(),
+            "precondition: it struck once on the crossing"
+        );
+
+        app.handle_key(KeyPress::Char('x'));
+        app.handle_key(KeyPress::Char('x'));
+
+        assert_eq!(
+            app.take_pending_cue(),
+            None,
+            "one thunder per decoy — his call, 2026-07-28"
+        );
+    }
+
+    #[test]
+    fn backspacing_back_over_the_line_does_not_re_arm_the_thunder() {
+        // Danilo's call 2026-07-28: STAY SPENT. Re-arming would let a nervous
+        // operator retrigger the warning repeatedly mid-performance, which is
+        // exactly when the room is listening.
+        let mut app = drive(&ASK_IN_HIDDEN);
+        type_hidden_until_remaining(&mut app, THUNDER_AT_CHARS_REMAINING);
+        app.take_pending_cue(); // drain the first strike
+
+        app.handle_key(KeyPress::Backspace); // back above the line
+        app.handle_key(KeyPress::Char('x')); // and across it a second time
+
+        assert_eq!(
+            app.take_pending_cue(),
+            None,
+            "the warning is spent for this decoy — only a NEW decoy re-arms it"
+        );
+    }
+
+    #[test]
+    fn f5_starts_a_new_decoy_and_re_arms_the_thunder() {
+        let mut app = drive(&ASK_IN_HIDDEN);
+        type_hidden_until_remaining(&mut app, THUNDER_AT_CHARS_REMAINING);
+        app.take_pending_cue();
+
+        app.handle_key(KeyPress::F5); // panic button → brand-new decoy
+        app.handle_key(KeyPress::Char(';')); // reset leaves Mode::Normal, so re-enter Hidden
+        type_hidden_until_remaining(&mut app, THUNDER_AT_CHARS_REMAINING);
+
+        assert_eq!(
+            app.take_pending_cue(),
+            Some(AudioCue::Thunder),
+            "a fresh decoy owes a fresh warning — which is why re-arming belongs \
+             wherever `engine.reset` is called, not to the keystroke that crossed"
+        );
+    }
+
+    #[test]
+    fn a_new_exchange_re_arms_the_thunder() {
+        // The conversation path (G8): SueD finishes, and the next key rotates
+        // the reply aside and resets the engine. That is a SECOND `engine.reset`
+        // call site, so a fix that only re-arms on F5 leaves every follow-up
+        // question in the conversation unwarned.
+        //
+        // ⚠ THE PRECONDITION IS THE ENTIRE TEST, and the first version of this
+        // test did not have it. It went straight to the reveal via
+        // `ASK_AND_REVEAL`, which types only two hidden chars — so the line was
+        // never crossed, `thunder_played` was still `false` at the reset, and the
+        // assertion below passed whether or not the re-arm existed. It proved
+        // nothing while looking like it proved the headline claim.
+        //
+        // Burn the FIRST decoy's thunder before asking, or this test is decor.
+        let mut app = drive(&ASK_IN_HIDDEN);
+        type_hidden_until_remaining(&mut app, THUNDER_AT_CHARS_REMAINING);
+        assert!(
+            app.take_pending_cue().is_some(),
+            "precondition: the FIRST decoy must actually spend its thunder, \
+             otherwise the re-arm below is never exercised"
+        );
+
+        app.handle_key(KeyPress::Enter); // ask it — SueD replies
+        finish_the_reveal(&mut app);
+
+        app.handle_key(KeyPress::Char('n')); // begins the next exchange → new decoy
+        app.handle_key(KeyPress::Char(';')); // → Hidden
+        type_hidden_until_remaining(&mut app, THUNDER_AT_CHARS_REMAINING);
+
+        assert_eq!(
+            app.take_pending_cue(),
+            Some(AudioCue::Thunder),
+            "every decoy gets its own warning, including the ones that arrive \
+             mid-conversation rather than through F5"
+        );
+    }
+
+    #[test]
+    fn take_pending_cue_drains_so_the_thunder_plays_once() {
+        // Mirrors `take_pending_save`. `main` drains this inside the keypress
+        // block; if a second look still returned the cue, the tick loop would
+        // replay the sting every frame until the next keystroke.
+        let mut app = drive(&ASK_IN_HIDDEN);
+        type_hidden_until_remaining(&mut app, THUNDER_AT_CHARS_REMAINING);
+
+        assert!(app.take_pending_cue().is_some(), "first look gets the cue");
+        assert_eq!(
+            app.take_pending_cue(),
+            None,
+            "second look must be empty — the queue is drained, not merely read"
         );
     }
 }

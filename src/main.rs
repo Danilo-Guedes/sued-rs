@@ -148,6 +148,10 @@ fn run(
                             .with_context(|| format!("saving {}", config_file_path.display()))?;
                     }
 
+                    if let Some(cue) = app_state.take_pending_cue() {
+                        audio.play(cue);
+                    }
+
                     if flow == AppFlow::Quit {
                         return Ok(());
                     }
