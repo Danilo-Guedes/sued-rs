@@ -13,7 +13,7 @@ use crate::{
     config::{ConfigOption, Configuration, Direction},
     conversation::Message,
     core::engine::{Engine, KeyPress, StateChange},
-    language::{Language, pick},
+    language::{Language, Translation, pick},
     ui::effects::{is_thinking, reveal_elapsed, reveal_is_complete, thinking_duration},
 };
 
@@ -55,6 +55,19 @@ pub enum Screen {
     Info,
     About,
     Config,
+}
+
+impl Screen {
+    fn asking(translations: Translation) -> Self {
+        Screen::Asking {
+            engine: Engine::new(pick(translations.decoys, rand::random())),
+            reply: None,
+            previous_reply: None,
+            spell: pick(translations.ask.spells, rand::random()),
+            thunder_played: false,
+            history: vec![Message::Sued(String::from(translations.ask.welcome_line))],
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -199,16 +212,7 @@ impl App {
             Screen::Menu => match key {
                 KeyPress::Enter => match MenuIndex::ALL[self.menu.index()] {
                     MenuOption::Ask => {
-                        self.screen = Screen::Asking {
-                            engine: Engine::new(pick(translations.decoys, rand::random())),
-                            reply: None,
-                            previous_reply: None,
-                            spell: pick(translations.ask.spells, rand::random()),
-                            thunder_played: false,
-                            history: vec![Message::Sued(String::from(
-                                translations.ask.welcome_line,
-                            ))],
-                        };
+                        self.screen = Screen::asking(translations);
                         AppFlow::Stay
                     }
                     MenuOption::Info => {
@@ -292,33 +296,25 @@ impl App {
 
                         let state = engine.handle_key(KeyPress::Enter);
 
-                        if !question.is_empty() {
-                            history.push(Message::User(question));
-                        }
-
-                        match state {
-                            StateChange::Revealed => {
-                                *reply = Some(Reply::new(
-                                    engine
-                                        .revealed()
-                                        .expect("Revealed implied a revealed answer")
-                                        .to_string(),
-                                ));
-                                *spell = pick(translations.ask.spells, rand::random());
-                                *thunder_played = false;
-                            }
+                        let sued_words = match state {
+                            StateChange::Revealed => Some(
+                                engine
+                                    .revealed()
+                                    .expect("Revealed implied a revealed answer")
+                                    .to_string(),
+                            ),
                             StateChange::Denied => {
-                                *reply = Some(Reply::new(
-                                    pick(translations.denials, rand::random()).to_string(),
-                                ));
-                                *spell = pick(translations.ask.spells, rand::random());
-                                *thunder_played = false;
+                                Some(pick(translations.denials, rand::random()).to_string())
                             }
-                            _ => {}
-                        }
+                            _ => None,
+                        };
 
-                        if let Some(reply) = reply {
-                            history.push(Message::Sued(String::from(reply.words())));
+                        if let Some(words) = sued_words {
+                            history.push(Message::User(question));
+                            history.push(Message::Sued(words.clone()));
+                            *reply = Some(Reply::new(words));
+                            *spell = pick(translations.ask.spells, rand::random());
+                            *thunder_played = false;
                         }
 
                         AppFlow::Stay
@@ -332,12 +328,7 @@ impl App {
                         AppFlow::Stay
                     }
                     KeyPress::F5 => {
-                        engine.reset(pick(translations.decoys, rand::random()));
-
-                        *previous_reply = None;
-                        *reply = None;
-                        *thunder_played = false;
-                        *history = vec![Message::Sued(String::from(translations.ask.welcome_line))];
+                        self.screen = Screen::asking(translations);
                         AppFlow::Stay
                     }
                     KeyPress::CtrlC => AppFlow::Quit,
