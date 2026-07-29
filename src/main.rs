@@ -9,6 +9,7 @@ mod audio;
 mod cli;
 mod config;
 mod constants;
+mod conversation;
 mod core;
 mod language;
 mod ui;

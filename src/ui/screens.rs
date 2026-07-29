@@ -22,6 +22,7 @@ pub fn render(frame: &mut Frame, app: &App) {
             previous_reply,
             spell,
             thunder_played: _,
+            history: _,
         } => ask::render(
             frame,
             engine,

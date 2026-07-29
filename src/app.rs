@@ -11,6 +11,7 @@ use std::time::{Duration, Instant};
 use crate::{
     audio::AudioCue,
     config::{ConfigOption, Configuration, Direction},
+    conversation::Message,
     core::engine::{Engine, KeyPress, StateChange},
     language::{Language, pick},
     ui::effects::{is_thinking, reveal_elapsed, reveal_is_complete, thinking_duration},
@@ -49,6 +50,7 @@ pub enum Screen {
         previous_reply: Option<String>,
         spell: &'static str,
         thunder_played: bool,
+        history: Vec<Message>,
     },
     Info,
     About,
@@ -183,6 +185,7 @@ impl App {
     }
     pub fn handle_key(&mut self, key: KeyPress) -> AppFlow {
         let translations = self.config().language().translation();
+
         match &mut self.screen {
             Screen::Intro => match key {
                 KeyPress::Enter => {
@@ -202,6 +205,9 @@ impl App {
                             previous_reply: None,
                             spell: pick(translations.ask.spells, rand::random()),
                             thunder_played: false,
+                            history: vec![Message::Sued(String::from(
+                                translations.ask.welcome_line,
+                            ))],
                         };
                         AppFlow::Stay
                     }
@@ -240,6 +246,7 @@ impl App {
                 previous_reply,
                 spell,
                 thunder_played,
+                history,
             } => {
                 // The conversation guard (G8). Three time-paths converge on the
                 // ordinary key handling below: SueD never spoke → fall straight
@@ -281,7 +288,13 @@ impl App {
 
                 match key {
                     KeyPress::Enter => {
+                        let question = engine.visible_buffer().to_string();
+
                         let state = engine.handle_key(KeyPress::Enter);
+
+                        if !question.is_empty() {
+                            history.push(Message::User(question));
+                        }
 
                         match state {
                             StateChange::Revealed => {
@@ -304,6 +317,10 @@ impl App {
                             _ => {}
                         }
 
+                        if let Some(reply) = reply {
+                            history.push(Message::Sued(String::from(reply.words())));
+                        }
+
                         AppFlow::Stay
                     }
                     KeyPress::Esc => {
@@ -320,6 +337,7 @@ impl App {
                         *previous_reply = None;
                         *reply = None;
                         *thunder_played = false;
+                        *history = vec![Message::Sued(String::from(translations.ask.welcome_line))];
                         AppFlow::Stay
                     }
                     KeyPress::CtrlC => AppFlow::Quit,
@@ -1676,6 +1694,240 @@ mod tests {
                 );
             }
             other => panic!("expected Asking, got {other:?}"),
+        }
+    }
+
+    // ── G12 step 2: the séance keeps a record ────────────────────────────────
+    // `previous_reply` above is a rolling *view* — one reply, the one still on
+    // screen. This is the record: every bubble the audience saw, in the order it
+    // happened, starting with SueD's opening greeting. It lives in the
+    // `Screen::Asking` payload and dies with the screen (F5 or Esc), so there is
+    // no size cap and nothing to prune.
+    //
+    // ⚠ THE RULE THE WHOLE GIMMICK RESTS ON. A question is recorded from
+    // `engine.visible_buffer()` — the DECOY the audience read — and it must be
+    // read BEFORE `Enter` reaches the engine, because `handle_enter_key` empties
+    // that buffer on its way through. Record the wrong buffer, or the right one
+    // too late, and the transcript hands the operator's secret to the first
+    // person who scrolls up.
+    //
+    // These specs name a `Message` type that does not exist yet, so this red
+    // phase opens as compile errors rather than failing assertions.
+
+    /// The transcript of the ask screen we are standing on, or a panic if we
+    /// aren't standing on one.
+    fn transcript(app: &App) -> &[Message] {
+        match &app.screen {
+            Screen::Asking { history, .. } => history,
+            other => panic!("expected Asking, got {other:?}"),
+        }
+    }
+
+    /// SueD's opening line, in whatever language the app is currently in.
+    fn greeting_of(app: &App) -> &'static str {
+        app.config().language().translation().ask.welcome_line
+    }
+
+    #[test]
+    fn a_fresh_oracle_opens_with_sueds_greeting_alone() {
+        // The mockup's counter reads `6/6` with the greeting counted, so the
+        // transcript starts holding the line the audience has been reading since
+        // the first frame — not empty.
+        let app = drive(&[KeyPress::Enter, KeyPress::Enter]);
+
+        match transcript(&app) {
+            [Message::Sued(greeting)] => assert_eq!(greeting, greeting_of(&app)),
+            other => panic!("expected SueD's greeting and nothing else, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn the_greeting_is_seeded_in_the_active_language() {
+        // Same discipline as the G2 pins below: flip idioma first, so a
+        // hardcoded Portuguese string cannot pass. The seed must read the active
+        // translation, not whichever one happened to be the default.
+        let app = ask_in_english(&[]);
+
+        match transcript(&app) {
+            [Message::Sued(greeting)] => assert_eq!(
+                greeting,
+                Language::EnUs.translation().ask.welcome_line,
+                "the greeting must be seeded from the live translation"
+            ),
+            other => panic!("expected SueD's greeting and nothing else, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn an_answered_exchange_records_the_question_then_the_answer() {
+        // Order is the whole point of a transcript: you asked, then it spoke.
+        let app = drive(&ASK_AND_REVEAL);
+
+        match transcript(&app) {
+            [
+                Message::Sued(greeting),
+                Message::User(question),
+                Message::Sued(answer),
+            ] => {
+                assert_eq!(greeting, greeting_of(&app));
+                assert!(
+                    !question.is_empty(),
+                    "the question the audience read must be recorded too"
+                );
+                assert_eq!(answer, "42", "SueD's reply joins the record verbatim");
+            }
+            other => panic!("expected greeting → question → answer, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn a_taunt_is_recorded_like_any_other_reply() {
+        // A denial is something SueD said out loud in front of the mark, so the
+        // transcript must not quietly drop it and disagree with the screen.
+        let app = drive(&ASK_AND_BE_DENIED);
+        let denials = app.config().language().translation().denials;
+
+        match transcript(&app) {
+            [
+                Message::Sued(_),
+                Message::User(question),
+                Message::Sued(taunt),
+            ] => {
+                assert_eq!(
+                    question, "oi",
+                    "a question asked in the open is recorded exactly as typed"
+                );
+                assert!(
+                    denials.contains(&taunt.as_str()),
+                    "the taunt must come from the active language's denial pool, got {taunt:?}"
+                );
+            }
+            other => panic!("expected greeting → question → taunt, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn the_transcript_records_the_decoy_never_the_secret() {
+        // THE test. Everything but the Enter, so the decoy can be read off the
+        // screen while it still exists.
+        let mut app = drive(&ASK_AND_REVEAL[..5]);
+        let on_screen = match &app.screen {
+            Screen::Asking { engine, .. } => engine.visible_buffer().to_string(),
+            other => panic!("expected Asking, got {other:?}"),
+        };
+        assert_eq!(
+            on_screen.chars().count(),
+            2,
+            "precondition: two hidden keystrokes painted two decoy chars"
+        );
+
+        feed(&mut app, &[KeyPress::Enter]);
+
+        match transcript(&app) {
+            [_, Message::User(question), _] => {
+                // Deliberately a POSITIVE assertion. `!question.contains("42")`
+                // alone is satisfied by an EMPTY bubble — which is exactly what
+                // reading the buffer after the Enter produces. Move the capture
+                // below the forward and this equality is what must fail.
+                assert_eq!(
+                    question, &on_screen,
+                    "the transcript keeps what the AUDIENCE read"
+                );
+                assert!(
+                    !question.contains('4') && !question.contains('2'),
+                    "the operator's secret must never reach the transcript, got {question:?}"
+                );
+            }
+            other => panic!("expected greeting → question → answer, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn no_secret_reaches_the_transcript_across_a_whole_seance() {
+        // One exchange proves the happy path. A séance proves the rule holds on
+        // every branch — a second question recorded from the wrong buffer would
+        // sail straight past the test above.
+        let mut app = drive(&ASK_AND_REVEAL);
+        finish_the_reveal(&mut app);
+        feed(
+            &mut app,
+            &[
+                KeyPress::Char(';'), // rotates the exchange, then Hidden again
+                KeyPress::Char('9'),
+                KeyPress::Char('9'),
+                KeyPress::Enter, // reveal "99"
+            ],
+        );
+
+        let decoys = app.config().language().translation().decoys;
+        match transcript(&app) {
+            [
+                Message::Sued(_),
+                Message::User(first),
+                Message::Sued(answer),
+                Message::User(second),
+                Message::Sued(next_answer),
+            ] => {
+                assert_eq!(answer, "42");
+                assert_eq!(next_answer, "99");
+                for question in [first, second] {
+                    assert!(
+                        decoys.iter().any(|d| d.starts_with(question.as_str())),
+                        "every recorded question must be a decoy prefix, got {question:?}"
+                    );
+                    assert!(
+                        !question.contains(['4', '2', '9']),
+                        "no secret may survive anywhere in the transcript, got {question:?}"
+                    );
+                }
+            }
+            other => panic!("expected two full exchanges after the greeting, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn an_empty_offering_leaves_no_trace() {
+        // The engine ignores an empty Enter outright — no question, no reply, so
+        // nothing to record. An empty `You` bubble would be a lie about what was
+        // ever on screen.
+        let app = drive(&[KeyPress::Enter, KeyPress::Enter, KeyPress::Enter]);
+
+        match transcript(&app) {
+            [Message::Sued(_)] => {}
+            other => panic!("expected the greeting alone, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn f5_burns_the_transcript_and_reseeds_the_greeting() {
+        // F5 is the panic button: the séance never happened. It clears back to a
+        // freshly greeted screen, not to an empty list — the greeting is part of
+        // what the audience sees, so it is part of what the record holds.
+        let mut app = drive(&ASK_AND_REVEAL);
+        finish_the_reveal(&mut app);
+
+        feed(&mut app, &[KeyPress::F5]);
+
+        match transcript(&app) {
+            [Message::Sued(greeting)] => assert_eq!(greeting, greeting_of(&app)),
+            other => panic!("expected a freshly greeted screen, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn leaving_the_oracle_burns_the_transcript_too() {
+        // The same claim as `leaving_the_oracle_starts_a_clean_conversation_next_time`,
+        // now that there is a whole thread to forget rather than one reply. The
+        // conversation dies on Esc — which is the reason the transcript can live
+        // in the screen payload instead of moving up to `App`.
+        let mut app = drive(&ASK_AND_REVEAL);
+        finish_the_reveal(&mut app);
+
+        feed(&mut app, &[KeyPress::Esc, KeyPress::Enter]); // → Menu → Asking again
+
+        match transcript(&app) {
+            [Message::Sued(greeting)] => assert_eq!(greeting, greeting_of(&app)),
+            other => panic!("expected a brand-new thread, got {other:?}"),
         }
     }
 
