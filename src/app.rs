@@ -45,16 +45,46 @@ pub enum Screen {
     Menu,
     Asking {
         engine: Engine,
-        replied_at: Option<Instant>,
-        denied_message: Option<&'static str>,
+        reply: Option<Reply>,
         previous_reply: Option<String>,
-        thinking_for: Duration,
         spell: &'static str,
         thunder_played: bool,
     },
     Info,
     About,
     Config,
+}
+
+#[derive(Debug)]
+pub struct Reply {
+    words: String,
+    asked_at: Instant,
+    thinking_for: Duration,
+}
+
+impl Reply {
+    pub fn new(words: String) -> Self {
+        Reply {
+            words,
+            asked_at: Instant::now(),
+            thinking_for: thinking_duration(rand::random()),
+        }
+    }
+    pub fn words(&self) -> &str {
+        self.words.as_str()
+    }
+
+    pub fn is_pondering(&self) -> bool {
+        self.thinking_for > self.asked_at.elapsed()
+    }
+
+    pub fn speaking_elapsed(&self) -> Duration {
+        reveal_elapsed(self.asked_at.elapsed(), self.thinking_for)
+    }
+
+    pub fn since_asked(&self) -> Duration {
+        self.asked_at.elapsed()
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -168,10 +198,8 @@ impl App {
                     MenuOption::Ask => {
                         self.screen = Screen::Asking {
                             engine: Engine::new(pick(translations.decoys, rand::random())),
-                            replied_at: None,
-                            denied_message: None,
+                            reply: None,
                             previous_reply: None,
-                            thinking_for: Duration::ZERO,
                             spell: pick(translations.ask.spells, rand::random()),
                             thunder_played: false,
                         };
@@ -208,10 +236,8 @@ impl App {
             },
             Screen::Asking {
                 engine,
-                replied_at,
-                denied_message,
+                reply,
                 previous_reply,
-                thinking_for,
                 spell,
                 thunder_played,
             } => {
@@ -220,30 +246,26 @@ impl App {
                 // through; SueD mid-reply → swallow the key (only F5/Esc still
                 // act); SueD finished → this key begins the next exchange, so
                 // the live reply rotates aside and everything re-arms first.
-                if let Some(sued_replied_at) = replied_at {
-                    let current_sued_words = match denied_message {
-                        Some(denied_msg) => denied_msg,
-                        None => engine
-                            .revealed()
-                            .expect("a reply clock with no reply words is a bug"),
-                    };
+
+                if let Some(replied) = reply {
+                    let current_sued_words = replied.words();
 
                     let sued_finished_speaking = reveal_is_complete(
                         current_sued_words,
-                        reveal_elapsed(sued_replied_at.elapsed(), *thinking_for),
+                        reveal_elapsed(replied.asked_at.elapsed(), replied.thinking_for),
                     );
 
                     if sued_finished_speaking {
                         // Keep the words before `engine.reset()` drops them.
                         *previous_reply = Some(current_sued_words.to_string());
-                        *replied_at = None;
-                        *denied_message = None;
 
                         engine.reset(pick(translations.decoys, rand::random()));
                         // A new decoy owes a new warning. This is the SECOND
                         // `engine.reset` site (F5 is the other) — re-arming
                         // belongs wherever a decoy begins, not to one key.
                         *thunder_played = false;
+
+                        *reply = None;
                     } else {
                         match key {
                             // The lock only holds keys that would feed the
@@ -263,16 +285,19 @@ impl App {
 
                         match state {
                             StateChange::Revealed => {
-                                *denied_message = None;
-                                *replied_at = Some(Instant::now());
-                                *thinking_for = thinking_duration(rand::random());
+                                *reply = Some(Reply::new(
+                                    engine
+                                        .revealed()
+                                        .expect("Revealed implied a revealed answer")
+                                        .to_string(),
+                                ));
                                 *spell = pick(translations.ask.spells, rand::random());
                                 *thunder_played = false;
                             }
                             StateChange::Denied => {
-                                *denied_message = Some(pick(translations.denials, rand::random()));
-                                *replied_at = Some(Instant::now());
-                                *thinking_for = thinking_duration(rand::random());
+                                *reply = Some(Reply::new(
+                                    pick(translations.denials, rand::random()).to_string(),
+                                ));
                                 *spell = pick(translations.ask.spells, rand::random());
                                 *thunder_played = false;
                             }
@@ -293,8 +318,7 @@ impl App {
                         engine.reset(pick(translations.decoys, rand::random()));
 
                         *previous_reply = None;
-                        *replied_at = None;
-                        *denied_message = None;
+                        *reply = None;
                         *thunder_played = false;
                         AppFlow::Stay
                     }
@@ -361,8 +385,32 @@ impl App {
             },
         }
     }
+
     pub fn screen(&self) -> &Screen {
         &self.screen
+    }
+
+    /// Test-only: pretend the live question was asked `by` earlier.
+    ///
+    /// The reply's interesting states are 3–6 seconds of wall-clock apart, so a
+    /// render test cannot reach them without either sleeping (slow and flaky) or
+    /// moving the clock. This moves the clock. `#[cfg(test)]`, so it never ships.
+    ///
+    /// Same rewind trick as `finish_the_reveal` in this module's own tests —
+    /// this one exists because `Reply`'s fields are private, which is exactly the
+    /// encapsulation that stopped a call site picking the wrong clock.
+    #[cfg(test)]
+    pub(crate) fn rewind_reply(&mut self, by: Duration) {
+        let Screen::Asking {
+            reply: Some(reply), ..
+        } = &mut self.screen
+        else {
+            panic!("rewind_reply expects a live reply on the ask screen");
+        };
+        reply.asked_at = reply
+            .asked_at
+            .checked_sub(by)
+            .expect("the test clock must be able to rewind");
     }
 
     pub fn menu(&self) -> &MenuIndex {
@@ -406,10 +454,8 @@ impl App {
     pub fn is_pondering(&self) -> bool {
         match &self.screen {
             Screen::Asking {
-                replied_at: Some(asked_at),
-                thinking_for,
-                ..
-            } => is_thinking(asked_at.elapsed(), *thinking_for),
+                reply: Some(reply), ..
+            } => is_thinking(reply.asked_at.elapsed(), reply.thinking_for),
             _ => false,
         }
     }
@@ -634,43 +680,15 @@ mod tests {
         match state.screen {
             Screen::Asking {
                 engine,
-                denied_message,
+                reply: Some(reply),
                 ..
             } => {
-                let taunt =
-                    denied_message.expect("a denial must surface SUED's taunt phrase for the UI");
+                let taunt = reply.words();
                 assert!(
                     denials.contains(&taunt),
                     "the taunt must come from the active language's denial pool, got {taunt:?}"
                 );
                 assert_eq!(engine.revealed(), None, "a denial reveals no answer");
-            }
-            other => panic!("expected Asking, got {other:?}"),
-        }
-    }
-
-    #[test]
-    fn revealing_a_real_answer_carries_no_denial() {
-        // The mutually-exclusive case: a proper hidden answer reveals normally and
-        // must NOT also carry a denial phrase.
-        let state = drive(&[
-            KeyPress::Enter,
-            KeyPress::Enter,     // → Asking
-            KeyPress::Char(';'), // Hidden
-            KeyPress::Char('4'),
-            KeyPress::Char('2'), // secret answer "42"
-            KeyPress::Enter,     // reveal
-        ]);
-        match state.screen {
-            Screen::Asking {
-                engine,
-                replied_at,
-                denied_message,
-                ..
-            } => {
-                assert_eq!(engine.revealed(), Some("42"));
-                assert!(replied_at.is_some(), "the reveal clock started");
-                assert_eq!(denied_message, None, "a real reveal carries no denial");
             }
             other => panic!("expected Asking, got {other:?}"),
         }
@@ -779,11 +797,9 @@ mod tests {
         // otherwise a no-op F5 would pass this test for the wrong reason.
         let dirtied = drive(&dirty);
         match dirtied.screen {
-            Screen::Asking {
-                engine, replied_at, ..
-            } => {
+            Screen::Asking { engine, reply, .. } => {
                 assert!(engine.revealed().is_some(), "precondition: answer revealed");
-                assert!(replied_at.is_some(), "precondition: reveal clock started");
+                assert!(reply.is_some(), "precondition: Sued replied");
             }
             other => panic!("expected Asking, got {other:?}"),
         }
@@ -793,12 +809,10 @@ mod tests {
         keys.push(KeyPress::F5);
         let reset = drive(&keys);
         match reset.screen {
-            Screen::Asking {
-                engine, replied_at, ..
-            } => {
+            Screen::Asking { engine, reply, .. } => {
                 assert_eq!(engine.visible_buffer(), "", "buffers cleared");
                 assert_eq!(engine.revealed(), None, "no revealed answer");
-                assert!(replied_at.is_none(), "reveal clock reset");
+                assert!(reply.is_none(), "no reply struct");
             }
             other => panic!("expected a fresh Asking, got {other:?}"),
         }
@@ -821,10 +835,10 @@ mod tests {
         // would pass this test for the wrong reason.
         let dirtied = drive(&dirty);
         match dirtied.screen {
-            Screen::Asking { denied_message, .. } => {
+            Screen::Asking { reply, .. } => {
                 assert!(
-                    denied_message.is_some(),
-                    "precondition: the denial parked a taunt to clear"
+                    reply.is_some(),
+                    "precondition: the is dirty and should be a some"
                 );
             }
             other => panic!("expected Asking, got {other:?}"),
@@ -836,13 +850,8 @@ mod tests {
         keys.push(KeyPress::F5);
         let reset = drive(&keys);
         match reset.screen {
-            Screen::Asking {
-                replied_at,
-                denied_message,
-                ..
-            } => {
-                assert_eq!(denied_message, None, "F5 must clear the pending denial");
-                assert!(replied_at.is_none(), "F5 resets the animation clock");
+            Screen::Asking { reply, .. } => {
+                assert!(reply.is_none(), "F5 must clear the pending denial");
             }
             other => panic!("expected a fresh Asking, got {other:?}"),
         }
@@ -866,15 +875,8 @@ mod tests {
         // Precondition: SUED really replied — and the reply CONSUMED the
         // question (G8 amendment): the input already reads empty while SueD taunts.
         match drive(&until_reply).screen {
-            Screen::Asking {
-                engine,
-                denied_message,
-                ..
-            } => {
-                assert!(
-                    denied_message.is_some(),
-                    "precondition: SUED replied (denied)"
-                );
+            Screen::Asking { engine, reply, .. } => {
+                assert!(reply.is_some(), "precondition: SUED replied (denied)");
                 assert_eq!(
                     engine.visible_buffer(),
                     "",
@@ -1336,13 +1338,13 @@ mod tests {
     /// the app must now behave as though SueD has finished speaking.
     fn finish_the_reveal(app: &mut App) {
         match &mut app.screen {
-            Screen::Asking { replied_at, .. } => {
-                let started = replied_at.expect("precondition: SUED has replied");
-                *replied_at = Some(
-                    started
-                        .checked_sub(Duration::from_secs(60))
-                        .expect("the test clock must be able to rewind 60s"),
-                );
+            Screen::Asking {
+                reply: Some(reply), ..
+            } => {
+                reply.asked_at = reply
+                    .asked_at
+                    .checked_sub(Duration::from_secs(60))
+                    .expect("the test clock must be able to rewind 60s");
             }
             other => panic!("expected Asking, got {other:?}"),
         }
@@ -1376,13 +1378,8 @@ mod tests {
         let app = drive(&[KeyPress::Enter, KeyPress::Enter, KeyPress::Enter]);
 
         match &app.screen {
-            Screen::Asking {
-                replied_at,
-                denied_message,
-                ..
-            } => {
-                assert!(replied_at.is_none(), "no reply clock started");
-                assert_eq!(*denied_message, None, "no taunt for an empty question");
+            Screen::Asking { reply, .. } => {
+                assert!(reply.is_none(), "no reply clock started");
             }
             other => panic!("expected Asking, got {other:?}"),
         }
@@ -1463,9 +1460,8 @@ mod tests {
         match &app.screen {
             Screen::Asking {
                 engine,
-                replied_at,
-                denied_message,
                 previous_reply,
+                reply,
                 ..
             } => {
                 assert_eq!(
@@ -1478,8 +1474,7 @@ mod tests {
                     None,
                     "the engine is re-armed for the new question"
                 );
-                assert!(replied_at.is_none(), "the reply clock is re-armed too");
-                assert_eq!(*denied_message, None);
+                assert!(reply.is_none(), "the reply clock is re-armed too");
             }
             other => panic!("expected Asking, got {other:?}"),
         }
@@ -1497,8 +1492,8 @@ mod tests {
         let denials = app.config().language().translation().denials;
         match &app.screen {
             Screen::Asking {
-                denied_message,
                 previous_reply,
+                reply,
                 ..
             } => {
                 let kept = previous_reply
@@ -1508,8 +1503,8 @@ mod tests {
                     denials.contains(&kept),
                     "the remembered reply must be the denial taunt, got {kept:?}"
                 );
-                assert_eq!(
-                    *denied_message, None,
+                assert!(
+                    reply.is_none(),
                     "the live denial is cleared once it has been rotated aside"
                 );
             }
@@ -1567,8 +1562,7 @@ mod tests {
         match &app.screen {
             Screen::Asking {
                 previous_reply,
-                denied_message,
-                replied_at,
+                reply,
                 ..
             } => {
                 assert_eq!(
@@ -1576,12 +1570,8 @@ mod tests {
                     Some("42"),
                     "the earlier answer must be kept, not overwritten by the new reply"
                 );
-                assert_eq!(
-                    *denied_message, None,
-                    "an empty question earns nothing — the taunt needs words"
-                );
                 assert!(
-                    replied_at.is_none(),
+                    reply.is_none(),
                     "no reply fired: the oracle stays quiet on an empty offering"
                 );
             }
@@ -1652,9 +1642,8 @@ mod tests {
         match &app.screen {
             Screen::Asking {
                 engine,
-                replied_at,
-                denied_message,
                 previous_reply,
+                reply,
                 ..
             } => {
                 assert_eq!(
@@ -1663,8 +1652,7 @@ mod tests {
                 );
                 assert_eq!(engine.revealed(), None);
                 assert_eq!(engine.visible_buffer(), "");
-                assert!(replied_at.is_none());
-                assert_eq!(*denied_message, None);
+                assert!(reply.is_none());
             }
             other => panic!("expected Asking, got {other:?}"),
         }
@@ -1796,8 +1784,10 @@ mod tests {
         ]);
 
         match state.screen {
-            Screen::Asking { denied_message, .. } => {
-                let taunt = denied_message.expect("a denial must park a taunt");
+            Screen::Asking {
+                reply: Some(reply), ..
+            } => {
+                let taunt = reply.words();
                 assert!(
                     Language::EnUs.translation().denials.contains(&taunt),
                     "the oracle must taunt in the configured language, got {taunt:?}"
@@ -2062,5 +2052,148 @@ mod tests {
             None,
             "second look must be empty — the queue is drained, not merely read"
         );
+    }
+
+    // ── G11 · `Option<Reply>` — one Option over the correlated group ─────────
+    //
+    // ⚠ THIS IS A REFACTOR, SO READ THE RHYTHM DIFFERENTLY FROM G13/G14.
+    // Behaviour is FROZEN. These tests pin the NEW SHAPE; the ~48 tests that go
+    // through the public surface (`handle_key`, `is_pondering`, `visible_buffer`)
+    // must stay BYTE-IDENTICAL through the change — they are the only thing
+    // proving the refactor preserved behaviour. If a test has to be edited to
+    // compile, its CLAIM must survive verbatim; only the reading mechanism moves.
+    //
+    // Target shape:
+    //   struct Reply { words: String, asked_at: Instant, thinking_for: Duration }
+    //   Screen::Asking { engine, reply: Option<Reply>, previous_reply, spell }
+    //
+    // `words` is a plain `String`, NOT an `Answer(String) | Denial(&'static str)`
+    // enum — evidence, not taste: `ask.rs:141` renders a denial through the exact
+    // same `typewriter_reveal` as an answer, with no styling difference, and
+    // G12's `Message::Sued(String)` flattens the two anyway. Nothing downstream
+    // can tell them apart, so the type should not pretend it matters.
+    //
+    // ⚠ NOTE WHAT IS DELIBERATELY *NOT* TESTED HERE. The old
+    // `.expect("a reply clock with no reply words is a bug")` enforced "a reply
+    // always has words" at RUNTIME. Once `Reply` owns `words`, that is a
+    // COMPILE-TIME guarantee — a `Reply` without words cannot be constructed.
+    // Writing a test for it would be writing a test that can never fail, which
+    // is the vacuous-assertion trap this codebase has now been bitten by twice.
+    // The rung moved from "loud" to "impossible"; impossible needs no test.
+
+    /// A `Reply` whose clock was started `asked_secs` ago — same rewind trick as
+    /// `finish_the_reveal`, so the ponder can be observed from either side.
+    fn reply_asked_ago(asked_secs: u64, thinking_secs: u64) -> Reply {
+        Reply {
+            words: "42".to_string(),
+            asked_at: Instant::now()
+                .checked_sub(Duration::from_secs(asked_secs))
+                .expect("the test clock must be able to rewind"),
+            thinking_for: Duration::from_secs(thinking_secs),
+        }
+    }
+
+    #[test]
+    fn a_reply_ponders_while_it_is_still_inside_its_thinking_time() {
+        let reply = reply_asked_ago(1, 5);
+
+        assert!(
+            reply.is_pondering(),
+            "asked 1s ago with a 5s ponder — SueD is still weighing the mortal"
+        );
+    }
+
+    #[test]
+    fn a_reply_stops_pondering_once_the_thinking_time_is_spent() {
+        let reply = reply_asked_ago(10, 3);
+
+        assert!(
+            !reply.is_pondering(),
+            "the ponder must END — `main`'s falling-edge check is what fires the \
+             reply sting, and an edge needs both sides"
+        );
+    }
+
+    #[test]
+    fn speaking_elapsed_stays_at_zero_for_the_whole_ponder() {
+        let reply = reply_asked_ago(1, 5);
+
+        assert_eq!(
+            reply.speaking_elapsed(),
+            Duration::ZERO,
+            "SueD has not begun speaking, so the reveal clock has not started — \
+             this is the `saturating_sub` in `reveal_elapsed`, and it must not \
+             underflow into a colossal Duration"
+        );
+    }
+
+    #[test]
+    fn speaking_elapsed_counts_from_the_moment_the_ponder_ended() {
+        // The whole point of the shifted clock (G13): the typewriter measures
+        // time spent SPEAKING, not time since the question was asked.
+        let reply = reply_asked_ago(10, 3);
+
+        let speaking = reply.speaking_elapsed();
+        assert!(
+            speaking >= Duration::from_secs(6) && speaking < Duration::from_secs(8),
+            "asked 10s ago minus a 3s ponder ≈ 7s of speaking, got {speaking:?}"
+        );
+    }
+
+    #[test]
+    fn a_fresh_ask_screen_has_no_reply() {
+        let app = drive(&[KeyPress::Enter, KeyPress::Enter]);
+
+        match &app.screen {
+            Screen::Asking { reply, .. } => assert!(
+                reply.is_none(),
+                "nothing asked yet — `is_none()` now says what three separate \
+                 cleared fields used to say between them"
+            ),
+            other => panic!("expected Asking, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn revealing_an_answer_stamps_a_reply_carrying_that_answer() {
+        let app = drive(&ASK_AND_REVEAL);
+
+        match &app.screen {
+            Screen::Asking { reply, .. } => {
+                let reply = reply
+                    .as_ref()
+                    .expect("a revealed answer must stamp a reply");
+                assert_eq!(
+                    reply.words(),
+                    "42",
+                    "the staged answer becomes SueD's words"
+                );
+            }
+            other => panic!("expected Asking, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn a_denial_stamps_a_reply_too_so_one_field_carries_both_kinds() {
+        // ⚠ THE HEADLINE TEST OF G11. Today the words live in two places and a
+        // `match denied_message { Some(..) => .., None => engine.revealed()... }`
+        // picks between them at every read site. One field carrying BOTH kinds is
+        // what dissolves that match — and the `.expect` inside it.
+        let app = drive(&ASK_AND_BE_DENIED);
+        let denials = app.config().language().translation().denials;
+
+        match &app.screen {
+            Screen::Asking {
+                reply: Some(reply), ..
+            } => {
+                assert!(
+                    denials.contains(&reply.words()),
+                    "the taunt must come from the active language's denial pool, \
+                     got {:?}",
+                    reply.words()
+                );
+            }
+            other => panic!("expected Asking, got {other:?}"),
+        }
     }
 }

@@ -9,27 +9,25 @@ use ratatui::text::{Line, Span, Text};
 use ratatui::widgets::{Block, Borders, Padding, Paragraph, Wrap};
 
 use super::common::{colorfull_bordered_block, create_centered_rect, hint_line, render_nav_strip};
+use crate::app::Reply;
 use crate::config::Configuration;
 use crate::core::engine::Engine;
 use crate::ui::effects::{
-    CURSOR_CHAR, cursor_on, flash_intensity, flicker_intensity, is_thinking, reveal_elapsed,
-    reveal_is_complete, shake_offset, thinking_dots, typewriter_reveal,
+    CURSOR_CHAR, cursor_on, flash_intensity, flicker_intensity, reveal_is_complete, shake_offset,
+    thinking_dots, typewriter_reveal,
 };
 use crate::ui::screens::common::{
     DEMON_ART, DEMON_ART_HEIGHT, DEMON_ART_WIDTH, NavTab, create_screen_block,
 };
 use crate::ui::template::styled_line;
 
-#[allow(clippy::too_many_arguments)]
 pub(super) fn render(
     frame: &mut Frame,
     engine: &Engine,
-    replied_at: Option<Instant>,
-    denied_message: Option<&'static str>,
+    reply: Option<&Reply>,
     started_at: &Instant,
     config: Configuration,
     previous_reply: Option<&str>,
-    thinking_for: Duration,
     spell: &'static str,
 ) {
     let time_elapsed_from_the_start_at = started_at.elapsed();
@@ -40,17 +38,11 @@ pub(super) fn render(
 
     let translation = language.translation();
 
-    let since_asked = replied_at.map(|t| t.elapsed());
-    let pondering = since_asked.is_some_and(|e| is_thinking(e, thinking_for));
+    let casting_for = reply.filter(|r| r.is_pondering()).map(Reply::since_asked);
 
-    let casting_for: Option<Duration> = since_asked.filter(|_| pondering);
-
-    // How long SueD has been SPEAKING — the raw clock minus the ponder.
-    // Every reveal-side effect below reads THIS and nothing reads the raw
-    // elapsed, `None` still means "SueD never spoke", so each consumer keeps its rest value.
-    let speaking_for: Option<Duration> = since_asked
-        .filter(|_| !pondering)
-        .map(|asked_at| reveal_elapsed(asked_at, thinking_for));
+    let speaking_for = reply
+        .filter(|r| !r.is_pondering())
+        .map(Reply::speaking_elapsed);
 
     let layout = create_screen_block(frame, palette);
 
@@ -138,8 +130,8 @@ pub(super) fn render(
         .fg(palette.accent),
         None => match engine.revealed() {
             Some(answer) => Text::from(typewriter_reveal(answer, elapsed_duration)),
-            None => match denied_message {
-                Some(denied_str) => Text::from(typewriter_reveal(denied_str, elapsed_duration)),
+            None => match reply {
+                Some(reply) => Text::from(typewriter_reveal(reply.words(), elapsed_duration)),
                 None => {
                     match previous_reply {
                         Some(last_reply) => Text::from(last_reply),
@@ -205,21 +197,10 @@ pub(super) fn render(
         sued_logs_layout,
     );
 
-    let input_is_unlocked = if pondering {
-        false // still pondering — locked
-    } else {
-        match speaking_for {
-            Some(elapsed) => {
-                let current_sued_words = match denied_message {
-                    Some(denied_msg) => denied_msg,
-                    None => engine
-                        .revealed()
-                        .expect("a reply clock with no reply words is a bug"),
-                };
-                reveal_is_complete(current_sued_words, elapsed)
-            }
-            None => true, // genuinely never spoke
-        }
+    let input_is_unlocked = match reply {
+        None => true,                         // never spoke
+        Some(r) if r.is_pondering() => false, // still weighing you
+        Some(r) => reveal_is_complete(r.words(), r.speaking_elapsed()),
     };
 
     let rendered_cursor = if input_is_unlocked && cursor_on(time_elapsed_from_the_start_at) {
