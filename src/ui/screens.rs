@@ -23,6 +23,7 @@ pub fn render(frame: &mut Frame, app: &App) {
             spell,
             thunder_played: _,
             history: _,
+            history_view: _,
         } => ask::render(
             frame,
             engine,

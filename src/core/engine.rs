@@ -27,6 +27,11 @@ pub enum KeyPress {
     Left,
     Right,
     CtrlC,
+    F1,
+    Home,
+    End,
+    PageUp,
+    PageDown,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -61,7 +66,12 @@ impl Engine {
             | KeyPress::Down
             | KeyPress::Left
             | KeyPress::Right
-            | KeyPress::CtrlC => StateChange::None,
+            | KeyPress::CtrlC
+            | KeyPress::F1
+            | KeyPress::Home
+            | KeyPress::End
+            | KeyPress::PageUp
+            | KeyPress::PageDown => StateChange::None,
         }
     }
 

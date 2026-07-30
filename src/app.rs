@@ -11,7 +11,7 @@ use std::time::{Duration, Instant};
 use crate::{
     audio::AudioCue,
     config::{ConfigOption, Configuration, Direction},
-    conversation::Message,
+    conversation::{HistoryView, Message},
     core::engine::{Engine, KeyPress, StateChange},
     language::{Language, Translation, pick},
     ui::effects::{is_thinking, reveal_elapsed, reveal_is_complete, thinking_duration},
@@ -51,6 +51,7 @@ pub enum Screen {
         spell: &'static str,
         thunder_played: bool,
         history: Vec<Message>,
+        history_view: Option<HistoryView>,
     },
     Info,
     About,
@@ -66,6 +67,7 @@ impl Screen {
             spell: pick(translations.ask.spells, rand::random()),
             thunder_played: false,
             history: vec![Message::Sued(String::from(translations.ask.welcome_line))],
+            history_view: None,
         }
     }
 }
@@ -251,13 +253,30 @@ impl App {
                 spell,
                 thunder_played,
                 history,
+                history_view,
             } => {
+                //first we discard the not allowed keypress
+                // to avoind leak somethig to the engine
+                // while the history popover is shown
+                if history_view.is_some() {
+                    match key {
+                        KeyPress::F1
+                        | KeyPress::Esc
+                        | KeyPress::Up
+                        | KeyPress::Down
+                        | KeyPress::Home
+                        | KeyPress::End => {} // the popover's own keys
+                        KeyPress::F5 => {} // the panic button still works
+                        KeyPress::CtrlC => return AppFlow::Quit,
+                        _ => return AppFlow::Stay, // everything else swallowed
+                    }
+                }
+
                 // The conversation guard (G8). Three time-paths converge on the
                 // ordinary key handling below: SueD never spoke → fall straight
                 // through; SueD mid-reply → swallow the key (only F5/Esc still
                 // act); SueD finished → this key begins the next exchange, so
                 // the live reply rotates aside and everything re-arms first.
-
                 if let Some(replied) = reply {
                     let current_sued_words = replied.words();
 
@@ -320,7 +339,12 @@ impl App {
                         AppFlow::Stay
                     }
                     KeyPress::Esc => {
-                        self.screen = Screen::Menu;
+                        if history_view.is_some() {
+                            *history_view = None;
+                        } else {
+                            // here user is in the main ask screen
+                            self.screen = Screen::Menu;
+                        }
                         AppFlow::Stay
                     }
                     KeyPress::Backspace => {
@@ -332,6 +356,52 @@ impl App {
                         AppFlow::Stay
                     }
                     KeyPress::CtrlC => AppFlow::Quit,
+                    KeyPress::F1 => {
+                        if history_view.is_some() {
+                            // here the hitview is open already. needs toggle off
+                            *history_view = None;
+                        } else {
+                            // here the hitview is close. needs toggle on
+                            *history_view = Some(HistoryView::opened_on_last(history.len()));
+                        }
+
+                        AppFlow::Stay
+                    }
+                    KeyPress::Home => {
+                        if let Some(inner_hist_view) = history_view {
+                            inner_hist_view.jump_to_first();
+                        }
+                        AppFlow::Stay
+                    }
+                    KeyPress::End => {
+                        if let Some(inner_hist_view) = history_view {
+                            inner_hist_view.jump_to_last();
+                        }
+                        AppFlow::Stay
+                    }
+                    KeyPress::PageUp => {
+                        // logic here
+                        AppFlow::Stay
+                    }
+                    KeyPress::PageDown => {
+                        // logic here
+                        AppFlow::Stay
+                    }
+                    KeyPress::Up => {
+                        // logic here
+
+                        if let Some(inner_hist_view) = history_view {
+                            inner_hist_view.handle_up();
+                        }
+                        AppFlow::Stay
+                    }
+                    KeyPress::Down => {
+                        // logic here
+                        if let Some(inner_hist_view) = history_view {
+                            inner_hist_view.handle_down();
+                        }
+                        AppFlow::Stay
+                    }
                     other_char => {
                         engine.handle_key(other_char);
 
@@ -2129,6 +2199,103 @@ mod tests {
                     "the transcript must not grow while you are reading it"
                 );
             }
+            other => panic!("expected Asking, got {other:?}"),
+        }
+    }
+
+    // ⚠ The two tests above and below this line look like they overlap, and they
+    // do not. `after_one_exchange` leaves SueD finished speaking, so the opening
+    // `F1` trips the G8 rotation on its way in and the engine is freshly reset —
+    // which means the test above meets `Enter` with an EMPTY buffer, where the
+    // engine's own no-op-on-empty rule swallows it regardless of the guard.
+    //
+    // These two open the popover MID-TYPING instead. That is the only state in
+    // which a leak has anything to destroy, and it is the state the operator is
+    // actually in when they reach for the transcript.
+
+    #[test]
+    fn enter_cannot_ask_a_question_from_behind_the_transcript() {
+        // A leaked `Enter` does not merely reach the engine: it stamps `*reply`,
+        // so `main`'s tick loop fires the reply sting and THE MARK HEARS SUED
+        // ANSWER while the operator is still reading. It also pushes two
+        // messages into `history` while the popover is displaying it.
+        let mut app = drive(&[
+            KeyPress::Enter,     // Intro → Menu
+            KeyPress::Enter,     // Menu → Asking
+            KeyPress::Char(';'), // Hidden
+            KeyPress::Char('4'),
+            KeyPress::Char('2'), // the secret answer, half-typed
+        ]);
+
+        match &app.screen {
+            Screen::Asking {
+                engine, history, ..
+            } => {
+                assert!(
+                    !engine.visible_buffer().is_empty(),
+                    "precondition: there must be a half-typed question to protect"
+                );
+                assert_eq!(history.len(), 1, "precondition: only the greeting so far");
+            }
+            other => panic!("expected Asking, got {other:?}"),
+        }
+
+        feed(&mut app, &[KeyPress::F1, KeyPress::Enter]);
+
+        match &app.screen {
+            Screen::Asking {
+                reply,
+                history,
+                history_view,
+                ..
+            } => {
+                assert!(
+                    history_view.is_some(),
+                    "precondition: the popover is still open, so that Enter was its own"
+                );
+                assert!(
+                    reply.is_none(),
+                    "a leaked Enter asked a question nobody finished typing"
+                );
+                assert_eq!(history.len(), 1, "the transcript grew behind the overlay");
+            }
+            other => panic!("expected Asking, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn backspace_cannot_eat_the_secret_answer_from_behind_the_transcript() {
+        // In hidden mode `handle_backspace_key` pops `answer_buffer` and rewinds
+        // the decoy cursor, so a leaked Backspace deletes a character of the
+        // OPERATOR'S REAL ANSWER — silently, behind an overlay, with no feedback
+        // until they hit Enter and SueD says the wrong thing.
+        let mut app = drive(&[
+            KeyPress::Enter,
+            KeyPress::Enter,
+            KeyPress::Char(';'),
+            KeyPress::Char('4'),
+            KeyPress::Char('2'),
+        ]);
+
+        let before = match &app.screen {
+            Screen::Asking { engine, .. } => {
+                assert!(
+                    !engine.visible_buffer().is_empty(),
+                    "precondition: there must be a character to lose"
+                );
+                engine.visible_buffer().to_string()
+            }
+            other => panic!("expected Asking, got {other:?}"),
+        };
+
+        feed(&mut app, &[KeyPress::F1, KeyPress::Backspace]);
+
+        match &app.screen {
+            Screen::Asking { engine, .. } => assert_eq!(
+                engine.visible_buffer(),
+                before,
+                "Backspace reached the input hidden behind the overlay"
+            ),
             other => panic!("expected Asking, got {other:?}"),
         }
     }
