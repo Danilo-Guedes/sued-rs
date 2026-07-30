@@ -1922,6 +1922,261 @@ mod tests {
         }
     }
 
+    // ── G12 step 3: the popover, and who gets the keys ───────────────────────
+    // `history_view: Option<HistoryView>` is the popover: `None` closed, `Some`
+    // open. `HistoryView { selected }` is the CURSOR in the scrollback — the
+    // mockup's `▶` caret, the `6/6` counter and the scrollbar thumb are all read
+    // off it, the last two derived rather than stored. It opens on the NEWEST
+    // message, because a scrollback opens where the action is.
+    //
+    // ⚠⚠ THE ROUTING RULE, AND IT IS TRICK-CRITICAL. While the popover is open
+    // the keys belong to it and MUST NOT reach the engine — otherwise the
+    // operator paints decoy characters into a question nobody can see, behind an
+    // overlay. So the popover guard runs BEFORE the G8 conversation guard.
+    // `Esc` disambiguates off that same `Option`: close if open, else leave.
+    //
+    // ⚠ `Up`/`Down` CLAMP here rather than wrapping like the menu does — wrapping
+    // from the newest message straight to the greeting reads as a glitch, not as
+    // navigation. Both ends are pinned below, and both are load-bearing: `Up`
+    // past zero would underflow a `usize`, and `Down` past the end would index
+    // out of bounds the moment step 4 renders the selection.
+    //
+    // These specs name `HistoryView` plus three `KeyPress` variants that do not
+    // exist yet (`F1`, `Home`, `End`), so this phase opens as compile errors.
+
+    /// The transcript cursor of the ask screen we are standing on: `None` when
+    /// the popover is closed.
+    fn transcript_cursor(app: &App) -> Option<usize> {
+        match &app.screen {
+            Screen::Asking { history_view, .. } => history_view.as_ref().map(HistoryView::selected),
+            other => panic!("expected Asking, got {other:?}"),
+        }
+    }
+
+    /// One COMPLETE exchange: the transcript holds greeting → question → answer
+    /// and SueD has stopped speaking, which matters because the popover cannot be
+    /// opened while she is still talking (see the last test in this block).
+    fn after_one_exchange() -> App {
+        let mut app = drive(&ASK_AND_REVEAL);
+        finish_the_reveal(&mut app);
+        app
+    }
+
+    #[test]
+    fn f1_opens_the_transcript_on_the_newest_message() {
+        // Three messages, so the cursor lands on index 2 — what SueD just said,
+        // not the greeting five bubbles up.
+        let mut app = after_one_exchange();
+
+        feed(&mut app, &[KeyPress::F1]);
+
+        assert_eq!(
+            transcript_cursor(&app),
+            Some(2),
+            "the popover opens on the last of the three messages"
+        );
+    }
+
+    #[test]
+    fn f1_on_a_fresh_oracle_selects_the_greeting() {
+        // The one-message case, and it is not just tidiness: "open on the last
+        // message" is `len - 1`, which underflows a `usize` if it is ever reached
+        // with an empty transcript. The greeting seed is what makes that
+        // impossible — this pins the arithmetic at its smallest input.
+        let mut app = drive(&[KeyPress::Enter, KeyPress::Enter]);
+
+        feed(&mut app, &[KeyPress::F1]);
+
+        assert_eq!(transcript_cursor(&app), Some(0));
+    }
+
+    #[test]
+    fn f1_toggles_the_transcript_shut_again() {
+        let mut app = after_one_exchange();
+
+        feed(&mut app, &[KeyPress::F1, KeyPress::F1]);
+
+        assert_eq!(transcript_cursor(&app), None, "the same key closes it");
+    }
+
+    #[test]
+    fn esc_closes_the_transcript_instead_of_leaving_the_oracle() {
+        // Esc is overloaded, and the popover wins: closing an overlay is what
+        // Esc means everywhere else in the world.
+        let mut app = after_one_exchange();
+
+        feed(&mut app, &[KeyPress::F1, KeyPress::Esc]);
+
+        assert_eq!(transcript_cursor(&app), None);
+        assert!(
+            !on_menu(&app),
+            "the first Esc closes the popover, it must not also walk out of the oracle"
+        );
+    }
+
+    #[test]
+    fn esc_leaves_the_oracle_once_the_transcript_is_shut() {
+        // ...and the door still works on the second press. Same key, two
+        // meanings, disambiguated entirely by the `Option`.
+        let mut app = after_one_exchange();
+
+        feed(&mut app, &[KeyPress::F1, KeyPress::Esc, KeyPress::Esc]);
+
+        assert!(on_menu(&app));
+    }
+
+    #[test]
+    fn up_walks_back_one_message() {
+        let mut app = after_one_exchange();
+
+        feed(&mut app, &[KeyPress::F1, KeyPress::Up]);
+
+        assert_eq!(transcript_cursor(&app), Some(1));
+    }
+
+    #[test]
+    fn up_clamps_at_the_oldest_message() {
+        // Five Ups over three messages. A raw `selected - 1` panics here in debug
+        // and wraps to ~1.8×10¹⁹ in release, so this is the same underflow class
+        // as the config label width — fixed by construction, not by luck.
+        let mut app = after_one_exchange();
+
+        feed(
+            &mut app,
+            &[
+                KeyPress::F1,
+                KeyPress::Up,
+                KeyPress::Up,
+                KeyPress::Up,
+                KeyPress::Up,
+                KeyPress::Up,
+            ],
+        );
+
+        assert_eq!(
+            transcript_cursor(&app),
+            Some(0),
+            "the thread stops at its first message"
+        );
+    }
+
+    #[test]
+    fn down_clamps_at_the_newest_message() {
+        // The popover already opens on the last message, so Down has nowhere to
+        // go. Unclamped this walks off the end, and step 4's render indexes it.
+        let mut app = after_one_exchange();
+
+        feed(&mut app, &[KeyPress::F1, KeyPress::Down, KeyPress::Down]);
+
+        assert_eq!(transcript_cursor(&app), Some(2));
+    }
+
+    #[test]
+    fn home_jumps_to_the_oldest_and_end_back_to_the_newest() {
+        let mut app = after_one_exchange();
+
+        feed(&mut app, &[KeyPress::F1, KeyPress::Home]);
+        assert_eq!(transcript_cursor(&app), Some(0), "Home jumps to the top");
+
+        feed(&mut app, &[KeyPress::End]);
+        assert_eq!(transcript_cursor(&app), Some(2), "End jumps to the bottom");
+    }
+
+    #[test]
+    fn the_engine_never_sees_a_key_while_the_transcript_is_open() {
+        // ⚠ THE TRICK-CRITICAL ONE. Keys that leak past an open popover paint
+        // decoy characters into an input the operator cannot see, and an Enter
+        // that leaks asks a question they never finished typing. Nothing below
+        // may reach the engine, and the transcript itself must not grow.
+        let mut app = after_one_exchange();
+
+        feed(
+            &mut app,
+            &[
+                KeyPress::F1,
+                KeyPress::Char('x'),
+                KeyPress::Char(';'), // the mode toggle, of all keys, must not land
+                KeyPress::Char('4'),
+                KeyPress::Enter,
+                KeyPress::Backspace,
+            ],
+        );
+
+        assert_eq!(
+            transcript_cursor(&app),
+            Some(2),
+            "precondition: the popover is still open, so these keys were its own"
+        );
+        match &app.screen {
+            Screen::Asking {
+                engine,
+                reply,
+                history,
+                ..
+            } => {
+                assert_eq!(
+                    engine.visible_buffer(),
+                    "",
+                    "not one keystroke may reach the input behind the overlay"
+                );
+                assert!(
+                    reply.is_none(),
+                    "a leaked Enter would have asked a question"
+                );
+                assert_eq!(
+                    history.len(),
+                    3,
+                    "the transcript must not grow while you are reading it"
+                );
+            }
+            other => panic!("expected Asking, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn ctrl_c_still_quits_with_the_transcript_open() {
+        // The panic button is never locked — same rule as the G8 mid-reveal lock.
+        let mut app = after_one_exchange();
+        feed(&mut app, &[KeyPress::F1]);
+
+        let flow = app.handle_key(KeyPress::CtrlC);
+
+        assert_eq!(flow, AppFlow::Quit);
+    }
+
+    #[test]
+    fn f5_shuts_the_transcript_and_burns_the_thread() {
+        // F5 is still the hard reset, and it reaches through the popover: a fresh
+        // screen has nothing open and nothing to read.
+        let mut app = after_one_exchange();
+
+        feed(&mut app, &[KeyPress::F1, KeyPress::F5]);
+
+        assert_eq!(transcript_cursor(&app), None);
+        match transcript(&app) {
+            [Message::Sued(greeting)] => assert_eq!(greeting, greeting_of(&app)),
+            other => panic!("expected a freshly greeted screen, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn f1_is_locked_out_while_sued_is_still_speaking() {
+        // Note the missing `finish_the_reveal`: SueD is mid-crawl, so the G8 lock
+        // swallows F1 exactly as it swallows typing. This is what makes recording
+        // the reply at Enter safe — the message is in `history` from that moment,
+        // but nobody can open the popover to read it until it has actually been
+        // spoken on screen.
+        let mut app = drive(&ASK_AND_REVEAL);
+
+        feed(&mut app, &[KeyPress::F1]);
+
+        assert_eq!(
+            transcript_cursor(&app),
+            None,
+            "the transcript stays shut until SueD stops talking"
+        );
+    }
+
     // ── G2 wiring: SUED's words come from the language pools ─────────────────
     // Decoys and denials are drawn from `Language::translation()` with a random
     // roll at the app edge — so these specs assert pool *membership*, never
