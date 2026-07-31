@@ -557,6 +557,26 @@ pub fn pick<'a>(pool: &[&'a str], roll: f32) -> &'a str {
 mod tests {
     use super::*;
 
+    // ── which language SueD ships in ─────────────────────────────────────────
+    // A product decision, not an implementation detail: SueD boots in English
+    // because crates.io is an English storefront and `cargo install` traffic is
+    // global. `Configuration::default()` delegates here, so config.rs can only
+    // pin THAT delegation — it cannot pin the choice itself without asserting
+    // `default() == default()`. These two are that choice's only home: flipping
+    // `#[default]` or reordering `ALL` has to break a test, deliberately.
+
+    #[test]
+    fn english_is_the_language_sued_ships_in() {
+        assert_eq!(Language::default(), Language::EnUs);
+    }
+
+    #[test]
+    fn the_language_cycle_starts_at_english() {
+        // `ALL` is what [←→] walks on the config screen and the order the chips
+        // render in — a separate fact from `#[default]`, and separately flippable.
+        assert_eq!(Language::ALL[0], Language::EnUs);
+    }
+
     // ── pick: the roll → entry mapping ───────────────────────────────────────
     // The contract mirrors `laugh_interval`: multiply the roll across the pool
     // and floor into an index. `rand::random::<f32>()` yields `0.0..1.0`, but

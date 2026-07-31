@@ -9,7 +9,7 @@
 //!   "theme": "sangue",
 //!   "audio_volume": 80,
 //!   "animations": true,
-//!   "language": "ptbr"
+//!   "language": "enus"
 //! }
 //! ```
 //!
@@ -197,14 +197,14 @@ mod tests {
 
     #[test]
     fn a_full_config_parses_every_field() {
-        let json = r#"{ "theme": "fosforo", "audio_volume": 40, "animations": false, "language": "enus" }"#;
+        let json = r#"{ "theme": "fosforo", "audio_volume": 40, "animations": false, "language": "ptbr" }"#;
 
         let config = Configuration::from_json(json).expect("a complete config must parse");
 
         assert_eq!(config.theme, Theme::Fosforo);
         assert_eq!(config.audio_volume, 40);
         assert!(!config.animations);
-        assert_eq!(config.language, Language::default())
+        assert_eq!(config.language, Language::PtBr)
     }
 
     #[test]
