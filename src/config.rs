@@ -153,7 +153,7 @@ impl Default for Configuration {
             theme: Theme::Sangue,
             audio_volume: 80,
             animations: true,
-            language: Language::PtBr,
+            language: Language::default(),
         }
     }
 }
@@ -168,7 +168,7 @@ mod tests {
 
         assert_eq!(config.theme, Theme::Sangue);
         assert_eq!(config.audio_volume, 80);
-        assert_eq!(config.language, Language::PtBr);
+        assert_eq!(config.language, Language::default());
         assert!(config.animations);
     }
 
@@ -197,14 +197,14 @@ mod tests {
 
     #[test]
     fn a_full_config_parses_every_field() {
-        let json = r#"{ "theme": "fosforo", "audio_volume": 40, "animations": false, "language": "ptbr" }"#;
+        let json = r#"{ "theme": "fosforo", "audio_volume": 40, "animations": false, "language": "enus" }"#;
 
         let config = Configuration::from_json(json).expect("a complete config must parse");
 
         assert_eq!(config.theme, Theme::Fosforo);
         assert_eq!(config.audio_volume, 40);
         assert!(!config.animations);
-        assert_eq!(config.language, Language::PtBr)
+        assert_eq!(config.language, Language::default())
     }
 
     #[test]

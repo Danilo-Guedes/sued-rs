@@ -6,7 +6,7 @@ description = "A horror-themed terminal recreation of SueD, the 2000s Brazilian 
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/Danilo-Guedes/sued-rs"
 readme = "README.md"
-keywords = ["tui", "prank", "oracle", "terminal", "horror"]
+keywords = ["ratatui", "prank", "oracle", "game", "horror"]
 categories = ["command-line-utilities"]
 
 [dependencies]
