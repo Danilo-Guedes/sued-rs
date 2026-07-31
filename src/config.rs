@@ -16,6 +16,7 @@
 //! - **`theme`** — `"sangue"` (default), `"ambar"`, or `"fosforo"`.
 //! - **`audio_volume`** — `0`–`100`. `0` is silence.
 //! - **`animations`** — `true` (default) lets the horror flicker, flash, shake effects; `false` holds it
+//! - **`language`** — `"enus"` (default), `"ptbr"`, or `"eses"`.
 //!   steady, which also helps if flickering bothers your eyes.
 //!
 //! A missing file is normal and silent. A file that *exists* but is malformed,
