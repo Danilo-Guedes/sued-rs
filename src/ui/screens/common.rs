@@ -118,6 +118,7 @@ pub(super) enum NavTab {
     Info,
     About,
     Config,
+    History,
 }
 
 impl NavTab {
@@ -127,6 +128,7 @@ impl NavTab {
         NavTab::Info,
         NavTab::About,
         NavTab::Config,
+        // History doesn't fit here because is a inner scren of Ask
     ];
 
     pub(super) fn label(self, language: Language) -> &'static str {
@@ -157,6 +159,11 @@ impl NavTab {
                 Language::PtBr => "Configuração",
                 Language::EnUs => "Configuration",
                 Language::EsEs => "Configuración",
+            },
+            NavTab::History => match language {
+                Language::PtBr => "Histórico",
+                Language::EnUs => "History",
+                Language::EsEs => "Historial",
             },
         }
     }
