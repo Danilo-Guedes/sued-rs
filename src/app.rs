@@ -2358,13 +2358,13 @@ mod tests {
     // ── G2 wiring: SUED's words come from the language pools ─────────────────
     // Decoys and denials are drawn from `Language::translation()` with a random
     // roll at the app edge — so these specs assert pool *membership*, never
-    // which entry won the draw. Every pin flips idioma to EN-US first: the
+    // which entry won the draw. Every pin flips idioma to PT-BR first: the
     // language flip is the discriminator. A prefix-length probe alone proved
     // gameable — the PT pool's first decoy grew out of the old constant, so
     // fixing the constant's typo satisfied "prefix of some pool entry" with no
-    // wiring at all. No hardcoded Portuguese string can pass these.
+    // wiring at all. No hardcoded English string can pass these.
 
-    /// Drive a fresh app onto the Ask screen with `idioma` flipped to EN-US
+    /// Drive a fresh app onto the Ask screen with `idioma` flipped to PT-BR
     /// first, then apply `then`. Config is 3 Downs from the top of the menu;
     /// `idioma` is 3 Downs from the top of the config rows; the menu cursor is
     /// still on Config when we Esc back out.
