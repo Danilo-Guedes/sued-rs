@@ -1071,7 +1071,7 @@ mod tests {
         assert_eq!(app.config().theme(), Theme::Sangue);
         assert_eq!(app.config().audio_volume(), 80);
         assert!(app.config().animations());
-        assert_eq!(app.config().language(), Language::PtBr);
+        assert_eq!(app.config().language(), Language::default());
     }
 
     #[test]
@@ -1156,7 +1156,7 @@ mod tests {
             KeyPress::Down,
             KeyPress::Right,
         ]);
-        assert_eq!(app.config().language(), Language::EnUs, "PT-BR → EN-US");
+        assert_eq!(app.config().language(), Language::PtBr, " EN-US → PT-BR");
     }
 
     #[test]
@@ -1181,7 +1181,7 @@ mod tests {
         assert_eq!(app.config().theme(), Theme::Sangue);
         assert_eq!(app.config().audio_volume(), 80);
         assert!(app.config().animations());
-        assert_eq!(app.config().language(), Language::PtBr);
+        assert_eq!(app.config().language(), Language::EnUs);
     }
 
     #[test]
@@ -1816,12 +1816,12 @@ mod tests {
         // Same discipline as the G2 pins below: flip idioma first, so a
         // hardcoded Portuguese string cannot pass. The seed must read the active
         // translation, not whichever one happened to be the default.
-        let app = ask_in_english(&[]);
+        let app = ask_in_portuguese(&[]);
 
         match transcript(&app) {
             [Message::Sued(greeting)] => assert_eq!(
                 greeting,
-                Language::EnUs.translation().ask.welcome_line,
+                Language::PtBr.translation().ask.welcome_line,
                 "the greeting must be seeded from the live translation"
             ),
             other => panic!("expected SueD's greeting and nothing else, got {other:?}"),
@@ -2368,7 +2368,7 @@ mod tests {
     /// first, then apply `then`. Config is 3 Downs from the top of the menu;
     /// `idioma` is 3 Downs from the top of the config rows; the menu cursor is
     /// still on Config when we Esc back out.
-    fn ask_in_english(then: &[KeyPress]) -> App {
+    fn ask_in_portuguese(then: &[KeyPress]) -> App {
         let mut keys = vec![
             KeyPress::Enter, // Intro → Menu
             KeyPress::Down,
@@ -2378,7 +2378,7 @@ mod tests {
             KeyPress::Down,
             KeyPress::Down,
             KeyPress::Down,  // → `idioma`
-            KeyPress::Right, // PT-BR → EN-US
+            KeyPress::Right, // EN-US → PT-BR
             KeyPress::Esc,   // → Menu (cursor on Config)
             KeyPress::Up,
             KeyPress::Up,
@@ -2389,7 +2389,7 @@ mod tests {
         let app = drive(&keys);
         assert_eq!(
             app.config().language(),
-            Language::EnUs,
+            Language::PtBr,
             "precondition: the idioma flip must have landed"
         );
         app
@@ -2399,14 +2399,14 @@ mod tests {
     fn a_new_question_draws_its_decoy_from_the_language_pool() {
         let mut hidden_typing = vec![KeyPress::Char(';')];
         hidden_typing.extend(std::iter::repeat_n(KeyPress::Char('x'), 50));
-        let app = ask_in_english(&hidden_typing);
+        let app = ask_in_portuguese(&hidden_typing);
 
         match &app.screen {
             Screen::Asking(AskingState { engine, .. }) => {
                 let visible = engine.visible_buffer();
                 assert_eq!(visible.chars().count(), 50, "one decoy char per keystroke");
                 assert!(
-                    Language::EnUs
+                    Language::PtBr
                         .translation()
                         .decoys
                         .iter()
@@ -2424,7 +2424,7 @@ mod tests {
         // F5's re-arm lives app-side (the engine's F5 is inert): the fresh
         // exchange must paint a pool decoy from its first character — a stale
         // decoy cursor would paint mid-string and break the illusion.
-        let mut app = ask_in_english(&[
+        let mut app = ask_in_portuguese(&[
             KeyPress::Char(';'), // Hidden
             KeyPress::Char('4'),
             KeyPress::Char('2'), // secret answer "42"
@@ -2438,7 +2438,7 @@ mod tests {
                 let visible = engine.visible_buffer();
                 assert_eq!(visible.chars().count(), 45, "one decoy char per keystroke");
                 assert!(
-                    Language::EnUs
+                    Language::PtBr
                         .translation()
                         .decoys
                         .iter()
@@ -2453,7 +2453,7 @@ mod tests {
 
     #[test]
     fn a_denial_speaks_the_configured_language() {
-        let state = ask_in_english(&[
+        let state = ask_in_portuguese(&[
             KeyPress::Char('o'),
             KeyPress::Char('i'), // a question typed in the open
             KeyPress::Enter,     // empty answer → Denied
@@ -2465,7 +2465,7 @@ mod tests {
             }) => {
                 let taunt = reply.words();
                 assert!(
-                    Language::EnUs.translation().denials.contains(&taunt),
+                    Language::PtBr.translation().denials.contains(&taunt),
                     "the oracle must taunt in the configured language, got {taunt:?}"
                 );
             }

@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "lowercase")]
 pub enum Language {
     #[default]
-    PtBr,
     EnUs,
+    PtBr,
     EsEs,
 }
 
@@ -115,7 +115,7 @@ pub struct CommonTexts {
 }
 
 impl Language {
-    pub const ALL: [Language; 3] = [Language::PtBr, Language::EnUs, Language::EsEs];
+    pub const ALL: [Language; 3] = [Language::EnUs, Language::PtBr, Language::EsEs];
 
     /// The on-screen label for this language, distinct from the lowercase serde
     /// wire format (`ptbr`/`enus`/`eses`).
