@@ -16,23 +16,7 @@ pub fn render(frame: &mut Frame, app: &App) {
     match app.screen() {
         Screen::Intro => intro::render(frame, app.config()),
         Screen::Menu => menu::render(frame, app.menu(), app.config()),
-        Screen::Asking {
-            engine,
-            reply,
-            previous_reply,
-            spell,
-            thunder_played: _,
-            history: _,
-            history_view: _,
-        } => ask::render(
-            frame,
-            engine,
-            reply.as_ref(),
-            app.started_at(),
-            app.config(),
-            previous_reply.as_deref(),
-            spell,
-        ),
+        Screen::Asking(asking_state) => ask::render(frame, app, asking_state),
         Screen::Info => info::render(frame, app.config()),
         Screen::About => about::render(frame, app.config()),
         Screen::Config => config::render(frame, app),
@@ -56,7 +40,7 @@ pub fn render(frame: &mut Frame, app: &App) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::app::AppFlow;
+    use crate::app::{AppFlow, AskingState};
     use crate::config::Configuration;
     use crate::core::engine::KeyPress;
     use ratatui::Terminal;
@@ -235,7 +219,7 @@ mod tests {
     /// randomly-picked pool entry.
     fn live_reply_words(app: &App) -> String {
         match app.screen() {
-            Screen::Asking { reply, .. } => reply
+            Screen::Asking(AskingState { reply, .. }) => reply
                 .as_ref()
                 .expect("expected a live reply")
                 .words()
@@ -246,7 +230,7 @@ mod tests {
 
     fn live_spell(app: &App) -> &'static str {
         match app.screen() {
-            Screen::Asking { spell, .. } => spell,
+            Screen::Asking(AskingState { spell, .. }) => spell,
             other => panic!("expected Asking, got {other:?}"),
         }
     }
