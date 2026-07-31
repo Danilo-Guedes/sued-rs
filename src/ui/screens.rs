@@ -4,6 +4,7 @@ mod about;
 mod ask;
 mod common;
 mod config;
+mod history;
 mod info;
 mod intro;
 mod menu;
