@@ -23,11 +23,44 @@ pub const THUNDER_AT_CHARS_REMAINING: usize = 20;
 pub struct App {
     screen: Screen,
     menu: MenuIndex,
-    started_at: Instant,
     pending_cue: Option<AudioCue>,
-    config_object: Configuration,
     config_navigation: ConfigIndex,
     pending_save: Option<Configuration>,
+    pub config_object: Configuration,
+    pub started_at: Instant,
+}
+
+#[derive(Debug)]
+pub struct AskingState {
+    thunder_played: bool,
+    history_view: Option<HistoryView>,
+    pub history: Vec<Message>,
+    pub engine: Engine,
+    pub spell: &'static str,
+    pub reply: Option<Reply>,
+}
+
+impl AskingState {
+    /// The last thing SueD actually said, or `None` when the only thing in the
+    /// transcript is the seeded greeting — which is exactly the "nothing has been
+    /// asked yet" case the welcome screen exists for.
+    pub fn previous_reply(&self) -> Option<&str> {
+        let mut spoken = self
+            .history
+            .iter()
+            .skip(1) // skip greeting msg
+            .rev()
+            .filter_map(|message| match message {
+                Message::Sued(words) => Some(words.as_str()),
+                Message::User(_) => None,
+            });
+
+        if self.reply.is_some() {
+            spoken.next(); // the newest thing SueD said IS the live reply, we don't want that, we want the prior to that
+        }
+
+        spoken.next()
+    }
 }
 
 // `Asking` is 201 bytes against clippy's 200-byte threshold — one byte over,
@@ -44,15 +77,7 @@ pub enum Screen {
     #[default]
     Intro,
     Menu,
-    Asking {
-        engine: Engine,
-        reply: Option<Reply>,
-        previous_reply: Option<String>,
-        spell: &'static str,
-        thunder_played: bool,
-        history: Vec<Message>,
-        history_view: Option<HistoryView>,
-    },
+    Asking(AskingState),
     Info,
     About,
     Config,
@@ -60,15 +85,14 @@ pub enum Screen {
 
 impl Screen {
     fn asking(translations: Translation) -> Self {
-        Screen::Asking {
+        Screen::Asking(AskingState {
             engine: Engine::new(pick(translations.decoys, rand::random())),
             reply: None,
-            previous_reply: None,
             spell: pick(translations.ask.spells, rand::random()),
             thunder_played: false,
             history: vec![Message::Sued(String::from(translations.ask.welcome_line))],
             history_view: None,
-        }
+        })
     }
 }
 
@@ -246,15 +270,14 @@ impl App {
                 KeyPress::CtrlC => AppFlow::Quit,
                 _ => AppFlow::Stay,
             },
-            Screen::Asking {
+            Screen::Asking(AskingState {
                 engine,
                 reply,
-                previous_reply,
                 spell,
                 thunder_played,
                 history,
                 history_view,
-            } => {
+            }) => {
                 //first we discard the not allowed keypress
                 // to avoind leak somethig to the engine
                 // while the history popover is shown
@@ -286,9 +309,6 @@ impl App {
                     );
 
                     if sued_finished_speaking {
-                        // Keep the words before `engine.reset()` drops them.
-                        *previous_reply = Some(current_sued_words.to_string());
-
                         engine.reset(pick(translations.decoys, rand::random()));
                         // A new decoy owes a new warning. This is the SECOND
                         // `engine.reset` site (F5 is the other) — re-arming
@@ -480,9 +500,9 @@ impl App {
     /// encapsulation that stopped a call site picking the wrong clock.
     #[cfg(test)]
     pub(crate) fn rewind_reply(&mut self, by: Duration) {
-        let Screen::Asking {
+        let Screen::Asking(AskingState {
             reply: Some(reply), ..
-        } = &mut self.screen
+        }) = &mut self.screen
         else {
             panic!("rewind_reply expects a live reply on the ask screen");
         };
@@ -532,9 +552,9 @@ impl App {
     /// into a plain level test, or the sting replays every tick for 3-6s.
     pub fn is_pondering(&self) -> bool {
         match &self.screen {
-            Screen::Asking {
+            Screen::Asking(AskingState {
                 reply: Some(reply), ..
-            } => is_thinking(reply.asked_at.elapsed(), reply.thinking_for),
+            }) => is_thinking(reply.asked_at.elapsed(), reply.thinking_for),
             _ => false,
         }
     }
@@ -682,7 +702,7 @@ mod tests {
         assert_eq!(flow, AppFlow::Stay);
         match state.screen {
             // A brand-new prank session: nothing typed, nothing on screen yet.
-            Screen::Asking { engine, .. } => assert_eq!(engine.visible_buffer(), ""),
+            Screen::Asking(AskingState { engine, .. }) => assert_eq!(engine.visible_buffer(), ""),
             other => panic!("expected Asking {{ engine, replied_at }}, got {other:?}"),
         }
     }
@@ -729,7 +749,7 @@ mod tests {
             KeyPress::Char('i'),
         ]);
         match state.screen {
-            Screen::Asking { engine, .. } => assert_eq!(engine.visible_buffer(), "oi"),
+            Screen::Asking(AskingState { engine, .. }) => assert_eq!(engine.visible_buffer(), "oi"),
             other => panic!("expected Asking {{ engine, revealed_ay }}, got {other:?}"),
         }
     }
@@ -757,11 +777,11 @@ mod tests {
         ]);
         let denials = state.config().language().translation().denials;
         match state.screen {
-            Screen::Asking {
+            Screen::Asking(AskingState {
                 engine,
                 reply: Some(reply),
                 ..
-            } => {
+            }) => {
                 let taunt = reply.words();
                 assert!(
                     denials.contains(&taunt),
@@ -876,7 +896,7 @@ mod tests {
         // otherwise a no-op F5 would pass this test for the wrong reason.
         let dirtied = drive(&dirty);
         match dirtied.screen {
-            Screen::Asking { engine, reply, .. } => {
+            Screen::Asking(AskingState { engine, reply, .. }) => {
                 assert!(engine.revealed().is_some(), "precondition: answer revealed");
                 assert!(reply.is_some(), "precondition: Sued replied");
             }
@@ -888,7 +908,7 @@ mod tests {
         keys.push(KeyPress::F5);
         let reset = drive(&keys);
         match reset.screen {
-            Screen::Asking { engine, reply, .. } => {
+            Screen::Asking(AskingState { engine, reply, .. }) => {
                 assert_eq!(engine.visible_buffer(), "", "buffers cleared");
                 assert_eq!(engine.revealed(), None, "no revealed answer");
                 assert!(reply.is_none(), "no reply struct");
@@ -914,7 +934,7 @@ mod tests {
         // would pass this test for the wrong reason.
         let dirtied = drive(&dirty);
         match dirtied.screen {
-            Screen::Asking { reply, .. } => {
+            Screen::Asking(AskingState { reply, .. }) => {
                 assert!(
                     reply.is_some(),
                     "precondition: the is dirty and should be a some"
@@ -929,7 +949,7 @@ mod tests {
         keys.push(KeyPress::F5);
         let reset = drive(&keys);
         match reset.screen {
-            Screen::Asking { reply, .. } => {
+            Screen::Asking(AskingState { reply, .. }) => {
                 assert!(reply.is_none(), "F5 must clear the pending denial");
             }
             other => panic!("expected a fresh Asking, got {other:?}"),
@@ -954,7 +974,7 @@ mod tests {
         // Precondition: SUED really replied — and the reply CONSUMED the
         // question (G8 amendment): the input already reads empty while SueD taunts.
         match drive(&until_reply).screen {
-            Screen::Asking { engine, reply, .. } => {
+            Screen::Asking(AskingState { engine, reply, .. }) => {
                 assert!(reply.is_some(), "precondition: SUED replied (denied)");
                 assert_eq!(
                     engine.visible_buffer(),
@@ -969,7 +989,7 @@ mod tests {
         let mut keys = until_reply.to_vec();
         keys.extend([KeyPress::Char('x'), KeyPress::Char('y')]);
         match drive(&keys).screen {
-            Screen::Asking { engine, .. } => {
+            Screen::Asking(AskingState { engine, .. }) => {
                 assert_eq!(
                     engine.visible_buffer(),
                     "",
@@ -996,7 +1016,7 @@ mod tests {
         ];
 
         let visible_at_reply = match drive(&until_reply).screen {
-            Screen::Asking { engine, .. } => {
+            Screen::Asking(AskingState { engine, .. }) => {
                 assert!(
                     engine.revealed().is_some(),
                     "precondition: SUED replied (revealed)"
@@ -1009,7 +1029,7 @@ mod tests {
         let mut keys = until_reply.to_vec();
         keys.extend([KeyPress::Char('x'), KeyPress::Char('y')]);
         match drive(&keys).screen {
-            Screen::Asking { engine, .. } => {
+            Screen::Asking(AskingState { engine, .. }) => {
                 assert_eq!(
                     engine.visible_buffer(),
                     visible_at_reply,
@@ -1417,9 +1437,9 @@ mod tests {
     /// the app must now behave as though SueD has finished speaking.
     fn finish_the_reveal(app: &mut App) {
         match &mut app.screen {
-            Screen::Asking {
+            Screen::Asking(AskingState {
                 reply: Some(reply), ..
-            } => {
+            }) => {
                 reply.asked_at = reply
                     .asked_at
                     .checked_sub(Duration::from_secs(60))
@@ -1457,7 +1477,7 @@ mod tests {
         let app = drive(&[KeyPress::Enter, KeyPress::Enter, KeyPress::Enter]);
 
         match &app.screen {
-            Screen::Asking { reply, .. } => {
+            Screen::Asking(AskingState { reply, .. }) => {
                 assert!(reply.is_none(), "no reply clock started");
             }
             other => panic!("expected Asking, got {other:?}"),
@@ -1469,8 +1489,12 @@ mod tests {
         // Nothing has been asked yet, so SUED FALA has no previous reply to keep
         // — which is what lets the render show its welcome line instead.
         match drive(&[KeyPress::Enter, KeyPress::Enter]).screen {
-            Screen::Asking { previous_reply, .. } => {
-                assert_eq!(previous_reply, None, "a fresh oracle remembers nothing");
+            Screen::Asking(asking_state) => {
+                assert_eq!(
+                    asking_state.previous_reply(),
+                    None,
+                    "a fresh oracle remembers nothing"
+                );
             }
             other => panic!("expected Asking, got {other:?}"),
         }
@@ -1486,18 +1510,15 @@ mod tests {
         feed(&mut app, &[KeyPress::Char('x')]);
 
         match &app.screen {
-            Screen::Asking {
-                engine,
-                previous_reply,
-                ..
-            } => {
+            Screen::Asking(asking_state) => {
                 assert_eq!(
-                    engine.revealed(),
+                    asking_state.engine.revealed(),
                     Some("42"),
                     "the engine must still hold the reply it is mid-way through speaking"
                 );
                 assert_eq!(
-                    previous_reply, &None,
+                    asking_state.previous_reply(),
+                    None,
                     "nothing rotates while SUED is still talking"
                 );
             }
@@ -1515,7 +1536,7 @@ mod tests {
         feed(&mut app, &[KeyPress::Char('x')]);
 
         match &app.screen {
-            Screen::Asking { engine, .. } => {
+            Screen::Asking(AskingState { engine, .. }) => {
                 assert_eq!(
                     engine.visible_buffer(),
                     "x",
@@ -1537,23 +1558,21 @@ mod tests {
         feed(&mut app, &[KeyPress::Char('x')]);
 
         match &app.screen {
-            Screen::Asking {
-                engine,
-                previous_reply,
-                reply,
-                ..
-            } => {
+            Screen::Asking(asking_state) => {
                 assert_eq!(
-                    previous_reply.as_deref(),
+                    asking_state.previous_reply(),
                     Some("42"),
                     "the answer must survive the start of the next question"
                 );
                 assert_eq!(
-                    engine.revealed(),
+                    asking_state.engine.revealed(),
                     None,
                     "the engine is re-armed for the new question"
                 );
-                assert!(reply.is_none(), "the reply clock is re-armed too");
+                assert!(
+                    asking_state.reply.is_none(),
+                    "the reply clock is re-armed too"
+                );
             }
             other => panic!("expected Asking, got {other:?}"),
         }
@@ -1570,20 +1589,17 @@ mod tests {
 
         let denials = app.config().language().translation().denials;
         match &app.screen {
-            Screen::Asking {
-                previous_reply,
-                reply,
-                ..
-            } => {
-                let kept = previous_reply
-                    .as_deref()
+            Screen::Asking(asking_state) => {
+                let kept = asking_state
+                    .previous_reply()
                     .expect("the denial must survive the start of the next question");
+
                 assert!(
                     denials.contains(&kept),
                     "the remembered reply must be the denial taunt, got {kept:?}"
                 );
                 assert!(
-                    reply.is_none(),
+                    asking_state.reply.is_none(),
                     "the live denial is cleared once it has been rotated aside"
                 );
             }
@@ -1611,7 +1627,7 @@ mod tests {
 
         let decoys = app.config().language().translation().decoys;
         match &app.screen {
-            Screen::Asking { engine, .. } => {
+            Screen::Asking(AskingState { engine, .. }) => {
                 let visible = engine.visible_buffer();
                 assert_eq!(
                     visible.chars().count(),
@@ -1639,18 +1655,14 @@ mod tests {
         feed(&mut app, &[KeyPress::Enter]);
 
         match &app.screen {
-            Screen::Asking {
-                previous_reply,
-                reply,
-                ..
-            } => {
+            Screen::Asking(asking_state) => {
                 assert_eq!(
-                    previous_reply.as_deref(),
+                    asking_state.previous_reply(),
                     Some("42"),
                     "the earlier answer must be kept, not overwritten by the new reply"
                 );
                 assert!(
-                    reply.is_none(),
+                    asking_state.reply.is_none(),
                     "no reply fired: the oracle stays quiet on an empty offering"
                 );
             }
@@ -1676,14 +1688,14 @@ mod tests {
         );
 
         match &app.screen {
-            Screen::Asking {
-                engine,
-                previous_reply,
-                ..
-            } => {
-                assert_eq!(engine.revealed(), Some("99"), "the new answer is live");
+            Screen::Asking(asking_state) => {
                 assert_eq!(
-                    previous_reply.as_deref(),
+                    asking_state.engine.revealed(),
+                    Some("99"),
+                    "the new answer is live"
+                );
+                assert_eq!(
+                    asking_state.previous_reply(),
                     Some("42"),
                     "while the new reply is speaking, the old one is still the kept reply"
                 );
@@ -1697,9 +1709,9 @@ mod tests {
         feed(&mut app, &[KeyPress::Char('x')]);
 
         match &app.screen {
-            Screen::Asking { previous_reply, .. } => {
+            Screen::Asking(asking_state) => {
                 assert_eq!(
-                    previous_reply.as_deref(),
+                    asking_state.previous_reply(),
                     Some("99"),
                     "only the most recent reply is kept"
                 );
@@ -1719,19 +1731,15 @@ mod tests {
         feed(&mut app, &[KeyPress::F5]);
 
         match &app.screen {
-            Screen::Asking {
-                engine,
-                previous_reply,
-                reply,
-                ..
-            } => {
+            Screen::Asking(asking_state) => {
                 assert_eq!(
-                    previous_reply, &None,
+                    asking_state.previous_reply(),
+                    None,
                     "F5 must clear the kept reply, or the welcome line never returns"
                 );
-                assert_eq!(engine.revealed(), None);
-                assert_eq!(engine.visible_buffer(), "");
-                assert!(reply.is_none());
+                assert_eq!(asking_state.engine.revealed(), None);
+                assert_eq!(asking_state.engine.visible_buffer(), "");
+                assert!(asking_state.reply.is_none());
             }
             other => panic!("expected Asking, got {other:?}"),
         }
@@ -1748,9 +1756,10 @@ mod tests {
         feed(&mut app, &[KeyPress::Esc, KeyPress::Enter]); // → Menu → Asking again
 
         match &app.screen {
-            Screen::Asking { previous_reply, .. } => {
+            Screen::Asking(asking_state) => {
                 assert_eq!(
-                    previous_reply, &None,
+                    asking_state.previous_reply(),
+                    None,
                     "a new visit to the oracle starts a new conversation"
                 );
             }
@@ -1779,7 +1788,7 @@ mod tests {
     /// aren't standing on one.
     fn transcript(app: &App) -> &[Message] {
         match &app.screen {
-            Screen::Asking { history, .. } => history,
+            Screen::Asking(AskingState { history, .. }) => history,
             other => panic!("expected Asking, got {other:?}"),
         }
     }
@@ -1873,7 +1882,7 @@ mod tests {
         // screen while it still exists.
         let mut app = drive(&ASK_AND_REVEAL[..5]);
         let on_screen = match &app.screen {
-            Screen::Asking { engine, .. } => engine.visible_buffer().to_string(),
+            Screen::Asking(AskingState { engine, .. }) => engine.visible_buffer().to_string(),
             other => panic!("expected Asking, got {other:?}"),
         };
         assert_eq!(
@@ -2018,7 +2027,9 @@ mod tests {
     /// the popover is closed.
     fn transcript_cursor(app: &App) -> Option<usize> {
         match &app.screen {
-            Screen::Asking { history_view, .. } => history_view.as_ref().map(HistoryView::selected),
+            Screen::Asking(AskingState { history_view, .. }) => {
+                history_view.as_ref().map(HistoryView::selected)
+            }
             other => panic!("expected Asking, got {other:?}"),
         }
     }
@@ -2178,12 +2189,12 @@ mod tests {
             "precondition: the popover is still open, so these keys were its own"
         );
         match &app.screen {
-            Screen::Asking {
+            Screen::Asking(AskingState {
                 engine,
                 reply,
                 history,
                 ..
-            } => {
+            }) => {
                 assert_eq!(
                     engine.visible_buffer(),
                     "",
@@ -2228,9 +2239,9 @@ mod tests {
         ]);
 
         match &app.screen {
-            Screen::Asking {
+            Screen::Asking(AskingState {
                 engine, history, ..
-            } => {
+            }) => {
                 assert!(
                     !engine.visible_buffer().is_empty(),
                     "precondition: there must be a half-typed question to protect"
@@ -2243,12 +2254,12 @@ mod tests {
         feed(&mut app, &[KeyPress::F1, KeyPress::Enter]);
 
         match &app.screen {
-            Screen::Asking {
+            Screen::Asking(AskingState {
                 reply,
                 history,
                 history_view,
                 ..
-            } => {
+            }) => {
                 assert!(
                     history_view.is_some(),
                     "precondition: the popover is still open, so that Enter was its own"
@@ -2278,7 +2289,7 @@ mod tests {
         ]);
 
         let before = match &app.screen {
-            Screen::Asking { engine, .. } => {
+            Screen::Asking(AskingState { engine, .. }) => {
                 assert!(
                     !engine.visible_buffer().is_empty(),
                     "precondition: there must be a character to lose"
@@ -2291,7 +2302,7 @@ mod tests {
         feed(&mut app, &[KeyPress::F1, KeyPress::Backspace]);
 
         match &app.screen {
-            Screen::Asking { engine, .. } => assert_eq!(
+            Screen::Asking(AskingState { engine, .. }) => assert_eq!(
                 engine.visible_buffer(),
                 before,
                 "Backspace reached the input hidden behind the overlay"
@@ -2391,7 +2402,7 @@ mod tests {
         let app = ask_in_english(&hidden_typing);
 
         match &app.screen {
-            Screen::Asking { engine, .. } => {
+            Screen::Asking(AskingState { engine, .. }) => {
                 let visible = engine.visible_buffer();
                 assert_eq!(visible.chars().count(), 50, "one decoy char per keystroke");
                 assert!(
@@ -2423,7 +2434,7 @@ mod tests {
         feed(&mut app, &[KeyPress::Char('x'); 45]);
 
         match &app.screen {
-            Screen::Asking { engine, .. } => {
+            Screen::Asking(AskingState { engine, .. }) => {
                 let visible = engine.visible_buffer();
                 assert_eq!(visible.chars().count(), 45, "one decoy char per keystroke");
                 assert!(
@@ -2449,9 +2460,9 @@ mod tests {
         ]);
 
         match state.screen {
-            Screen::Asking {
+            Screen::Asking(AskingState {
                 reply: Some(reply), ..
-            } => {
+            }) => {
                 let taunt = reply.words();
                 assert!(
                     Language::EnUs.translation().denials.contains(&taunt),
@@ -2556,7 +2567,7 @@ mod tests {
     /// The ask screen's engine, for tests that need to read the decoy down.
     fn engine_of(app: &App) -> &Engine {
         match &app.screen {
-            Screen::Asking { engine, .. } => engine,
+            Screen::Asking(AskingState { engine, .. }) => engine,
             other => panic!("expected Asking, got {other:?}"),
         }
     }
@@ -2810,7 +2821,7 @@ mod tests {
         let app = drive(&[KeyPress::Enter, KeyPress::Enter]);
 
         match &app.screen {
-            Screen::Asking { reply, .. } => assert!(
+            Screen::Asking(AskingState { reply, .. }) => assert!(
                 reply.is_none(),
                 "nothing asked yet — `is_none()` now says what three separate \
                  cleared fields used to say between them"
@@ -2824,7 +2835,7 @@ mod tests {
         let app = drive(&ASK_AND_REVEAL);
 
         match &app.screen {
-            Screen::Asking { reply, .. } => {
+            Screen::Asking(AskingState { reply, .. }) => {
                 let reply = reply
                     .as_ref()
                     .expect("a revealed answer must stamp a reply");
@@ -2848,9 +2859,9 @@ mod tests {
         let denials = app.config().language().translation().denials;
 
         match &app.screen {
-            Screen::Asking {
+            Screen::Asking(AskingState {
                 reply: Some(reply), ..
-            } => {
+            }) => {
                 assert!(
                     denials.contains(&reply.words()),
                     "the taunt must come from the active language's denial pool, \

@@ -1,6 +1,6 @@
 //! 03 · MODO PERGUNTA.
 
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Offset};
@@ -9,9 +9,7 @@ use ratatui::text::{Line, Span, Text};
 use ratatui::widgets::{Block, Borders, Padding, Paragraph, Wrap};
 
 use super::common::{colorfull_bordered_block, create_centered_rect, hint_line, render_nav_strip};
-use crate::app::Reply;
-use crate::config::Configuration;
-use crate::core::engine::Engine;
+use crate::app::{App, AskingState};
 use crate::ui::effects::{
     CURSOR_CHAR, cursor_on, flash_intensity, flicker_intensity, reveal_is_complete, shake_offset,
     thinking_dots, typewriter_reveal,
@@ -21,16 +19,10 @@ use crate::ui::screens::common::{
 };
 use crate::ui::template::styled_line;
 
-pub(super) fn render(
-    frame: &mut Frame,
-    engine: &Engine,
-    reply: Option<&Reply>,
-    started_at: &Instant,
-    config: Configuration,
-    previous_reply: Option<&str>,
-    spell: &'static str,
-) {
-    let time_elapsed_from_the_start_at = started_at.elapsed();
+pub(super) fn render(frame: &mut Frame, app: &App, asking_state: &AskingState) {
+    let time_elapsed_from_the_start_at = app.started_at().elapsed();
+
+    let config = app.config_object;
 
     let palette = config.theme().palette();
 
@@ -38,11 +30,17 @@ pub(super) fn render(
 
     let translation = language.translation();
 
-    let casting_for = reply.filter(|r| r.is_pondering()).map(Reply::since_asked);
+    let reply = asking_state.reply.as_ref();
+
+    let casting_for = reply.filter(|r| r.is_pondering()).map(|r| r.since_asked());
 
     let speaking_for = reply
         .filter(|r| !r.is_pondering())
-        .map(Reply::speaking_elapsed);
+        .map(|r| r.speaking_elapsed());
+
+    let spell = asking_state.spell;
+
+    let engine = &asking_state.engine;
 
     let layout = create_screen_block(frame, palette);
 
@@ -132,22 +130,18 @@ pub(super) fn render(
             Some(answer) => Text::from(typewriter_reveal(answer, elapsed_duration)),
             None => match reply {
                 Some(reply) => Text::from(typewriter_reveal(reply.words(), elapsed_duration)),
-                None => {
-                    match previous_reply {
-                        Some(last_reply) => Text::from(last_reply),
-                        None => {
-                            Text::from(vec![
-                                Line::from(translation.ask.welcome_line),
-                                Line::from(""), // blank row for breathing space
-                                styled_line(
-                                    translation.ask.praise,
-                                    Style::default().dim(),
-                                    palette.accent,
-                                ),
-                            ])
-                        }
-                    }
-                }
+                None => match asking_state.previous_reply() {
+                    Some(words) => Text::from(words),
+                    None => Text::from(vec![
+                        Line::from(translation.ask.welcome_line),
+                        Line::from(""), // blank row for breathing space
+                        styled_line(
+                            translation.ask.praise,
+                            Style::default().dim(),
+                            palette.accent,
+                        ),
+                    ]),
+                },
             },
         },
     };
