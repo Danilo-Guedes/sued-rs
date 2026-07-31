@@ -2,23 +2,24 @@
 //! its own. Called from `ask::render` while `AskingState::history_view()` is
 //! `Some`.
 
-/// How many rows to skip from the top of the transcript so the selected bubble
-/// is the first thing in the viewport.
+/// Rows to skip from the top of the transcript, resolving a scroll position
+/// that is stored **from the bottom**.
 ///
-/// There is **no stored scroll offset** — the selection *is* the scroll. That is
-/// deliberate: an independent offset would be a second cursor, and two cursors
-/// can disagree (you could scroll the `▶` caret off screen while the counter
-/// still claims `8 de 8`). Deriving it means the caret, the counter and the
-/// scrollbar cannot drift apart.
+/// ⚠ The bottom anchor is the whole point, and it is not a stylistic choice.
+/// The popover opens on the newest message and `[↓ PgDn]` walk back toward it —
+/// but "how far down is the newest message" is `total_rows - viewport`, a number
+/// that only exists *inside* the render, after the bubbles have been measured.
+/// Key handling has no access to it. Anchoring at the bottom makes the position
+/// the keys actually store (`from_bottom`) measurement-free: opening is `0`, and
+/// scrolling down is a `saturating_sub` toward `0`. Only the upward direction
+/// needs the real height, and that is resolved here, where it is known.
 ///
-/// `heights` is one entry per message, **as rendered** — borders and the blank
-/// spacer row included — so this stays pure arithmetic and never touches
-/// ratatui. `viewport` is the inner height available for bubbles.
-///
-/// The result is clamped so the last screenful sits flush with the end of the
-/// transcript instead of scrolling past it into empty rows.
-fn scroll_offset(heights: &[u16], selected: usize, viewport: u16) -> u16 {
-    todo!("sum the bubbles above `selected`, clamped to the last screenful")
+/// `total_rows` is the full rendered height of every bubble — borders and the
+/// blank spacer rows included — and `viewport` is the popover's inner height.
+/// Both arrive from `Paragraph::line_count(width)` at the call site, which keeps
+/// this pure arithmetic and ratatui-free.
+fn scroll_offset(from_bottom: u16, total_rows: u16, viewport: u16) -> u16 {
+    total_rows.saturating_sub(viewport.saturating_add(from_bottom))
 }
 
 #[cfg(test)]
@@ -26,67 +27,57 @@ mod tests {
     use super::scroll_offset;
 
     #[test]
-    fn the_first_message_never_scrolls() {
-        // Nothing sits above it, so there is nothing to skip.
-        assert_eq!(scroll_offset(&[3, 3, 3], 0, 6), 0);
+    fn the_newest_end_of_the_thread_is_the_default_view() {
+        // `from_bottom == 0` is what F1 stores, and it must land on the last
+        // screenful: 40 rows of transcript in a 15-row window means skipping 25.
+        assert_eq!(scroll_offset(0, 40, 15), 25);
     }
 
     #[test]
-    fn the_offset_is_the_stack_of_bubbles_above_the_selection() {
-        // Two 3-row bubbles above index 2 → skip 6 rows. Total is 15 against a
-        // 6-row viewport, so the end-clamp (15-6 = 9) is not what's binding here
-        // — this test pins the sum, and the sum alone.
-        assert_eq!(scroll_offset(&[3, 3, 3, 3, 3], 2, 6), 6);
+    fn scrolling_up_walks_back_from_the_newest_end() {
+        // Five rows up from the bottom of the same transcript. This is the one
+        // test that pins the direction — get the sign wrong and the popover
+        // scrolls the wrong way, which reads as "the keys are inverted".
+        assert_eq!(scroll_offset(5, 40, 15), 20);
     }
 
     #[test]
-    fn ragged_bubble_heights_still_add_up() {
-        // Wrapping makes every bubble a different height, which is the whole
-        // reason this takes a slice rather than a count × a constant.
-        // 2 + 5 above index 2 = 7; total 14 against a 3-row viewport clamps at
-        // 11, so again the sum is what is under test.
-        assert_eq!(scroll_offset(&[2, 5, 3, 4], 2, 3), 7);
+    fn scrolling_past_the_oldest_message_stops_at_the_top() {
+        // ⚠ The clamp, and it is free in this model: 99 rows up from a
+        // 25-row-deep bottom saturates at 0 — the top of the thread — instead of
+        // underflowing. Nothing above the greeting to show, and nothing to panic
+        // over. Same habit as `opened_on_last`, third `usize` trap in this crate.
+        assert_eq!(scroll_offset(99, 40, 15), 0);
     }
 
     #[test]
     fn content_shorter_than_the_viewport_never_scrolls() {
-        // 6 rows of transcript in a 20-row window. Selecting the second message
-        // must NOT push the first one off the top — there is empty space below,
-        // so scrolling at all would be scrolling into nothing.
-        assert_eq!(scroll_offset(&[3, 3], 1, 20), 0);
+        // Six rows of transcript in a 20-row window. There is empty space below,
+        // so scrolling at all would be scrolling into nothing — and the bubbles
+        // must stay put rather than drifting off the top.
+        assert_eq!(scroll_offset(0, 6, 20), 0);
     }
 
     #[test]
-    fn the_last_screenful_sits_flush_with_the_end() {
-        // ⚠ The clamp, and the reason it exists. 20 rows of transcript, an
-        // 8-row viewport, selection on the last bubble: the naive sum-above is
-        // 16, which would leave 4 rows of transcript and 4 rows of void. The
-        // honest answer is 20-8 = 12 — the last screenful, flush.
-        assert_eq!(scroll_offset(&[4, 4, 4, 4, 4], 4, 8), 12);
+    fn a_viewport_exactly_the_size_of_the_content_never_scrolls() {
+        // The boundary between "fits" and "scrolls", which is the case an
+        // off-by-one lands on. 15 rows in a 15-row window: nothing to skip.
+        assert_eq!(scroll_offset(0, 15, 15), 0);
     }
 
     #[test]
     fn an_empty_transcript_does_not_panic() {
-        // Unreachable today (the greeting seeds `history`), which is exactly
-        // why it is worth pinning: the seeding is a caller's promise, not this
-        // function's.
-        assert_eq!(scroll_offset(&[], 0, 10), 0);
-    }
-
-    #[test]
-    fn a_selection_past_the_end_clips_instead_of_panicking() {
-        // ⚠ `HistoryView` clamps `selected`, so this is defence in depth — but
-        // it is the test that decides HOW you sum. `heights[..selected]` panics
-        // here; `heights.iter().take(selected)` saturates. Same lesson as
-        // `saturating_sub`: clip, never blow up in front of a mark.
-        assert_eq!(scroll_offset(&[3, 3], 99, 4), 2);
+        // Unreachable today — the greeting seeds `history` — which is exactly
+        // why it is worth pinning: the seeding is the caller's promise, not this
+        // function's, and step 4's render indexes whatever comes back.
+        assert_eq!(scroll_offset(0, 0, 15), 0);
     }
 
     #[test]
     fn a_zero_row_viewport_does_not_panic() {
         // A terminal squeezed until the popover has no inner height at all.
-        // `total - viewport` is the underflow trap; there is nothing to show,
-        // but there is also nothing to crash over.
-        assert_eq!(scroll_offset(&[3, 3], 1, 0), 3);
+        // `total_rows - viewport` is the underflow trap on the other side of the
+        // arithmetic; there is nothing to show, but nothing to crash over either.
+        assert_eq!(scroll_offset(0, 6, 0), 6);
     }
 }
