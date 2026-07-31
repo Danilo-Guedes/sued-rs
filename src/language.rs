@@ -24,6 +24,7 @@ pub struct Translation {
     pub about: AboutTexts,
     pub info: InfoTexts,
     pub ask: AskTexts,
+    pub history: HistoryTexts,
     pub config: ConfigTexts,
     pub menu: MenuTexts,
     pub common: CommonTexts,
@@ -69,6 +70,15 @@ pub struct AskTexts {
     pub talk_with_me: &'static str,
     pub hints: &'static [(&'static str, &'static str)],
     pub spells: &'static [&'static str],
+}
+
+#[derive(Debug, Copy, Clone)]
+pub struct HistoryTexts {
+    pub title: &'static str,
+    pub message: &'static str,
+    pub of: &'static str,
+    pub you: &'static str,
+    pub hints: &'static [(&'static str, &'static str)],
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -232,6 +242,18 @@ impl Language {
                         "negociando com as sombras do porão",
                     ],
                 },
+                history: HistoryTexts {
+                    title: "HISTÓRICO DA SESSÃO",
+                    message: "mensagem",
+                    of: "de",
+                    you: "VOCÊ",
+                    hints: &[
+                        ("[↑↓]", "mensagem"),
+                        ("[Home End]", "início / fim"),
+                        ("[Esc]", "fechar"),
+                        ("[Ctrl+C]", "sair"),
+                    ],
+                },
                 config: ConfigTexts {
                     configuration: "▓ CONFIGURAÇÃO ▓",
                     subtitle: "ajuste o ritual ao seu gosto — o oráculo observa",
@@ -364,6 +386,18 @@ impl Language {
                         "bargaining with the shadows in the cellar",
                     ],
                 },
+                history: HistoryTexts {
+                    title: "SESSION HISTORY",
+                    message: "message",
+                    of: "of",
+                    you: "YOU",
+                    hints: &[
+                        ("[↑↓]", "message"),
+                        ("[Home End]", "begining / end"),
+                        ("[Esc]", "close"),
+                        ("[Ctrl+C]", "quit"),
+                    ],
+                },
                 config: ConfigTexts {
                     configuration: "▓ CONFIGURATION ▓",
                     subtitle: "tune the ritual to your taste — the oracle watches",
@@ -494,6 +528,18 @@ impl Language {
                         "encendiendo las velas negras del ritual",
                         "forzando las puertas del inframundo",
                         "negociando con las sombras del sótano",
+                    ],
+                },
+                history: HistoryTexts {
+                    title: "HISTORIAL DE LA SESIÓN",
+                    message: "mensaje",
+                    of: "de",
+                    you: "TÚ",
+                    hints: &[
+                        ("[↑↓]", "mensaje"),
+                        ("[Home End]", "inicio / fin"),
+                        ("[Esc]", "cerrar"),
+                        ("[Ctrl+C]", "salir"),
                     ],
                 },
                 config: ConfigTexts {
