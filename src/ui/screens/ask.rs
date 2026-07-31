@@ -224,10 +224,23 @@ pub(super) fn render(frame: &mut Frame, app: &App, asking_state: &AskingState) {
     let [hints_area, page_area] =
         Layout::horizontal([Constraint::Fill(1), Constraint::Length(14)]).areas(status_inner);
 
-    let hints = hint_line(translation.ask.hints, palette);
+    let current_hint_slice = if asking_state.history_view().is_some() {
+        translation.history.hints
+    } else {
+        translation.ask.hints
+    };
+
+    let hints = hint_line(current_hint_slice, palette);
     frame.render_widget(Paragraph::new(hints), hints_area);
+
+    let current_bottom_title = if asking_state.history_view().is_some() {
+        NavTab::History.label(language)
+    } else {
+        NavTab::Ask.label(language)
+    };
+
     frame.render_widget(
-        Paragraph::new(NavTab::Ask.label(language).to_uppercase())
+        Paragraph::new(current_bottom_title.to_uppercase())
             .dim()
             .right_aligned(),
         page_area,

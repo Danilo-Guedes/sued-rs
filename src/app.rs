@@ -61,6 +61,10 @@ impl AskingState {
 
         spoken.next()
     }
+
+    pub fn history_view(&self) -> Option<&HistoryView> {
+        self.history_view.as_ref()
+    }
 }
 
 // `Asking` is 201 bytes against clippy's 200-byte threshold — one byte over,
