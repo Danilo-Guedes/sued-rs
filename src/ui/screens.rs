@@ -236,6 +236,75 @@ mod tests {
         }
     }
 
+    /// ⚠ Guard against the trap this project keeps re-learning: a draw test that
+    /// never reaches the state it claims to cover is decoration. F1 is swallowed
+    /// mid-crawl by design, so "I pressed F1" is not the same fact as "the
+    /// popover is open" — assert the second one.
+    fn assert_popover_is_open(app: &App, when: &str) {
+        match app.screen() {
+            Screen::Asking(state) => assert!(
+                state.history_view().is_some(),
+                "the popover must be OPEN {when}, or this test draws the very \
+                 screen every other test already covers"
+            ),
+            other => panic!("expected Asking, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn the_transcript_popover_draws_at_every_size() {
+        // ⚠ Every other test in this module drives the popover CLOSED
+        // (`Screen::asking` seeds `history_view: None`), so without this one the
+        // entire popover draw path has the same zero coverage the ask screen had
+        // before this module existed — and for the same reason: nothing ever
+        // called it.
+        //
+        // Drawn both empty-ish and after a real exchange, because the transcript
+        // grows and the rungs still to come (bubbles, `line_count`, the offset
+        // arithmetic) all key off how much is in it. At 80×24 the popover's
+        // inner height is single digits, which is where that arithmetic
+        // underflows if it ever stops saturating.
+        let mut app = app_after(&[KeyPress::Enter, KeyPress::Enter, KeyPress::F1]);
+        assert_popover_is_open(&app, "on a fresh ask screen");
+        draw(&app); // 1. open on a thread holding only the seeded greeting
+
+        app.handle_key(KeyPress::Esc); // close, then hold a real séance
+        for key in [
+            KeyPress::Char(';'),
+            KeyPress::Char('4'),
+            KeyPress::Char('2'),
+            KeyPress::Enter,
+        ] {
+            app.handle_key(key);
+        }
+
+        // ⚠ Not optional, and the assertion below is what proved it: F1 is
+        // swallowed while SueD is still speaking (the G8 lock), so without
+        // winding the clock past the crawl this case draws a CLOSED popover and
+        // passes for the wrong reason.
+        app.rewind_reply(Duration::from_secs(60));
+
+        app.handle_key(KeyPress::F1);
+        assert_popover_is_open(&app, "after an exchange");
+        draw(&app); // 2. open over a question and an answer
+    }
+
+    #[test]
+    fn opening_the_transcript_puts_its_frame_on_screen() {
+        // One rung above "it didn't panic", and the rung that matters at a step
+        // whose whole job is drawing: a popover that renders NOTHING leaves the
+        // ask screen looking untouched, F1 looking broken, and every smoke test
+        // above perfectly green.
+        let app = app_after(&[KeyPress::Enter, KeyPress::Enter, KeyPress::F1]);
+        let title = app.config().language().translation().history.title;
+
+        assert!(
+            screen_text(&app).contains(title.trim()),
+            "F1 must put the transcript's frame on screen; without its title \
+             nothing distinguishes an open popover from a broken keybinding"
+        );
+    }
+
     #[test]
     fn a_fresh_ask_screen_greets_you() {
         let app = app_after(&[KeyPress::Enter, KeyPress::Enter]);

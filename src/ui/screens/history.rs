@@ -2,6 +2,41 @@
 //! its own. Called from `ask::render` while `AskingState::history_view()` is
 //! `Some`.
 
+use ratatui::Frame;
+use ratatui::layout::{Constraint, Rect};
+use ratatui::style::Style;
+use ratatui::widgets::Clear;
+
+use super::common::{colorfull_bordered_block, create_centered_rect};
+use crate::language::Translation;
+use crate::ui::theme::Palette;
+
+/// Draw the popover over `band` — the slice of the ask screen it is allowed to
+/// cover. The caller hands over the region, not the dimensions: how big the
+/// popover is inside that region is the popover's own business.
+pub(super) fn render(frame: &mut Frame, band: Rect, palette: Palette, translation: Translation) {
+    let popover =
+        create_centered_rect(band, Constraint::Percentage(80), Constraint::Percentage(95));
+
+    // ⚠ Two widgets, one rect, and both are load-bearing.
+    //
+    // `Clear` is what stops the ask screen showing through — without it the
+    // demon and the reply bleed into every cell the bubbles don't cover. But its
+    // render is literally `buf[(x, y)].reset()`, which resets each cell to the
+    // *terminal's* default, NOT to the theme.
+    //
+    // So the block re-asserts `palette.bg` explicitly. Deleting either line
+    // looks fine on a terminal whose default happens to be black.
+    frame.render_widget(Clear, popover);
+
+    frame.render_widget(
+        colorfull_bordered_block(None, palette)
+            .title(format!(" † {} ", translation.history.title))
+            .style(Style::default().bg(palette.bg)),
+        popover,
+    );
+}
+
 /// Rows to skip from the top of the transcript, resolving a scroll position
 /// that is stored **from the bottom**.
 ///
