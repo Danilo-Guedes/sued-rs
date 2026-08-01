@@ -9,6 +9,7 @@ use ratatui::text::{Line, Span, Text};
 use ratatui::widgets::{Block, Borders, Padding, Paragraph, Wrap};
 
 use super::common::{colorfull_bordered_block, create_centered_rect, hint_line, render_nav_strip};
+use super::history;
 use crate::app::{App, AskingState};
 use crate::ui::effects::{
     CURSOR_CHAR, cursor_on, flash_intensity, flicker_intensity, reveal_is_complete, shake_offset,
@@ -245,4 +246,24 @@ pub(super) fn render(frame: &mut Frame, app: &App, asking_state: &AskingState) {
             .right_aligned(),
         page_area,
     );
+
+    // The popover draws LAST, so it lands on top of the screen it covers.
+    //
+    // It gets the middle band only — art through logs — because the input box
+    // and the status strip must stay visible: the strip is now the popover's own
+    // hint line (it swapped above), so covering it would hide the only thing
+    // telling the operator how to get out.
+    //
+    // ⚠ `union` is the bounding box of the two, so this spans art→says→logs only
+    // while those three stay ADJACENT in the vertical stack above. Reorder that
+    // layout and the band silently changes meaning — it still compiles, still
+    // draws, and covers the wrong thing.
+    if asking_state.history_view().is_some() {
+        history::render(
+            frame,
+            sued_art_top_layout.union(sued_logs_layout),
+            palette,
+            translation,
+        );
+    }
 }
