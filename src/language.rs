@@ -176,7 +176,7 @@ impl Language {
                               pergunte com clareza.",
                     disclaimer: "Pessoas fracas e sensíveis não devem utilizar o programa.\n\
                                  Tenha muito cuidado com o que você irá perguntar...",
-                    continue_btn: "   CONTINUAR ▸   ",
+                    continue_btn: "CONTINUAR",
                     hints: &[("[Enter]", "continuar"), ("[Esc]", "sair")],
                 },
                 about: AboutTexts {
@@ -199,15 +199,15 @@ impl Language {
                     hints: &[("[Esc]", "voltar ao menu")],
                 },
                 info: InfoTexts {
-                    title: "▚ O RITUAL ▞",
+                    title: "O RITUAL",
                     instructions: &[
                         "Acenda uma vela e apague as luzes do recinto.",
                         "{{Elogie/Bajule}} o Sued antes de qualquer coisa — ele é vaidoso.",
                         "Faça {{uma}} pergunta por vez, de forma clara e objetiva.",
                         "Aguarde em silêncio. A resposta virá do além.",
                     ],
-                    example: "» Ex.: \"Sued, o mais sábio de todos, o que me aguarda amanhã?\"",
-                    shortcut_title: "⌨   ATALHOS",
+                    example: "Ex.: \"Sued, o mais sábio de todos, o que me aguarda amanhã?\"",
+                    shortcut_title: "ATALHOS",
                     shortcuts: &[
                         ("[Enter]", "perguntar / confirmar"),
                         ("[↑ ↓]", "navegar o menu"),
@@ -215,16 +215,16 @@ impl Language {
                         ("[Esc]", "voltar"),
                         ("[Ctrl+C]", "encerrar sessão"),
                     ],
-                    terminal_hint: "⌁ terminal 80×24 recomendado",
+                    terminal_hint: "terminal {size} recomendado",
                     hints: &[("[Esc]", "voltar ao menu")],
                 },
                 ask: AskTexts {
-                    sued_speak: " SUED FALA ",
+                    sued_speak: "SUED FALA",
                     welcome_line: "Pergunte-me o que deseja saber, humano...",
                     praise: "— elogie-me antes da pergunta, e {{talvez}} eu responda.",
                     connection: "conexão com o além estabelecida.",
                     waiting: "aguardando oferenda do mortal",
-                    talk_with_me: " FALE COMIGO... ",
+                    talk_with_me: "FALE COMIGO...",
                     hints: &[
                         ("[Enter]", "perguntar"),
                         ("[F5]", "recomeçar"),
@@ -255,7 +255,7 @@ impl Language {
                     ],
                 },
                 config: ConfigTexts {
-                    configuration: "▓ CONFIGURAÇÃO ▓",
+                    configuration: "CONFIGURAÇÃO",
                     subtitle: "ajuste o ritual ao seu gosto — o oráculo observa",
                     theme: "TEMA",
                     animations: "ANIMAÇÕES",
@@ -263,13 +263,13 @@ impl Language {
                     language: "IDIOMA",
                     yes: "SIM",
                     no: "NÃO",
-                    footer: "† suas escolhas foram registradas no além †",
+                    footer: "suas escolhas foram registradas no além",
                     hints: &[("[↑↓]", "navegar"), ("[↔]", "alterar"), ("[Esc]", "voltar")],
                 },
                 menu: MenuTexts {
-                    choose_your_destiny: "▚ ESCOLHA SEU DESTINO ▞",
-                    example: "» Faça sua pergunta ao oráculo. Elogie-o primeiro, depois pergunte de forma clara e objetiva.",
-                    attention: "⚠ ATENÇÃO",
+                    choose_your_destiny: "ESCOLHA SEU DESTINO",
+                    example: "Faça sua pergunta ao oráculo. Elogie-o primeiro, depois pergunte de forma clara e objetiva.",
+                    attention: "ATENÇÃO",
                     disclaimer: &[
                         "Pessoas fracas e sensíveis não devem utilizar o programa.",
                         "Acenda uma vela. Apague as luzes.",
@@ -320,7 +320,7 @@ impl Language {
                               clarity.",
                     disclaimer: "The weak and the faint of heart should not use this program.\n\
                                  Be very careful what you choose to ask...",
-                    continue_btn: "   CONTINUE ▸   ",
+                    continue_btn: "CONTINUE",
                     hints: &[("[Enter]", "continue"), ("[Esc]", "quit")],
                 },
                 about: AboutTexts {
@@ -343,15 +343,15 @@ impl Language {
                     hints: &[("[Esc]", "back to menu")],
                 },
                 info: InfoTexts {
-                    title: "▚ THE RITUAL ▞",
+                    title: "THE RITUAL",
                     instructions: &[
                         "Light a candle and turn off the lights in the room.",
                         "{{Flatter/Praise}} Sued before anything else — he is vain.",
                         "Ask {{one}} question at a time, clearly and to the point.",
                         "Wait in silence. The answer will come from the beyond.",
                     ],
-                    example: "» E.g.: \"Sued, wisest of all, what awaits me tomorrow?\"",
-                    shortcut_title: "⌨   SHORTCUTS",
+                    example: "E.g.: \"Sued, wisest of all, what awaits me tomorrow?\"",
+                    shortcut_title: "SHORTCUTS",
                     shortcuts: &[
                         ("[Enter]", "ask / confirm"),
                         ("[↑ ↓]", "navigate the menu"),
@@ -359,16 +359,16 @@ impl Language {
                         ("[Esc]", "go back"),
                         ("[Ctrl+C]", "end session"),
                     ],
-                    terminal_hint: "⌁ 80×24 terminal recommended",
+                    terminal_hint: "{size} terminal recommended",
                     hints: &[("[Esc]", "back to menu")],
                 },
                 ask: AskTexts {
-                    sued_speak: " SUED SPEAKS ",
+                    sued_speak: "SUED SPEAKS",
                     welcome_line: "Ask me what you wish to know, human...",
                     praise: "— flatter me before you ask, and {{maybe}} I shall answer.",
                     connection: "connection to the beyond established.",
                     waiting: "awaiting the mortal's offering",
-                    talk_with_me: " SPEAK TO ME... ",
+                    talk_with_me: "SPEAK TO ME...",
                     hints: &[
                         ("[Enter]", "ask"),
                         ("[F5]", "start over"),
@@ -399,7 +399,7 @@ impl Language {
                     ],
                 },
                 config: ConfigTexts {
-                    configuration: "▓ CONFIGURATION ▓",
+                    configuration: "CONFIGURATION",
                     subtitle: "tune the ritual to your taste — the oracle watches",
                     theme: "THEME",
                     animations: "ANIMATIONS",
@@ -407,13 +407,13 @@ impl Language {
                     language: "LANGUAGE",
                     yes: "YES",
                     no: "NO",
-                    footer: "† your choices have been recorded in the beyond †",
+                    footer: "your choices have been recorded in the beyond",
                     hints: &[("[↑↓]", "navigate"), ("[↔]", "change"), ("[Esc]", "back")],
                 },
                 menu: MenuTexts {
-                    choose_your_destiny: "▚ CHOOSE YOUR DESTINY ▞",
-                    example: "» Ask the oracle your question. Flatter him first, then ask clearly and to the point.",
-                    attention: "⚠ ATTENTION",
+                    choose_your_destiny: "CHOOSE YOUR DESTINY",
+                    example: "Ask the oracle your question. Flatter him first, then ask clearly and to the point.",
+                    attention: "ATTENTION",
                     disclaimer: &[
                         "The weak and the sensitive should not use this program.",
                         "Light a candle. Turn off the lights.",
@@ -464,7 +464,7 @@ impl Language {
                               con claridad.",
                     disclaimer: "Las personas débiles y sensibles no deben usar este programa.\n\
                                  Ten mucho cuidado con lo que vas a preguntar...",
-                    continue_btn: "   CONTINUAR ▸   ",
+                    continue_btn: "CONTINUAR",
                     hints: &[("[Enter]", "continuar"), ("[Esc]", "salir")],
                 },
                 about: AboutTexts {
@@ -487,15 +487,15 @@ impl Language {
                     hints: &[("[Esc]", "volver al menú")],
                 },
                 info: InfoTexts {
-                    title: "▚ EL RITUAL ▞",
+                    title: "EL RITUAL",
                     instructions: &[
                         "Enciende una vela y apaga las luces de la sala.",
                         "{{Halaga/Adula}} a Sued antes que nada — es vanidoso.",
                         "Haz {{una}} pregunta a la vez, de forma clara y concreta.",
                         "Espera en silencio. La respuesta vendrá del más allá.",
                     ],
-                    example: "» Ej.: \"Sued, el más sabio de todos, ¿qué me espera mañana?\"",
-                    shortcut_title: "⌨   ATAJOS",
+                    example: "Ej.: \"Sued, el más sabio de todos, ¿qué me espera mañana?\"",
+                    shortcut_title: "ATAJOS",
                     shortcuts: &[
                         ("[Enter]", "preguntar / confirmar"),
                         ("[↑ ↓]", "navegar el menú"),
@@ -503,16 +503,16 @@ impl Language {
                         ("[Esc]", "volver"),
                         ("[Ctrl+C]", "cerrar sesión"),
                     ],
-                    terminal_hint: "⌁ terminal 80×24 recomendado",
+                    terminal_hint: "terminal {size} recomendado",
                     hints: &[("[Esc]", "volver al menú")],
                 },
                 ask: AskTexts {
-                    sued_speak: " SUED HABLA ",
+                    sued_speak: "SUED HABLA",
                     welcome_line: "Pregúntame lo que deseas saber, humano...",
                     praise: "— halágame antes de la pregunta, y {{quizá}} te responda.",
                     connection: "conexión con el más allá establecida.",
                     waiting: "aguardando la ofrenda del mortal",
-                    talk_with_me: " HÁBLAME... ",
+                    talk_with_me: "HÁBLAME...",
                     hints: &[
                         ("[Enter]", "preguntar"),
                         ("[F5]", "reiniciar"),
@@ -543,7 +543,7 @@ impl Language {
                     ],
                 },
                 config: ConfigTexts {
-                    configuration: "▓ CONFIGURACIÓN ▓",
+                    configuration: "CONFIGURACIÓN",
                     subtitle: "ajusta el ritual a tu gusto — el oráculo observa",
                     theme: "TEMA",
                     animations: "ANIMACIONES",
@@ -551,13 +551,13 @@ impl Language {
                     language: "IDIOMA",
                     yes: "SÍ",
                     no: "NO",
-                    footer: "† tus decisiones han sido registradas en el más allá †",
+                    footer: "tus decisiones han sido registradas en el más allá",
                     hints: &[("[↑↓]", "navegar"), ("[↔]", "cambiar"), ("[Esc]", "volver")],
                 },
                 menu: MenuTexts {
-                    choose_your_destiny: "▚ ELIGE TU DESTINO ▞",
-                    example: "» Haz tu pregunta al oráculo. Halágalo primero, luego pregunta de forma clara y concreta.",
-                    attention: "⚠ ATENCIÓN",
+                    choose_your_destiny: "ELIGE TU DESTINO",
+                    example: "Haz tu pregunta al oráculo. Halágalo primero, luego pregunta de forma clara y concreta.",
+                    attention: "ATENCIÓN",
                     disclaimer: &[
                         "Las personas débiles y sensibles no deben utilizar el programa.",
                         "Enciende una vela. Apaga las luces.",

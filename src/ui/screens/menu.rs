@@ -9,7 +9,9 @@ use ratatui::widgets::{Block, Borders, Padding, Paragraph, Wrap};
 use crate::app::MenuIndex;
 use crate::config::Configuration;
 use crate::language::{Language, Translation};
-use crate::ui::screens::common::{colorfull_bordered_block, create_screen_block, hint_line};
+use crate::ui::screens::common::{
+    aside, colorfull_bordered_block, create_screen_block, hint_line, shouldered_heading,
+};
 use crate::ui::theme::Palette;
 
 pub(super) fn render(frame: &mut Frame, menu: &MenuIndex, config: Configuration) {
@@ -54,7 +56,7 @@ fn render_menu_column(
     let width = list_area.width as usize;
     let mut lines: Vec<Line> = vec![
         Line::from(""),
-        Line::from(translation.menu.choose_your_destiny)
+        Line::from(shouldered_heading(translation.menu.choose_your_destiny))
             .fg(palette.accent)
             .bold(),
         Line::from(""),
@@ -84,7 +86,7 @@ fn render_menu_column(
         list_area,
     );
 
-    let hint = Line::from(translation.menu.example).dim().italic();
+    let hint = Line::from(aside(translation.menu.example)).dim().italic();
     // Wrap the hint at the divider's width (the "line above"), not the whole
     // column — carve a left sub-rect that matches the ~70% divider.
     let [hint_sub, _] = Layout::horizontal([
@@ -123,7 +125,7 @@ fn render_disclaimer_column(
 
     let mut body = vec![
         Line::from(""),
-        Line::from(translation.menu.attention)
+        Line::from(format!("⚠ {}", translation.menu.attention))
             .fg(palette.accent)
             .bold(),
     ];

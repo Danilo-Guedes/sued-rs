@@ -68,6 +68,23 @@ pub(super) fn colorfull_bordered_block(
         .merge_borders(MergeStrategy::Exact)
 }
 
+/// Wrap a heading in the design's `▚ … ▞` shoulders.
+///
+/// The glyphs live here, not in the translation tables: they are identical in
+/// every language, so keeping them in the strings meant three copies of a
+/// decision that belongs to the render — and a heading that silently lost its
+/// shoulders the day someone edited one table and not the others. Same reasoning
+/// as `colorfull_bordered_block` holding the border colour.
+pub(super) fn shouldered_heading(text: &str) -> String {
+    format!("▚ {text} ▞")
+}
+
+/// Prefix an aside with the design's `»` marker — the info and menu screens both
+/// use it for their "for example…" line.
+pub(super) fn aside(text: &str) -> String {
+    format!("» {text}")
+}
+
 /// Accent "chip" for a step number: black glyphs on the accent colour.
 pub(super) fn step_badge(n: usize, palette: Palette) -> Span<'static> {
     Span::from(format!(" {n} "))

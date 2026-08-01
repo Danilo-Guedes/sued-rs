@@ -3,8 +3,9 @@
 //! `Some`.
 
 use ratatui::Frame;
-use ratatui::layout::{Constraint, Rect};
+use ratatui::layout::{Constraint, Margin, Rect};
 use ratatui::style::Style;
+use ratatui::text::Line;
 use ratatui::widgets::Clear;
 
 use super::common::{colorfull_bordered_block, create_centered_rect};
@@ -35,6 +36,20 @@ pub(super) fn render(frame: &mut Frame, band: Rect, palette: Palette, translatio
             .style(Style::default().bg(palette.bg)),
         popover,
     );
+
+    let sued_block =
+        colorfull_bordered_block(None, palette).title(Line::from(" SUED ").left_aligned());
+
+    let user_block = colorfull_bordered_block(None, palette)
+        .title(Line::from(format!(" {} ", translation.history.you)).left_aligned());
+
+    let inner_popover = popover.inner(Margin {
+        horizontal: 1,
+        vertical: 2,
+    });
+
+    frame.render_widget(sued_block, inner_popover);
+    frame.render_widget(user_block, inner_popover);
 }
 
 /// Rows to skip from the top of the transcript, resolving a scroll position

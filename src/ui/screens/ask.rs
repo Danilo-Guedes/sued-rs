@@ -159,7 +159,7 @@ pub(super) fn render(frame: &mut Frame, app: &App, asking_state: &AskingState) {
         .block(
             colorfull_bordered_block(None, palette)
                 .bg(flash_bg)
-                .title(translation.ask.sued_speak)
+                .title(format!(" {} ", translation.ask.sued_speak))
                 .padding(Padding::new(2, 2, 1, 1)),
         )
         .wrap(Wrap { trim: false });
@@ -212,7 +212,10 @@ pub(super) fn render(frame: &mut Frame, app: &App, asking_state: &AskingState) {
 
     frame.render_widget(
         Paragraph::new(typed)
-            .block(colorfull_bordered_block(None, palette).title(translation.ask.talk_with_me))
+            .block(
+                colorfull_bordered_block(None, palette)
+                    .title(format!(" {} ", translation.ask.talk_with_me)),
+            )
             .wrap(Wrap { trim: false }),
         input_layout,
     );

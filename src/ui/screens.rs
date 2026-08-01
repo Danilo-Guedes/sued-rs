@@ -44,6 +44,7 @@ mod tests {
     use crate::app::{AppFlow, AskingState};
     use crate::config::Configuration;
     use crate::core::engine::KeyPress;
+    use crate::language::Translation;
     use ratatui::Terminal;
     use ratatui::backend::TestBackend;
     use std::time::Duration;
@@ -249,6 +250,93 @@ mod tests {
             ),
             other => panic!("expected Asking, got {other:?}"),
         }
+    }
+
+    /// ⚠ THE REGRESSION GUARD FOR MOVING DECORATION OUT OF THE TABLES.
+    ///
+    /// The glyphs (`▚ ▞`, `⚠`, `▓`, `†`, `⌨`, `⌁`, `▸`) used to live inside the
+    /// translated strings and now live in the render. Every other test reaches
+    /// them as `translation.x`, so they all move together — meaning **every
+    /// glyph could disappear and the whole suite would stay green.** These
+    /// assertions are deliberately written against the *composed* result, so
+    /// they fail if a render site forgets its decoration.
+    #[test]
+    fn the_decoration_the_tables_no_longer_carry_still_reaches_the_screen() {
+        let expected: [(&str, &[KeyPress], fn(Translation) -> Vec<String>); 4] = [
+            ("menu", &[KeyPress::Enter], |t| {
+                vec![
+                    format!("▚ {} ▞", t.menu.choose_your_destiny),
+                    format!("⚠ {}", t.menu.attention),
+                ]
+            }),
+            (
+                "info",
+                &[KeyPress::Enter, KeyPress::Down, KeyPress::Enter],
+                |t| {
+                    vec![
+                        format!("▚ {} ▞", t.info.title),
+                        format!("⌨   {}", t.info.shortcut_title),
+                    ]
+                },
+            ),
+            (
+                "config",
+                &[
+                    KeyPress::Enter,
+                    KeyPress::Down,
+                    KeyPress::Down,
+                    KeyPress::Down,
+                    KeyPress::Enter,
+                ],
+                |t| {
+                    vec![
+                        format!("▓ {} ▓", t.config.configuration),
+                        format!("† {} †", t.config.footer),
+                    ]
+                },
+            ),
+            ("ask", &[KeyPress::Enter, KeyPress::Enter], |t| {
+                // The block titles kept their padding spaces — the borders sit
+                // right against them, so a lost space is visible and silent.
+                vec![
+                    format!(" {} ", t.ask.sued_speak),
+                    format!(" {} ", t.ask.talk_with_me),
+                ]
+            }),
+        ];
+
+        for (name, keys, wanted) in expected {
+            let app = app_after(keys);
+            let text = screen_text(&app);
+            for want in wanted(app.config().language().translation()) {
+                assert!(
+                    text.contains(&want),
+                    "the {name} screen must render {want:?} — the glyphs moved \
+                     from the translation tables into the render, so a render \
+                     site that forgot them looks fine to every other test"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn the_recommended_terminal_size_is_substituted_not_printed_raw() {
+        // The size is one const shared by three languages, spliced in over a
+        // `{size}` placeholder. Two ways that breaks, both asserted: the splice
+        // never happens (the marker reaches the screen), or it happens against
+        // a stale number.
+        let app = app_after(&[KeyPress::Enter, KeyPress::Down, KeyPress::Enter]);
+        let text = screen_text(&app);
+
+        assert!(
+            text.contains(crate::constants::RECOMMENDED_TERMINAL_SIZE),
+            "the info screen must show the recommended terminal size"
+        );
+        assert!(
+            !text.contains("{size}"),
+            "the `{{size}}` placeholder reached the screen — a render site is \
+             printing the raw translation instead of substituting the const"
+        );
     }
 
     #[test]
