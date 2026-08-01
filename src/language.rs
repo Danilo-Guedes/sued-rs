@@ -75,8 +75,6 @@ pub struct AskTexts {
 #[derive(Debug, Copy, Clone)]
 pub struct HistoryTexts {
     pub title: &'static str,
-    pub message: &'static str,
-    pub of: &'static str,
     pub you: &'static str,
     pub hints: &'static [(&'static str, &'static str)],
 }
@@ -244,8 +242,6 @@ impl Language {
                 },
                 history: HistoryTexts {
                     title: "HISTÓRICO DA SESSÃO",
-                    message: "mensagem",
-                    of: "de",
                     you: "VOCÊ",
                     hints: &[
                         ("[↑↓]", "rolar"),
@@ -388,8 +384,6 @@ impl Language {
                 },
                 history: HistoryTexts {
                     title: "SESSION HISTORY",
-                    message: "message",
-                    of: "of",
                     you: "YOU",
                     hints: &[
                         ("[↑↓]", "scroll"),
@@ -532,8 +526,6 @@ impl Language {
                 },
                 history: HistoryTexts {
                     title: "HISTORIAL DE LA SESIÓN",
-                    message: "mensaje",
-                    of: "de",
                     you: "TÚ",
                     hints: &[
                         ("[↑↓]", "rolar"),               // UPDATE THIS SPANISH PLEASE

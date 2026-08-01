@@ -103,7 +103,7 @@ fn render_ritual_panel(frame: &mut Frame, area: Rect, palette: Palette, translat
                 .fg(palette.accent)
                 .bold(),
         )
-            .block(Block::new().padding(Padding::left(2))),
+        .block(Block::new().padding(Padding::left(2))),
         heading_area,
     );
 
