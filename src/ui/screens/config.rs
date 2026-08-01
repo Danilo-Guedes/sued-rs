@@ -85,7 +85,7 @@ pub(super) fn render(frame: &mut Frame, app_state: &App) {
 
     frame.render_widget(
         Paragraph::new(
-            Line::from(translation.config.configuration)
+            Line::from(format!("▓ {} ▓", translation.config.configuration))
                 .fg(palette.accent)
                 .bold(),
         )
@@ -153,7 +153,12 @@ pub(super) fn render(frame: &mut Frame, app_state: &App) {
     frame.render_widget(Paragraph::new(divider).fg(palette.accent), divider_area);
 
     frame.render_widget(
-        Paragraph::new(Line::from(translation.config.footer).dim().italic()).centered(),
+        Paragraph::new(
+            Line::from(format!("† {} †", translation.config.footer))
+                .dim()
+                .italic(),
+        )
+        .centered(),
         confirm_area,
     );
 

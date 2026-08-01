@@ -6,9 +6,13 @@ use ratatui::style::{Style, Stylize};
 use ratatui::text::Line;
 use ratatui::widgets::{Block, Borders, Padding, Paragraph, Wrap};
 
-use super::common::{colorfull_bordered_block, hint_line, render_nav_strip, step_badge, table_row};
+use super::common::{
+    aside, colorfull_bordered_block, hint_line, render_nav_strip, shouldered_heading, step_badge,
+    table_row,
+};
 
 use crate::config::Configuration;
+use crate::constants::RECOMMENDED_TERMINAL_SIZE;
 use crate::language::Translation;
 use crate::ui::screens::common::{NavTab, create_screen_block};
 use crate::ui::template::styled_line;
@@ -94,7 +98,11 @@ fn render_ritual_panel(frame: &mut Frame, area: Rect, palette: Palette, translat
     .areas(inner);
 
     frame.render_widget(
-        Paragraph::new(Line::from(translation.info.title).fg(palette.accent).bold())
+        Paragraph::new(
+            Line::from(shouldered_heading(translation.info.title))
+                .fg(palette.accent)
+                .bold(),
+        )
             .block(Block::new().padding(Padding::left(2))),
         heading_area,
     );
@@ -120,7 +128,7 @@ fn render_ritual_panel(frame: &mut Frame, area: Rect, palette: Palette, translat
     let divider = "─".repeat(inner.width as usize);
     frame.render_widget(Paragraph::new(divider).fg(palette.accent), divider_area);
 
-    let example = Line::from(translation.info.example).dim().italic();
+    let example = Line::from(aside(translation.info.example)).dim().italic();
     frame.render_widget(
         Paragraph::new(example)
             .wrap(Wrap { trim: false })
@@ -152,7 +160,7 @@ fn render_shortcuts_panel(
 
     frame.render_widget(
         Paragraph::new(
-            Line::from(translation.info.shortcut_title)
+            Line::from(format!("⌨   {}", translation.info.shortcut_title))
                 .fg(palette.accent)
                 .bold(),
         ),
@@ -173,7 +181,16 @@ fn render_shortcuts_panel(
     frame.render_widget(Paragraph::new(rows), rows_area);
 
     frame.render_widget(
-        Paragraph::new(Line::from(translation.info.terminal_hint).dim()),
+        Paragraph::new(
+            Line::from(format!(
+                "⌁ {}",
+                translation
+                    .info
+                    .terminal_hint
+                    .replace("{size}", RECOMMENDED_TERMINAL_SIZE)
+            ))
+            .dim(),
+        ),
         footer_area,
     );
 }

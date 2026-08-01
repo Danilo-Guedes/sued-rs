@@ -111,9 +111,7 @@ pub(super) fn render(frame: &mut Frame, config: Configuration) {
         Line::from(""),
         Line::from(""),
         Line::from(
-            translation
-                .intro
-                .continue_btn
+            format!("   {} ▸   ", translation.intro.continue_btn)
                 .fg(palette.on_accent)
                 .bg(palette.accent)
                 .bold(),
