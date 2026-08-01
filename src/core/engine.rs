@@ -28,8 +28,6 @@ pub enum KeyPress {
     Right,
     CtrlC,
     F1,
-    Home,
-    End,
     PageUp,
     PageDown,
 }
@@ -68,8 +66,6 @@ impl Engine {
             | KeyPress::Right
             | KeyPress::CtrlC
             | KeyPress::F1
-            | KeyPress::Home
-            | KeyPress::End
             | KeyPress::PageUp
             | KeyPress::PageDown => StateChange::None,
         }

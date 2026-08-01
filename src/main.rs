@@ -180,8 +180,6 @@ fn translate_key(app_state: &mut App, key: KeyEvent) -> AppFlow {
         KeyCode::Left => app_state.handle_key(KeyPress::Left),
         KeyCode::Right => app_state.handle_key(KeyPress::Right),
         KeyCode::F(1) => app_state.handle_key(KeyPress::F1),
-        KeyCode::Home => app_state.handle_key(KeyPress::Home),
-        KeyCode::End => app_state.handle_key(KeyPress::End),
         KeyCode::PageUp => app_state.handle_key(KeyPress::PageUp),
         KeyCode::PageDown => app_state.handle_key(KeyPress::PageDown),
         _ => AppFlow::Stay,

@@ -248,8 +248,8 @@ impl Language {
                     of: "de",
                     you: "VOCÊ",
                     hints: &[
-                        ("[↑↓]", "mensagem"),
-                        ("[Home End]", "início / fim"),
+                        ("[↑↓]", "rolar"),
+                        ("[PgUp PgDn]", "rolar página"),
                         ("[Esc]", "fechar"),
                         ("[Ctrl+C]", "sair"),
                     ],
@@ -392,8 +392,8 @@ impl Language {
                     of: "of",
                     you: "YOU",
                     hints: &[
-                        ("[↑↓]", "message"),
-                        ("[Home End]", "begining / end"),
+                        ("[↑↓]", "scroll"),
+                        ("[PgUp PgDn]", "scroll page"),
                         ("[Esc]", "close"),
                         ("[Ctrl+C]", "quit"),
                     ],
@@ -536,8 +536,8 @@ impl Language {
                     of: "de",
                     you: "TÚ",
                     hints: &[
-                        ("[↑↓]", "mensaje"),
-                        ("[Home End]", "inicio / fin"),
+                        ("[↑↓]", "rolar"),               // UPDATE THIS SPANISH PLEASE
+                        ("[PgUp PgDn]", "rolar pagina"), // UPDATE THIS SPANISH PLEASE
                         ("[Esc]", "cerrar"),
                         ("[Ctrl+C]", "salir"),
                     ],
