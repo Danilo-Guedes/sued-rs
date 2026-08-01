@@ -3,10 +3,10 @@
 //! `Some`.
 
 use ratatui::Frame;
-use ratatui::layout::{Constraint, Margin, Rect};
+use ratatui::layout::{Constraint, Flex, Layout, Margin, Rect};
 use ratatui::style::Style;
 use ratatui::text::Line;
-use ratatui::widgets::Clear;
+use ratatui::widgets::{Clear, Paragraph, Wrap};
 
 use super::common::{colorfull_bordered_block, create_centered_rect};
 use crate::language::Translation;
@@ -37,19 +37,48 @@ pub(super) fn render(frame: &mut Frame, band: Rect, palette: Palette, translatio
         popover,
     );
 
-    let sued_block =
-        colorfull_bordered_block(None, palette).title(Line::from(" SUED ").left_aligned());
+    let sued_block = colorfull_bordered_block(None, palette).title(
+        Line::from(" SUED ")
+            .style(Style::default().fg(palette.accent))
+            .left_aligned(),
+    );
 
-    let user_block = colorfull_bordered_block(None, palette)
-        .title(Line::from(format!(" {} ", translation.history.you)).left_aligned());
+    let user_block = colorfull_bordered_block(None, palette).title(
+        Line::from(format!(" {} ", translation.history.you))
+            .style(Style::default().white().dim())
+            .right_aligned(),
+    );
 
     let inner_popover = popover.inner(Margin {
         horizontal: 1,
         vertical: 2,
     });
 
-    frame.render_widget(sued_block, inner_popover);
-    frame.render_widget(user_block, inner_popover);
+    let [sued_row, user_row] =
+        Layout::vertical([Constraint::Percentage(50), Constraint::Percentage(50)]).areas(
+            inner_popover.inner(Margin {
+                horizontal: 2,
+                vertical: 0,
+            }),
+        );
+    let [sued_bubble_area] = Layout::horizontal([Constraint::Percentage(66)])
+        .flex(Flex::Start)
+        .areas(sued_row);
+
+    let [user_bubble_area] = Layout::horizontal([Constraint::Percentage(66)])
+        .flex(Flex::End)
+        .areas(user_row);
+
+    frame.render_widget(sued_block, sued_bubble_area);
+    frame.render_widget(user_block, user_bubble_area);
+
+    frame.render_widget(Paragraph::new("Você não sabe me bajular, se quer saber de algo você deve conquistar minha confiança, me trate como seu oráculo e me faça a pergunta")
+        .wrap(Wrap{trim:false}),
+        sued_bubble_area.inner(Margin { horizontal: 2, vertical: 2 }));
+
+    frame.render_widget(Paragraph::new("Sued, greatest oracle of all, keeper of truth and wisdom, could you help me by answering")
+        .wrap(Wrap{trim:false}),
+        user_bubble_area.inner(Margin { horizontal: 2, vertical: 2 }));
 }
 
 /// Rows to skip from the top of the transcript, resolving a scroll position
