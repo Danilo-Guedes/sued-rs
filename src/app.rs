@@ -291,8 +291,8 @@ impl App {
                         | KeyPress::Esc
                         | KeyPress::Up
                         | KeyPress::Down
-                        | KeyPress::Home
-                        | KeyPress::End => {} // the popover's own keys
+                        | KeyPress::PageUp
+                        | KeyPress::PageDown => {} // the popover's own keys
                         KeyPress::F5 => {} // the panic button still works
                         KeyPress::CtrlC => return AppFlow::Quit,
                         _ => return AppFlow::Stay, // everything else swallowed
@@ -386,29 +386,20 @@ impl App {
                             *history_view = None;
                         } else {
                             // here the hitview is close. needs toggle on
-                            *history_view = Some(HistoryView::opened_on_last(history.len()));
-                        }
-
-                        AppFlow::Stay
-                    }
-                    KeyPress::Home => {
-                        if let Some(inner_hist_view) = history_view {
-                            inner_hist_view.jump_to_first();
-                        }
-                        AppFlow::Stay
-                    }
-                    KeyPress::End => {
-                        if let Some(inner_hist_view) = history_view {
-                            inner_hist_view.jump_to_last();
+                            *history_view = Some(HistoryView::new());
                         }
                         AppFlow::Stay
                     }
                     KeyPress::PageUp => {
-                        // logic here
+                        if let Some(inner_hist_view) = history_view {
+                            inner_hist_view.handle_page_up();
+                        }
                         AppFlow::Stay
                     }
                     KeyPress::PageDown => {
-                        // logic here
+                        if let Some(inner_hist_view) = history_view {
+                            inner_hist_view.handle_page_down();
+                        }
                         AppFlow::Stay
                     }
                     KeyPress::Up => {
@@ -603,7 +594,7 @@ impl ConfigIndex {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::engine::KeyPress;
+    use crate::{conversation::PAGE_ROWS, core::engine::KeyPress};
     use std::time::Duration;
 
     /// Replay a sequence of keystrokes from a fresh app, handing back the final
@@ -2029,10 +2020,12 @@ mod tests {
 
     /// The transcript cursor of the ask screen we are standing on: `None` when
     /// the popover is closed.
-    fn transcript_cursor(app: &App) -> Option<usize> {
+    /// The popover's scroll position in rows back from the newest message, or
+    /// `None` when it is shut. `Some(0)` is the view F1 opens on.
+    fn transcript_scroll(app: &App) -> Option<u16> {
         match &app.screen {
             Screen::Asking(AskingState { history_view, .. }) => {
-                history_view.as_ref().map(HistoryView::selected)
+                history_view.as_ref().map(HistoryView::rows_from_bottom)
             }
             other => panic!("expected Asking, got {other:?}"),
         }
@@ -2049,30 +2042,19 @@ mod tests {
 
     #[test]
     fn f1_opens_the_transcript_on_the_newest_message() {
-        // Three messages, so the cursor lands on index 2 — what SueD just said,
-        // not the greeting five bubbles up.
+        // The popover opens on what SueD just said, not on the greeting three
+        // bubbles up — and under the bottom anchor that is `0`, not a computed
+        // index. "Open at the newest" costing no arithmetic is the whole reason
+        // the scroll is stored from the bottom.
         let mut app = after_one_exchange();
 
         feed(&mut app, &[KeyPress::F1]);
 
         assert_eq!(
-            transcript_cursor(&app),
-            Some(2),
-            "the popover opens on the last of the three messages"
+            transcript_scroll(&app),
+            Some(0),
+            "the popover opens flush with the newest message"
         );
-    }
-
-    #[test]
-    fn f1_on_a_fresh_oracle_selects_the_greeting() {
-        // The one-message case, and it is not just tidiness: "open on the last
-        // message" is `len - 1`, which underflows a `usize` if it is ever reached
-        // with an empty transcript. The greeting seed is what makes that
-        // impossible — this pins the arithmetic at its smallest input.
-        let mut app = drive(&[KeyPress::Enter, KeyPress::Enter]);
-
-        feed(&mut app, &[KeyPress::F1]);
-
-        assert_eq!(transcript_cursor(&app), Some(0));
     }
 
     #[test]
@@ -2081,7 +2063,7 @@ mod tests {
 
         feed(&mut app, &[KeyPress::F1, KeyPress::F1]);
 
-        assert_eq!(transcript_cursor(&app), None, "the same key closes it");
+        assert_eq!(transcript_scroll(&app), None, "the same key closes it");
     }
 
     #[test]
@@ -2092,7 +2074,7 @@ mod tests {
 
         feed(&mut app, &[KeyPress::F1, KeyPress::Esc]);
 
-        assert_eq!(transcript_cursor(&app), None);
+        assert_eq!(transcript_scroll(&app), None);
         assert!(
             !on_menu(&app),
             "the first Esc closes the popover, it must not also walk out of the oracle"
@@ -2111,19 +2093,30 @@ mod tests {
     }
 
     #[test]
-    fn up_walks_back_one_message() {
+    fn up_scrolls_back_one_row() {
+        // ⚠ One ROW, not one message. The unit changed when the popover became a
+        // pager, and a bubble is several rows tall — so a stray `+= 1` per
+        // *message* would still pass a "did it move" assertion while scrolling
+        // three times too far.
         let mut app = after_one_exchange();
 
         feed(&mut app, &[KeyPress::F1, KeyPress::Up]);
 
-        assert_eq!(transcript_cursor(&app), Some(1));
+        assert_eq!(transcript_scroll(&app), Some(1));
     }
 
     #[test]
-    fn up_clamps_at_the_oldest_message() {
-        // Five Ups over three messages. A raw `selected - 1` panics here in debug
-        // and wraps to ~1.8×10¹⁹ in release, so this is the same underflow class
-        // as the config label width — fixed by construction, not by luck.
+    fn scrolling_up_past_the_thread_is_left_for_the_render_to_clamp() {
+        // ⚠ THIS ONE PINS A DIVISION OF LABOUR, not an arithmetic result, so read
+        // it before "fixing" it. `HistoryView` does not know how tall the
+        // transcript is — that needs the rendered bubble heights, which only
+        // exist inside the render. So `handle_up` is deliberately UNBOUNDED, and
+        // `scroll_offset` saturates the excess away at draw time.
+        //
+        // The cost of that split is real and known: over-scrolling banks dead
+        // keypresses that Down has to spend before anything moves on screen. It
+        // is recorded here so the day it gets clamped is a decision rather than
+        // an accident.
         let mut app = after_one_exchange();
 
         feed(
@@ -2139,32 +2132,55 @@ mod tests {
         );
 
         assert_eq!(
-            transcript_cursor(&app),
-            Some(0),
-            "the thread stops at its first message"
+            transcript_scroll(&app),
+            Some(5),
+            "the view counts rows; the render decides which of them exist"
         );
     }
 
     #[test]
-    fn down_clamps_at_the_newest_message() {
-        // The popover already opens on the last message, so Down has nowhere to
-        // go. Unclamped this walks off the end, and step 4's render indexes it.
+    fn down_clamps_at_the_newest_end() {
+        // The popover already opens flush with the newest message, so Down has
+        // nowhere to go. This is the one direction the view CAN clamp on its own
+        // — `0` is a bound it knows without measuring anything — and a raw
+        // `- 1` here panics in debug and wraps to ~65535 in release.
         let mut app = after_one_exchange();
 
         feed(&mut app, &[KeyPress::F1, KeyPress::Down, KeyPress::Down]);
 
-        assert_eq!(transcript_cursor(&app), Some(2));
+        assert_eq!(transcript_scroll(&app), Some(0));
     }
 
     #[test]
-    fn home_jumps_to_the_oldest_and_end_back_to_the_newest() {
+    fn page_up_and_page_down_move_by_a_page() {
+        // Derived from `PAGE_ROWS` rather than written as a literal, so retuning
+        // the jump by eye once the popover draws does not turn this red.
         let mut app = after_one_exchange();
 
-        feed(&mut app, &[KeyPress::F1, KeyPress::Home]);
-        assert_eq!(transcript_cursor(&app), Some(0), "Home jumps to the top");
+        feed(&mut app, &[KeyPress::F1, KeyPress::PageUp]);
+        assert_eq!(
+            transcript_scroll(&app),
+            Some(PAGE_ROWS),
+            "PgUp jumps a page back, not a row"
+        );
 
-        feed(&mut app, &[KeyPress::End]);
-        assert_eq!(transcript_cursor(&app), Some(2), "End jumps to the bottom");
+        feed(&mut app, &[KeyPress::PageDown]);
+        assert_eq!(
+            transcript_scroll(&app),
+            Some(0),
+            "PgDn brings the same page back"
+        );
+    }
+
+    #[test]
+    fn page_down_clamps_at_the_newest_end() {
+        // Same bound as Down, and the same underflow: a page-sized subtraction
+        // from `0` is a bigger wrap than a single row, not a different bug.
+        let mut app = after_one_exchange();
+
+        feed(&mut app, &[KeyPress::F1, KeyPress::PageDown]);
+
+        assert_eq!(transcript_scroll(&app), Some(0));
     }
 
     #[test]
@@ -2188,8 +2204,8 @@ mod tests {
         );
 
         assert_eq!(
-            transcript_cursor(&app),
-            Some(2),
+            transcript_scroll(&app),
+            Some(0),
             "precondition: the popover is still open, so these keys were its own"
         );
         match &app.screen {
@@ -2334,7 +2350,7 @@ mod tests {
 
         feed(&mut app, &[KeyPress::F1, KeyPress::F5]);
 
-        assert_eq!(transcript_cursor(&app), None);
+        assert_eq!(transcript_scroll(&app), None);
         match transcript(&app) {
             [Message::Sued(greeting)] => assert_eq!(greeting, greeting_of(&app)),
             other => panic!("expected a freshly greeted screen, got {other:?}"),
@@ -2353,7 +2369,7 @@ mod tests {
         feed(&mut app, &[KeyPress::F1]);
 
         assert_eq!(
-            transcript_cursor(&app),
+            transcript_scroll(&app),
             None,
             "the transcript stays shut until SueD stops talking"
         );

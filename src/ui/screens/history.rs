@@ -18,7 +18,7 @@
 /// blank spacer rows included — and `viewport` is the popover's inner height.
 /// Both arrive from `Paragraph::line_count(width)` at the call site, which keeps
 /// this pure arithmetic and ratatui-free.
-fn scroll_offset(from_bottom: u16, total_rows: u16, viewport: u16) -> u16 {
+pub fn scroll_offset(from_bottom: u16, total_rows: u16, viewport: u16) -> u16 {
     total_rows.saturating_sub(viewport.saturating_add(from_bottom))
 }
 
