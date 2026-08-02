@@ -9,13 +9,23 @@ use ratatui::text::Line;
 use ratatui::widgets::{Clear, Paragraph, Wrap};
 
 use super::common::{colorfull_bordered_block, create_centered_rect};
+use crate::conversation::Message;
 use crate::language::Translation;
 use crate::ui::theme::Palette;
+
+const HORIZONTAL_SPACING: u16 = 2;
+const VERTICAL_SPACING: u16 = 2;
 
 /// Draw the popover over `band` — the slice of the ask screen it is allowed to
 /// cover. The caller hands over the region, not the dimensions: how big the
 /// popover is inside that region is the popover's own business.
-pub(super) fn render(frame: &mut Frame, band: Rect, palette: Palette, translation: Translation) {
+pub(super) fn render(
+    frame: &mut Frame,
+    history: &[Message],
+    band: Rect,
+    palette: Palette,
+    translation: Translation,
+) {
     let popover =
         create_centered_rect(band, Constraint::Percentage(80), Constraint::Percentage(95));
 
@@ -37,48 +47,93 @@ pub(super) fn render(frame: &mut Frame, band: Rect, palette: Palette, translatio
         popover,
     );
 
-    let sued_block = colorfull_bordered_block(None, palette).title(
-        Line::from(" SUED ")
-            .style(Style::default().fg(palette.accent))
-            .left_aligned(),
-    );
-
-    let user_block = colorfull_bordered_block(None, palette).title(
-        Line::from(format!(" {} ", translation.history.you))
-            .style(Style::default().white().dim())
-            .right_aligned(),
-    );
-
     let inner_popover = popover.inner(Margin {
-        horizontal: 1,
+        horizontal: 4,
         vertical: 2,
     });
 
-    let [sued_row, user_row] =
-        Layout::vertical([Constraint::Percentage(50), Constraint::Percentage(50)]).areas(
-            inner_popover.inner(Margin {
-                horizontal: 2,
-                vertical: 0,
-            }),
-        );
-    let [sued_bubble_area] = Layout::horizontal([Constraint::Percentage(66)])
+    let [sued_column] = Layout::horizontal([Constraint::Percentage(66)])
         .flex(Flex::Start)
-        .areas(sued_row);
+        .areas(inner_popover);
 
-    let [user_bubble_area] = Layout::horizontal([Constraint::Percentage(66)])
+    let [user_column] = Layout::horizontal([Constraint::Percentage(66)])
         .flex(Flex::End)
-        .areas(user_row);
+        .areas(inner_popover);
 
-    frame.render_widget(sued_block, sued_bubble_area);
-    frame.render_widget(user_block, user_bubble_area);
+    //measure the messages height wisth and construct rects
 
-    frame.render_widget(Paragraph::new("Você não sabe me bajular, se quer saber de algo você deve conquistar minha confiança, me trate como seu oráculo e me faça a pergunta")
-        .wrap(Wrap{trim:false}),
-        sued_bubble_area.inner(Margin { horizontal: 2, vertical: 2 }));
+    let mut message_list: Vec<(Rect, Paragraph)> = vec![];
 
-    frame.render_widget(Paragraph::new("Sued, greatest oracle of all, keeper of truth and wisdom, could you help me by answering")
-        .wrap(Wrap{trim:false}),
-        user_bubble_area.inner(Margin { horizontal: 2, vertical: 2 }));
+    let mut current_y: u16 = 0;
+
+    for message in history {
+        match message {
+            Message::Sued(sued_said) => {
+                let sued_block = colorfull_bordered_block(None, palette).title(
+                    Line::from(" SUED ")
+                        .style(Style::default().fg(palette.accent))
+                        .left_aligned(),
+                );
+
+                let paragraph = Paragraph::new(sued_said.as_str())
+                    .wrap(Wrap { trim: false })
+                    .block(sued_block);
+
+                let bubble_height =
+                    paragraph.line_count(sued_column.width - HORIZONTAL_SPACING) as u16;
+
+                let final_height = current_y + bubble_height;
+
+                let y_inside_popover = current_y + inner_popover.y;
+
+                let bubble_rect = Rect::new(
+                    sued_column.x,
+                    y_inside_popover,
+                    sued_column.width,
+                    bubble_height,
+                );
+
+                message_list.push((bubble_rect, paragraph));
+
+                current_y = final_height + VERTICAL_SPACING;
+            }
+            Message::User(user_said) => {
+                let user_block = colorfull_bordered_block(None, palette).title(
+                    Line::from(format!(" {} ", translation.history.you))
+                        .style(Style::default().white().dim())
+                        .right_aligned(),
+                );
+
+                let paragraph = Paragraph::new(user_said.as_str())
+                    .wrap(Wrap { trim: false })
+                    .block(user_block);
+
+                let bubble_height =
+                    paragraph.line_count(user_column.width - HORIZONTAL_SPACING) as u16;
+
+                let final_height = current_y + bubble_height;
+
+                let y_inside_popover = current_y + inner_popover.y;
+
+                let bubble_rect = Rect::new(
+                    user_column.x,
+                    y_inside_popover,
+                    user_column.width,
+                    bubble_height,
+                );
+
+                message_list.push((bubble_rect, paragraph));
+
+                current_y = final_height + VERTICAL_SPACING;
+            }
+        }
+    }
+
+    //render the messages
+
+    for (rect, parag) in message_list {
+        frame.render_widget(parag, rect);
+    }
 }
 
 /// Rows to skip from the top of the transcript, resolving a scroll position

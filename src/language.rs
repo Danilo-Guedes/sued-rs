@@ -209,6 +209,7 @@ impl Language {
                     shortcuts: &[
                         ("[Enter]", "perguntar / confirmar"),
                         ("[↑ ↓]", "navegar o menu"),
+                        ("[F1]", "histórico"),
                         ("[F5]", "recomeçar"),
                         ("[Esc]", "voltar"),
                         ("[Ctrl+C]", "encerrar sessão"),
@@ -225,6 +226,7 @@ impl Language {
                     talk_with_me: "FALE COMIGO...",
                     hints: &[
                         ("[Enter]", "perguntar"),
+                        ("[F1]", "histórico"),
                         ("[F5]", "recomeçar"),
                         ("[Esc]", "menu"),
                         ("[Ctrl+C]", "sair"),
@@ -351,6 +353,7 @@ impl Language {
                     shortcuts: &[
                         ("[Enter]", "ask / confirm"),
                         ("[↑ ↓]", "navigate the menu"),
+                        ("[F1]", "history"),
                         ("[F5]", "start over"),
                         ("[Esc]", "go back"),
                         ("[Ctrl+C]", "end session"),
@@ -367,6 +370,7 @@ impl Language {
                     talk_with_me: "SPEAK TO ME...",
                     hints: &[
                         ("[Enter]", "ask"),
+                        ("[F1]", "history"),
                         ("[F5]", "start over"),
                         ("[Esc]", "menu"),
                         ("[Ctrl+C]", "quit"),
@@ -493,6 +497,7 @@ impl Language {
                     shortcuts: &[
                         ("[Enter]", "preguntar / confirmar"),
                         ("[↑ ↓]", "navegar el menú"),
+                        ("[F1]", "historial"),
                         ("[F5]", "reiniciar"),
                         ("[Esc]", "volver"),
                         ("[Ctrl+C]", "cerrar sesión"),
@@ -509,6 +514,7 @@ impl Language {
                     talk_with_me: "HÁBLAME...",
                     hints: &[
                         ("[Enter]", "preguntar"),
+                        ("[F1]", "historial"),
                         ("[F5]", "reiniciar"),
                         ("[Esc]", "menú"),
                         ("[Ctrl+C]", "salir"),

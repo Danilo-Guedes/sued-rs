@@ -192,10 +192,14 @@ pub(super) fn render(frame: &mut Frame, app: &App, asking_state: &AskingState) {
         sued_logs_layout,
     );
 
-    let input_is_unlocked = match reply {
-        None => true,                         // never spoke
-        Some(r) if r.is_pondering() => false, // still weighing you
-        Some(r) => reveal_is_complete(r.words(), r.speaking_elapsed()),
+    let input_is_unlocked = if asking_state.history_view().is_some() {
+        false
+    } else {
+        match reply {
+            None => true,                         // never spoke
+            Some(r) if r.is_pondering() => false, // still weighing you
+            Some(r) => reveal_is_complete(r.words(), r.speaking_elapsed()),
+        }
     };
 
     let rendered_cursor = if input_is_unlocked && cursor_on(time_elapsed_from_the_start_at) {
@@ -264,6 +268,7 @@ pub(super) fn render(frame: &mut Frame, app: &App, asking_state: &AskingState) {
     if asking_state.history_view().is_some() {
         history::render(
             frame,
+            &asking_state.history,
             sued_art_top_layout.union(sued_logs_layout),
             palette,
             translation,
