@@ -67,66 +67,67 @@ pub(super) fn render(
     let mut current_y: u16 = 0;
 
     for message in history {
-        match message {
-            Message::Sued(sued_said) => {
-                let sued_block = colorfull_bordered_block(None, palette).title(
-                    Line::from(" SUED ")
-                        .style(Style::default().fg(palette.accent))
-                        .left_aligned(),
-                );
+        // Who said it changes exactly three things: which column the bubble sits
+        // in, what its label reads, and which side that label hangs off. So the
+        // `match` yields those three and stops there — everything below is
+        // identical for both speakers and is written once.
+        //
+        // ⚠ This shape is load-bearing for the rungs still to come, not tidiness
+        // for its own sake: the scroll offset and the `total_rows` sum both land
+        // in the tail below. Left as two arms, every one of those is two edits
+        // that have to stay in step.
+        let (column, label, said) = match message {
+            Message::Sued(sued_said) => (
+                sued_column,
+                Line::from(" SUED ")
+                    .style(Style::default().fg(palette.accent))
+                    .left_aligned(),
+                sued_said,
+            ),
+            Message::User(user_said) => (
+                user_column,
+                Line::from(format!(" {} ", translation.history.you))
+                    .style(Style::default().white().dim())
+                    .right_aligned(),
+                user_said,
+            ),
+        };
 
-                let paragraph = Paragraph::new(sued_said.as_str())
-                    .wrap(Wrap { trim: false })
-                    .block(sued_block);
+        let paragraph = Paragraph::new(said.as_str())
+            .wrap(Wrap { trim: false })
+            .block(colorfull_bordered_block(None, palette).title(label));
 
-                let bubble_height =
-                    paragraph.line_count(sued_column.width - HORIZONTAL_SPACING) as u16;
+        // ⚠ `line_count` corrects for the block's borders VERTICALLY only — it
+        // hands the width straight to the wrapper. So the block's own 2 columns
+        // come off here, at the call site, because `Block::horizontal_space()`
+        // is `pub(crate)` and the number cannot be asked for.
+        let bubble_height = paragraph.line_count(column.width - HORIZONTAL_SPACING) as u16;
 
-                let final_height = current_y + bubble_height;
+        let final_height = current_y + bubble_height;
 
-                let y_inside_popover = current_y + inner_popover.y;
-
-                let bubble_rect = Rect::new(
-                    sued_column.x,
-                    y_inside_popover,
-                    sued_column.width,
-                    bubble_height,
-                );
-
-                message_list.push((bubble_rect, paragraph));
-
-                current_y = final_height + VERTICAL_SPACING;
-            }
-            Message::User(user_said) => {
-                let user_block = colorfull_bordered_block(None, palette).title(
-                    Line::from(format!(" {} ", translation.history.you))
-                        .style(Style::default().white().dim())
-                        .right_aligned(),
-                );
-
-                let paragraph = Paragraph::new(user_said.as_str())
-                    .wrap(Wrap { trim: false })
-                    .block(user_block);
-
-                let bubble_height =
-                    paragraph.line_count(user_column.width - HORIZONTAL_SPACING) as u16;
-
-                let final_height = current_y + bubble_height;
-
-                let y_inside_popover = current_y + inner_popover.y;
-
-                let bubble_rect = Rect::new(
-                    user_column.x,
-                    y_inside_popover,
-                    user_column.width,
-                    bubble_height,
-                );
-
-                message_list.push((bubble_rect, paragraph));
-
-                current_y = final_height + VERTICAL_SPACING;
-            }
+        // ⚠ The only thing bounding the drawing. `Paragraph::render` clips to the
+        // whole terminal, never to a parent rect, so a bubble that overruns the
+        // popover draws straight over the ask screen underneath.
+        //
+        // `break`, not `continue`: `current_y` only grows, so nothing after this
+        // bubble can fit either.
+        if final_height > inner_popover.height {
+            break;
         }
+
+        // Content space (`current_y`, where 0 is the top of the transcript) and
+        // screen space (`column`) meet HERE and nowhere else — the guard above
+        // compares content to content, and the offset is added once, at the rect.
+        let bubble_rect = Rect::new(
+            column.x,
+            current_y + inner_popover.y,
+            column.width,
+            bubble_height,
+        );
+
+        message_list.push((bubble_rect, paragraph));
+
+        current_y = final_height + VERTICAL_SPACING;
     }
 
     //render the messages
