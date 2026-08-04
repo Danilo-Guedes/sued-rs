@@ -46,8 +46,6 @@ pub(super) fn render(
     let popover =
         create_centered_rect(band, Constraint::Percentage(80), Constraint::Percentage(95));
 
-    create_centered_rect(band, Constraint::Percentage(80), Constraint::Percentage(95));
-
     // ⚠ Two widgets, one rect, and both are load-bearing.
     //
     // `Clear` is what stops the ask screen showing through — without it the
