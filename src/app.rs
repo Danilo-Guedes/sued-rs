@@ -62,6 +62,19 @@ impl AskingState {
         spoken.next()
     }
 
+    pub fn previous_user_message(&self) -> Option<&str> {
+        let mut spoken = self
+            .history
+            .iter()
+            .rev()
+            .filter_map(|message| match message {
+                Message::User(words) => Some(words.as_str()),
+                Message::Sued(_) => None,
+            });
+
+        spoken.next()
+    }
+
     pub fn history_view(&self) -> Option<&HistoryView> {
         self.history_view.as_ref()
     }
