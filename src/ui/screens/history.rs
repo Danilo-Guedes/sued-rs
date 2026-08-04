@@ -9,6 +9,7 @@ use ratatui::text::Line;
 use ratatui::widgets::{Clear, Paragraph, Wrap};
 
 use super::common::{colorfull_bordered_block, create_centered_rect};
+use crate::app::AskingState;
 use crate::conversation::Message;
 use crate::language::Translation;
 use crate::ui::theme::Palette;
@@ -16,18 +17,36 @@ use crate::ui::theme::Palette;
 const HORIZONTAL_SPACING: u16 = 2;
 const VERTICAL_SPACING: u16 = 2;
 
+pub struct MeasuredMessage<'a> {
+    y_position: u16,
+    x_position: u16,
+    height: u16,
+    width: u16,
+    paragraph: Paragraph<'a>,
+}
+
 /// Draw the popover over `band` — the slice of the ask screen it is allowed to
 /// cover. The caller hands over the region, not the dimensions: how big the
 /// popover is inside that region is the popover's own business.
 pub(super) fn render(
     frame: &mut Frame,
-    history: &[Message],
+    asking_state: &AskingState,
+    // history: &[Message],
     band: Rect,
     palette: Palette,
     translation: Translation,
 ) {
+    let history = &asking_state.history;
+
+    let from_bottom = match asking_state.history_view() {
+        Some(history_view) => history_view.rows_from_bottom(),
+        None => 0,
+    };
+
     let popover =
         create_centered_rect(band, Constraint::Percentage(80), Constraint::Percentage(95));
+
+    create_centered_rect(band, Constraint::Percentage(80), Constraint::Percentage(95));
 
     // ⚠ Two widgets, one rect, and both are load-bearing.
     //
@@ -35,9 +54,6 @@ pub(super) fn render(
     // demon and the reply bleed into every cell the bubbles don't cover. But its
     // render is literally `buf[(x, y)].reset()`, which resets each cell to the
     // *terminal's* default, NOT to the theme.
-    //
-    // So the block re-asserts `palette.bg` explicitly. Deleting either line
-    // looks fine on a terminal whose default happens to be black.
     frame.render_widget(Clear, popover);
 
     frame.render_widget(
@@ -62,20 +78,12 @@ pub(super) fn render(
 
     //measure the messages height wisth and construct rects
 
-    let mut message_list: Vec<(Rect, Paragraph)> = vec![];
+    let mut message_list: Vec<MeasuredMessage> = vec![];
 
     let mut current_y: u16 = 0;
+    let mut total_rows: u16 = 0;
 
     for message in history {
-        // Who said it changes exactly three things: which column the bubble sits
-        // in, what its label reads, and which side that label hangs off. So the
-        // `match` yields those three and stops there — everything below is
-        // identical for both speakers and is written once.
-        //
-        // ⚠ This shape is load-bearing for the rungs still to come, not tidiness
-        // for its own sake: the scroll offset and the `total_rows` sum both land
-        // in the tail below. Left as two arms, every one of those is two edits
-        // that have to stay in step.
         let (column, label, said) = match message {
             Message::Sued(sued_said) => (
                 sued_column,
@@ -97,43 +105,45 @@ pub(super) fn render(
             .wrap(Wrap { trim: false })
             .block(colorfull_bordered_block(None, palette).title(label));
 
-        // ⚠ `line_count` corrects for the block's borders VERTICALLY only — it
-        // hands the width straight to the wrapper. So the block's own 2 columns
-        // come off here, at the call site, because `Block::horizontal_space()`
-        // is `pub(crate)` and the number cannot be asked for.
         let bubble_height = paragraph.line_count(column.width - HORIZONTAL_SPACING) as u16;
 
         let final_height = current_y + bubble_height;
 
-        // ⚠ The only thing bounding the drawing. `Paragraph::render` clips to the
-        // whole terminal, never to a parent rect, so a bubble that overruns the
-        // popover draws straight over the ask screen underneath.
-        //
-        // `break`, not `continue`: `current_y` only grows, so nothing after this
-        // bubble can fit either.
-        if final_height > inner_popover.height {
-            break;
-        }
+        message_list.push(MeasuredMessage {
+            y_position: current_y,
+            x_position: column.x,
+            height: bubble_height,
+            width: column.width,
+            paragraph,
+        });
 
-        // Content space (`current_y`, where 0 is the top of the transcript) and
-        // screen space (`column`) meet HERE and nowhere else — the guard above
-        // compares content to content, and the offset is added once, at the rect.
-        let bubble_rect = Rect::new(
-            column.x,
-            current_y + inner_popover.y,
-            column.width,
-            bubble_height,
-        );
-
-        message_list.push((bubble_rect, paragraph));
+        total_rows = final_height;
 
         current_y = final_height + VERTICAL_SPACING;
     }
 
+    let offset = scroll_offset(from_bottom, total_rows, inner_popover.height);
     //render the messages
 
-    for (rect, parag) in message_list {
-        frame.render_widget(parag, rect);
+    for measured in message_list {
+        // starts above the window: skip, but later bubbles may still be visible
+        if measured.y_position < offset {
+            continue;
+        }
+
+        // ends below the window: your rung-3 guard, offset-shifted
+        if measured.y_position + measured.height > offset + inner_popover.height {
+            break;
+        }
+
+        let bubble_rect = Rect::new(
+            measured.x_position,
+            inner_popover.y + (measured.y_position - offset),
+            measured.width,
+            measured.height,
+        );
+
+        frame.render_widget(measured.paragraph, bubble_rect);
     }
 }
 
