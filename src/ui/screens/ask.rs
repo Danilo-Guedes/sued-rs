@@ -209,7 +209,7 @@ pub(super) fn render(frame: &mut Frame, app: &App, asking_state: &AskingState) {
     let typed = Text::from(vec![Line::from(vec![
         " ▶ ".fg(palette.accent).bold(),
         Span::raw(if sued_is_speaking {
-            asking_state.previous_user_message().unwrap_or_default()
+            asking_state.last_question().unwrap_or_default()
         } else {
             engine.visible_buffer()
         })

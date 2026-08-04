@@ -62,7 +62,7 @@ impl AskingState {
         spoken.next()
     }
 
-    pub fn previous_user_message(&self) -> Option<&str> {
+    pub fn last_question(&self) -> Option<&str> {
         let mut spoken = self
             .history
             .iter()
@@ -980,7 +980,26 @@ mod tests {
         ];
 
         // Precondition: SUED really replied — and the reply CONSUMED the
-        // question (G8 amendment): the input already reads empty while SueD taunts.
+        // question (G8 amendment): the ENGINE's buffer is already empty while
+        // SueD taunts.
+        //
+        // ⚠ AMENDED 2026-08-04 (G15) — READ THE WORD "ENGINE". This test's claim
+        // survived G15 untouched, but the sentence that used to describe it
+        // ("the input already reads empty") did not, because it was two facts
+        // wearing one coat:
+        //
+        //   what the ENGINE holds  → cleared at `Enter`. Still true. Asserted here.
+        //   what the SCREEN draws  → the mark's question, until SueD stops
+        //                            speaking. Inverted by G15. NOT asserted here.
+        //
+        // The clearing is load-bearing for the trick (`visible_buffer` must not
+        // keep growing behind a reply), so this assertion protects the gimmick
+        // and must not be weakened into "the screen looks empty" — it never
+        // checked that, and since G15 that would be false. The screen side is
+        // pinned by `the_question_stays_on_screen_while_sued_is_still_speaking`
+        // in `ui/screens.rs`, which has to be a DRAW test for exactly this
+        // reason: no state assertion can see a change that only picks which
+        // string reaches a `Span`.
         match drive(&until_reply).screen {
             Screen::Asking(AskingState { engine, reply, .. }) => {
                 assert!(reply.is_some(), "precondition: SUED replied (denied)");
@@ -1032,7 +1051,7 @@ mod tests {
         // which is what a naive "just take the last message" would do.
         match drive(&[KeyPress::Enter, KeyPress::Enter]).screen {
             Screen::Asking(state) => assert_eq!(
-                state.previous_user_message(),
+                state.last_question(),
                 None,
                 "the seeded greeting belongs to SueD, not to the mark"
             ),
@@ -1084,7 +1103,7 @@ mod tests {
                     "precondition: greeting + two questions + two replies"
                 );
                 assert_eq!(
-                    state.previous_user_message(),
+                    state.last_question(),
                     Some("dois"),
                     "the lingering question must be the one being answered NOW"
                 );
