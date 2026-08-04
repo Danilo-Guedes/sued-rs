@@ -268,7 +268,7 @@ pub(super) fn render(frame: &mut Frame, app: &App, asking_state: &AskingState) {
     if asking_state.history_view().is_some() {
         history::render(
             frame,
-            &asking_state.history,
+            asking_state,
             sued_art_top_layout.union(sued_logs_layout),
             palette,
             translation,
