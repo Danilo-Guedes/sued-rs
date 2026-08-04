@@ -210,7 +210,12 @@ pub(super) fn render(frame: &mut Frame, app: &App, asking_state: &AskingState) {
 
     let typed = Text::from(vec![Line::from(vec![
         " ▶ ".fg(palette.accent).bold(),
-        Span::raw(engine.visible_buffer()).white(),
+        Span::raw(if input_is_unlocked {
+            engine.visible_buffer()
+        } else {
+            asking_state.previous_user_message().unwrap_or_default()
+        })
+        .white(),
         rendered_cursor,
     ])]);
 
