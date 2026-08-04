@@ -192,15 +192,13 @@ pub(super) fn render(frame: &mut Frame, app: &App, asking_state: &AskingState) {
         sued_logs_layout,
     );
 
-    let input_is_unlocked = if asking_state.history_view().is_some() {
-        false
-    } else {
-        match reply {
-            None => true,                         // never spoke
-            Some(r) if r.is_pondering() => false, // still weighing you
-            Some(r) => reveal_is_complete(r.words(), r.speaking_elapsed()),
-        }
+    let sued_is_speaking = match reply {
+        None => false,
+        Some(r) if r.is_pondering() => true,
+        Some(r) => !reveal_is_complete(r.words(), r.speaking_elapsed()),
     };
+
+    let input_is_unlocked = asking_state.history_view().is_none() && !sued_is_speaking;
 
     let rendered_cursor = if input_is_unlocked && cursor_on(time_elapsed_from_the_start_at) {
         Span::raw(CURSOR_CHAR.to_string()).fg(palette.accent)
@@ -210,10 +208,10 @@ pub(super) fn render(frame: &mut Frame, app: &App, asking_state: &AskingState) {
 
     let typed = Text::from(vec![Line::from(vec![
         " ▶ ".fg(palette.accent).bold(),
-        Span::raw(if input_is_unlocked {
-            engine.visible_buffer()
-        } else {
+        Span::raw(if sued_is_speaking {
             asking_state.previous_user_message().unwrap_or_default()
+        } else {
+            engine.visible_buffer()
         })
         .white(),
         rendered_cursor,
