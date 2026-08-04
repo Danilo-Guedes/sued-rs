@@ -472,4 +472,96 @@ mod tests {
              an answer does, so it must travel the same render path"
         );
     }
+
+    // ── G15 · the question lingers until SueD stops speaking ─────────────────
+    //
+    // ⚠ WHY THESE ARE DRAW TESTS AND NOT STATE TESTS. G15 changes NOTHING the
+    // engine holds — `visible_buffer` still clears at `Enter`, exactly as
+    // before, which is what keeps the change trick-safe. The whole behaviour
+    // lives in which of two strings `ask.rs` hands to a `Span`. There is no
+    // state assertion that can see it; only the buffer can.
+    //
+    // 📌 That is also the answer to the plan's five-day-old claim that
+    // `keystrokes_are_ignored_after_a_denial` would have to invert. It never
+    // did: that test asks what the ENGINE holds, and this pair asks what the
+    // SCREEN draws. One sentence, two facts.
+
+    /// A question the pools cannot accidentally contain. Every assertion below
+    /// is a substring search over the whole 132×41 buffer, so a plausible word
+    /// would risk matching a taunt in one of three languages and going green for
+    /// the wrong reason.
+    const QUESTION: &str = "xyzzy";
+    const SECOND_QUESTION: &str = "plugh";
+
+    fn type_out(app: &mut App, word: &str) {
+        for character in word.chars() {
+            app.handle_key(KeyPress::Char(character));
+        }
+    }
+
+    #[test]
+    fn the_question_stays_on_screen_while_sued_is_still_speaking() {
+        // The bug from live play: the mark's question vanished the instant
+        // `Enter` landed, so the oracle was visibly answering nothing. The clock
+        // is deliberately NOT wound here — `app_after` advances no time, so the
+        // reply is still pondering and the input is still locked, which is
+        // precisely the window G15 exists to fill.
+        let mut app = app_after(&[KeyPress::Enter, KeyPress::Enter]);
+        type_out(&mut app, QUESTION);
+        app.handle_key(KeyPress::Enter); // no hidden answer → Denied
+
+        match app.screen() {
+            Screen::Asking(AskingState { reply, .. }) => {
+                let reply = reply.as_ref().expect("precondition: SueD is replying");
+                assert!(
+                    reply.is_pondering(),
+                    "precondition: SueD must still be mid-reply — once the crawl \
+                     ends the input reopens and this test covers the OLD branch"
+                );
+            }
+            other => panic!("expected Asking, got {other:?}"),
+        }
+
+        assert!(
+            screen_text(&app).contains(QUESTION),
+            "the question must still be on screen while SueD answers it — the \
+             engine has already cleared `visible_buffer`, so the only way it can \
+             be there is the transcript's last `Message::User`"
+        );
+    }
+
+    #[test]
+    fn opening_the_transcript_must_not_swap_the_question_underneath_it() {
+        // ⚠ THIS IS THE RED ONE — it fails on the shipped code.
+        //
+        // `input_is_unlocked` answers "may keystrokes reach the engine", and it
+        // is false for TWO unrelated reasons: SueD is speaking, OR the popover
+        // is open. G15 only wants the first. Hanging the text branch off the
+        // union means opening the transcript mid-question silently swaps the
+        // input line to the PREVIOUS question — and the input line sits below
+        // the popover, so the mark can see it happen.
+        //
+        // The fix is not a rename: it is that the second condition never got a
+        // name of its own. Give it one (`sued_is_speaking`), define
+        // `input_is_unlocked` in terms of it, and key the text off the cause
+        // rather than the consequence.
+        let mut app = app_after(&[KeyPress::Enter, KeyPress::Enter]);
+        type_out(&mut app, QUESTION);
+        app.handle_key(KeyPress::Enter); // 1st exchange → there is now a history
+        app.rewind_reply(Duration::from_secs(60)); // SueD stops; input reopens
+
+        type_out(&mut app, SECOND_QUESTION); // half-typed, NOT submitted
+        app.handle_key(KeyPress::F1);
+        assert_popover_is_open(&app, "while a second question is half-typed");
+
+        // Deliberately a POSITIVE assertion. `QUESTION` is legitimately on
+        // screen — it is a bubble in the open transcript — so asserting its
+        // absence would fail for an honest reason. What must be true is that the
+        // input line still shows what is actually being typed.
+        assert!(
+            screen_text(&app).contains(SECOND_QUESTION),
+            "the input line must keep showing the live buffer while the \
+             transcript is open — the popover is not SueD speaking"
+        );
+    }
 }

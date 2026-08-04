@@ -1008,6 +1008,91 @@ mod tests {
         }
     }
 
+    // ── G15 · the question that lingers ──────────────────────────────────────
+    //
+    // ⚠ These pin the ACCESSOR, not the render. `ask.rs` calls it every frame
+    // and leans on both facts below: `None` on frame one (it becomes `""` via
+    // `unwrap_or_default`, which is the pre-G15 behaviour), and *newest*, not
+    // *previous*, once the séance is under way.
+    //
+    // ⚠ NAMING DEBT THESE TESTS DELIBERATELY DOCUMENT: `previous_user_message`
+    // sits beside `previous_reply`, whose prefix is earned — it does `skip(1)`
+    // AND an extra `next()` to step over the live reply. This one does neither,
+    // because G15 wants the question being answered *right now*. Same prefix,
+    // opposite semantics. The rename (`last_user_message` /
+    // `question_being_answered`) is owed; these tests are written against the
+    // current name so the suite still compiles, and the second one exists so a
+    // future reader cannot mistake which of the two behaviours is intended.
+
+    #[test]
+    fn the_seeded_greeting_is_not_a_question() {
+        // A fresh ask screen's `history` holds exactly one thing: `welcome_line`,
+        // as `Message::Sued`. So on frame one there is no question to linger, and
+        // the accessor must say so rather than handing back SueD's own greeting —
+        // which is what a naive "just take the last message" would do.
+        match drive(&[KeyPress::Enter, KeyPress::Enter]).screen {
+            Screen::Asking(state) => assert_eq!(
+                state.previous_user_message(),
+                None,
+                "the seeded greeting belongs to SueD, not to the mark"
+            ),
+            other => panic!("expected Asking, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn the_question_that_lingers_is_the_newest_one_not_the_one_before_it() {
+        // ⚠ THE ASYMMETRY WITH `previous_reply`, made executable. Two exchanges,
+        // so "newest" and "previous" are different strings and a test can tell
+        // them apart — with one exchange this passes either way and pins nothing.
+        //
+        // G15 draws the question SueD is answering *right now*. Step over it the
+        // way `previous_reply` steps over the live reply and the input line shows
+        // the mark the wrong question — subtly, plausibly, and only on the second
+        // exchange onward, which is exactly the kind of bug that survives a demo.
+        let mut app = drive(&[
+            KeyPress::Enter,
+            KeyPress::Enter, // → Asking
+            KeyPress::Char('u'),
+            KeyPress::Char('m'),
+            KeyPress::Enter, // 1st question, no hidden answer → Denied
+        ]);
+
+        // ⚠ Not optional. G8 locks the input while SueD speaks, so without
+        // winding the clock the second question never reaches the engine and
+        // this test quietly asserts against a ONE-exchange transcript — where
+        // "newest" and "previous" are the same string and nothing is pinned.
+        // (F5 is not an option here either: it rebuilds the screen and takes
+        // `history` with it, which destroys the very thing under test.)
+        finish_the_reveal(&mut app);
+        feed(
+            &mut app,
+            &[
+                KeyPress::Char('d'),
+                KeyPress::Char('o'),
+                KeyPress::Char('i'),
+                KeyPress::Char('s'),
+                KeyPress::Enter, // 2nd question → Denied
+            ],
+        );
+
+        match app.screen {
+            Screen::Asking(state) => {
+                assert_eq!(
+                    state.history.len(),
+                    5,
+                    "precondition: greeting + two questions + two replies"
+                );
+                assert_eq!(
+                    state.previous_user_message(),
+                    Some("dois"),
+                    "the lingering question must be the one being answered NOW"
+                );
+            }
+            other => panic!("expected Asking, got {other:?}"),
+        }
+    }
+
     #[test]
     fn keystrokes_are_ignored_after_a_reveal() {
         // The other reply path: reveal a hidden answer, then keep typing. The
