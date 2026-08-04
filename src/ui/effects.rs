@@ -42,6 +42,14 @@ const MIN_THINKING_MS: u64 = 3_000;
 const DOT_CYCLE_MS: u64 = 400;
 const DOTS_WIDTH: u64 = 3;
 
+// PULSE INTENSITY
+
+const PULSE_INTENSITY_MAX: u64 = 255;
+
+const PULSE_INTENSITY_MIN: u64 = 160;
+
+const PULSE_INTENSITY_WAVE_TIME: u64 = 1_200;
+
 /// How many characters of the answer should be visible after `elapsed` time has
 /// passed since the reveal began, clamped to `total`.
 ///
@@ -205,14 +213,77 @@ pub fn thinking_dots(elapsed: Duration) -> usize {
     (elapsed.as_millis() as u64 / DOT_CYCLE_MS % DOTS_WIDTH + 1) as usize
 }
 
+/// How brightly the spell glows this frame, as the `u8` handed to
+/// `Palette::glow` — a triangle wave breathing between `PULSE_INTENSITY_MIN`
+/// and `PULSE_INTENSITY_MAX` once every `PULSE_INTENSITY_WAVE_TIME`.
+///
+/// This replaced the spell's typewriter crawl (G18). The crawl now belongs to
+/// the *answer* alone, so letters-arriving-one-by-one means one thing only:
+/// SueD is answering. The spell became atmosphere instead of a second, slower
+/// answer.
+///
+/// ⚠ **The floor is not decoration.** `glow(0)` is black on every theme — see
+/// `theme::glow_at_zero_intensity_is_black_for_every_theme` — so a wave that
+/// reached zero would make the spell *vanish* at every trough. On a `palette.bg`
+/// of (7,4,6) that reads as a crash, not as breathing. The wave is therefore
+/// mapped INTO `[MIN, MAX]` rather than clipped into it: the whole triangle is
+/// squeezed to fit the range, instead of a full-height triangle having its
+/// bottom sliced off (which would flatten every trough into a plateau).
+///
+/// ⚠ **The peak reaching `PULSE_INTENSITY_MAX` is load-bearing too.** Every
+/// palette's `peak` tuple *is* its `accent`, so `glow(255)` returns the exact
+/// colour the spell already wears. Peak any lower and this "animation tweak"
+/// would quietly restyle the ponder, undoing the settled accent-spell-vs-white-
+/// reply decision at `ask.rs:116-120`.
+///
+/// `animations_enabled = false` returns **full brightness**, the same rest value
+/// `flicker_intensity` uses and for the same reason: "no pulse" means an
+/// undimmed spell, not a dark one. Returning `0` here would freeze the
+/// accessibility user at the trough — the accessibility gate causing the very
+/// bug the floor exists to prevent.
+pub fn pulse_intensity(elapsed: Duration, animations_enabled: bool) -> u8 {
+    if !animations_enabled {
+        return u8::MAX;
+    }
+
+    let elapsed_ms = elapsed.as_millis() as u64;
+    let half_wave = PULSE_INTENSITY_WAVE_TIME / 2;
+
+    // WHERE INSIDE THE CURRENT BREATH ARE WE? `%` is what makes this repeat.
+    // `/` would answer a different question — "how many breaths have finished" —
+    // and that is a counter that only ever grows.
+    let phase = elapsed_ms % PULSE_INTENSITY_WAVE_TIME;
+
+    // Fold the phase back on itself so the second half descends: 0 → half → 0.
+    // Without the fold the shape is a sawtooth that snaps from full back to the
+    // floor in a single frame, which reads as a flash rather than a breath.
+    let distance_from_trough = if phase < half_wave {
+        phase
+    } else {
+        PULSE_INTENSITY_WAVE_TIME - phase
+    };
+
+    let range_above_floor = PULSE_INTENSITY_MAX - PULSE_INTENSITY_MIN;
+
+    // ⚠ MULTIPLY BEFORE DIVIDING. `distance / half_wave` is integer division, so
+    // on its own it is only ever 0 or 1 and every brightness in between is lost.
+    let lit = PULSE_INTENSITY_MIN + distance_from_trough * range_above_floor / half_wave;
+
+    // `lit` cannot exceed MAX while the wave time is even, but the `.min` keeps
+    // that true if it is ever retuned to an odd number — and `as u8` truncates
+    // silently rather than saturating, so one wrapped value would be a BLACK
+    // frame rather than an obviously wrong one.
+    lit.min(PULSE_INTENSITY_MAX) as u8
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
         CURSOR_BLINK_MS, CURSOR_CHAR, DOT_CYCLE_MS, FLASH_MS, FLICKER_CHANCE, MAX_THINKING_MS,
         MIN_FLICKER_VALUE, MIN_THINKING_MS, REVEAL_MS_PER_CHAR, SHAKE_MAX_CELLS, SHAKE_MS,
-        cursor_on, flash_intensity, flicker_intensity, is_thinking, reveal_elapsed,
-        reveal_is_complete, shake_offset, thinking_dots, thinking_duration, typewriter_len,
-        typewriter_reveal, typewriter_slice,
+        cursor_on, flash_intensity, flicker_intensity, is_thinking, pulse_intensity,
+        reveal_elapsed, reveal_is_complete, shake_offset, thinking_dots, thinking_duration,
+        typewriter_len, typewriter_reveal, typewriter_slice,
     };
     use std::time::Duration;
 
@@ -938,5 +1009,214 @@ mod tests {
                 "at {elapsed:?} the dot count was {dots} — outside 1..=3"
             );
         }
+    }
+
+    // ── G18 · the spell pulses instead of typing ─────────────────────────────
+    //
+    // ⚠⚠ THESE ARE WRITTEN TO SURVIVE TUNING, AND THAT IS DELIBERATE. Both of
+    // G18's numbers — the cadence and the trough floor — are explicitly "tune it
+    // by eye" values. Pin a brightness at a millisecond and every visual
+    // adjustment turns the suite red, which is the exact trap `ui/screens.rs`
+    // already warns about for layout: *"pinning them would make every visual
+    // tweak a failure"*.
+    //
+    // So nothing below asserts a specific value at a specific time. What they
+    // pin is SHAPE — the four things that would be bugs at ANY cadence:
+    // never black · reaches full · ramps rather than blinks · slower than the
+    // cursor. Retune freely; these should stay green.
+
+    /// A trough dark enough to read as "the spell disappeared" rather than "the
+    /// spell dimmed". ⚠ This is a floor on the FLOOR, not the floor itself — the
+    /// real const is expected to sit far above it (`MIN_FLICKER_VALUE` is 160,
+    /// and G18 is the same family of hazard). It exists only so the test can
+    /// fail loudly on a naive `0..=255` ramp without dictating the tuning.
+    const LEGIBLE_TROUGH: u8 = 32;
+
+    /// Long enough to hold several cycles at any cadence a person would call
+    /// "slow", short enough that the sweep stays cheap.
+    const PULSE_SWEEP_MS: u64 = 6_000;
+
+    /// Sample the pulse densely across `PULSE_SWEEP_MS`.
+    fn pulse_sweep(animations_enabled: bool) -> Vec<u8> {
+        (0..PULSE_SWEEP_MS)
+            .step_by(10)
+            .map(|ms| pulse_intensity(Duration::from_millis(ms), animations_enabled))
+            .collect()
+    }
+
+    #[test]
+    fn animations_off_holds_the_spell_at_full_brightness() {
+        // ⚠ THE REST VALUE IS FULL, NOT ZERO — the same call `flicker_intensity`
+        // makes, and for the same reason: "no pulse" means an UNDIMMED spell,
+        // not a dark one. Returning 0 here would leave the accessibility user
+        // staring at a spell frozen at the trough, which on `palette.bg` is an
+        // empty box — the accessibility gate would have caused the very bug the
+        // floor exists to prevent.
+        for value in pulse_sweep(false) {
+            assert_eq!(
+                value,
+                u8::MAX,
+                "animations off must hold the spell lit, not dim it"
+            );
+        }
+    }
+
+    #[test]
+    fn the_pulse_never_falls_to_black() {
+        // ⚠⚠ THE HARD RULE OF G18. `glow(0)` is black on every theme —
+        // `theme.rs::glow_at_zero_intensity_is_black_for_every_theme` pins it —
+        // so a naive `0..=255` ramp makes the spell VANISH at the trough. On a
+        // `palette.bg` of (7,4,6) that is an empty box mid-ponder, which reads
+        // as a crash rather than as breathing.
+        let trough = pulse_sweep(true)
+            .into_iter()
+            .min()
+            .expect("the sweep must not be empty");
+
+        assert_ne!(trough, 0, "the spell must never go fully black");
+        assert!(
+            trough >= LEGIBLE_TROUGH,
+            "the trough reached {trough}, close enough to black to read as the \
+             spell disappearing rather than dimming"
+        );
+    }
+
+    #[test]
+    fn the_pulse_peaks_at_the_colour_the_spell_already_has() {
+        // `glow(255)` returns `peak` unscaled, and every palette's `peak` tuple
+        // IS its `accent`. So full intensity is exactly the colour the spell
+        // wears today, and peaking below it would quietly RESTYLE the ponder
+        // instead of animating it — undoing the settled accent-spell-vs-white-
+        // reply decision at `ask.rs:116-120` as a side effect of an animation
+        // tweak.
+        let peak = pulse_sweep(true)
+            .into_iter()
+            .max()
+            .expect("the sweep must not be empty");
+
+        assert_eq!(
+            peak,
+            u8::MAX,
+            "the pulse must reach full brightness, or the spell never wears its \
+             own accent colour"
+        );
+    }
+
+    #[test]
+    fn the_pulse_ramps_instead_of_blinking() {
+        // He said "kinda slow blink" but the word that decides the shape is
+        // "glow". A square wave visits exactly TWO brightnesses; a ramp passes
+        // through the range. Counting distinct values tells the two apart
+        // without knowing the cadence.
+        //
+        // 📌 This is also what stops a CONSTANT function passing the whole
+        // section — every other test here is satisfied by `|_, _| u8::MAX`.
+        let mut visited = pulse_sweep(true);
+        visited.sort_unstable();
+        visited.dedup();
+
+        assert!(
+            visited.len() >= 16,
+            "the pulse visited only {} distinct brightnesses across {PULSE_SWEEP_MS}ms — \
+             that is a blink, not a glow",
+            visited.len()
+        );
+    }
+
+    #[test]
+    fn the_pulse_comes_back_down_and_rises_again() {
+        // ⚠⚠ ADDED 2026-08-04, AND IT IS A HOLE IN THIS SECTION RATHER THAN NEW
+        // SCOPE. The first implementation exposed it: a ONE-SHOT RAMP — climb to
+        // full and stay there forever — satisfies every other test here.
+        // `ramps_instead_of_blinking` sees plenty of distinct brightnesses on
+        // the way up, and a monotone function has no direction changes at all,
+        // so the cadence test reads it as "slower than the whole sweep" and
+        // waves it through. Both would have gone green on a spell that brightens
+        // once and then just sits there.
+        //
+        // Breathing is the part that REPEATS. Two peaks and two troughs is the
+        // smallest evidence that it does.
+        let mut runs = pulse_sweep(true);
+        runs.dedup(); // collapse plateaus, so a flat peak still reads as one turn
+
+        let (peaks, troughs) = runs.windows(3).fold((0, 0), |(up, down), window| {
+            let (before, here, after) = (window[0], window[1], window[2]);
+            if here > before && here > after {
+                (up + 1, down)
+            } else if here < before && here < after {
+                (up, down + 1)
+            } else {
+                (up, down)
+            }
+        });
+
+        assert!(
+            peaks >= 2 && troughs >= 2,
+            "across {PULSE_SWEEP_MS}ms the pulse turned around {peaks} time(s) at the top \
+             and {troughs} at the bottom — a spell that brightens once and stays lit is \
+             not breathing"
+        );
+    }
+
+    #[test]
+    fn the_pulse_glows_rather_than_snapping() {
+        // The other shape `ramps_instead_of_blinking` cannot rule out: a
+        // SAWTOOTH climbs gently and then snaps back to the floor in a single
+        // frame — visiting exactly as many distinct brightnesses on the way up
+        // as a triangle does, so the distinct-value count says nothing. On
+        // screen that is a flash-and-fade, not a glow.
+        //
+        // Stated as a fraction of the pulse's OWN range so it survives retuning
+        // the floor, the peak and the cadence together.
+        let samples = pulse_sweep(true);
+        let trough = *samples.iter().min().expect("the sweep must not be empty");
+        let peak = *samples.iter().max().expect("the sweep must not be empty");
+        let range = peak.saturating_sub(trough) as u32;
+
+        let biggest_step = samples
+            .windows(2)
+            .map(|window| window[0].abs_diff(window[1]) as u32)
+            .max()
+            .expect("the sweep must not be empty");
+
+        assert!(
+            biggest_step * 4 <= range,
+            "one frame moved the spell by {biggest_step} of its {range}-wide range — \
+             that is a snap, not a glow"
+        );
+    }
+
+    #[test]
+    fn the_pulse_breathes_slower_than_the_cursor_blinks() {
+        // "Slow" is his word and the spec calls it the point: at the cursor's
+        // own cadence this would read as a SECOND CURSOR sitting beside the real
+        // one rather than as the spell breathing — and the two would be on
+        // screen together, which is what makes the collision visible.
+        //
+        // A full cycle has exactly two direction changes, so counting local
+        // extremes bounds the period without this test needing to know the
+        // cadence const. ⚠ Deliberately a LOOSE bound — it fails a pulse that is
+        // cursor-fast, not one that is merely faster than you last left it.
+        let samples = pulse_sweep(true);
+        let reversals = samples
+            .windows(3)
+            .filter(|window| {
+                let (before, here, after) = (window[0], window[1], window[2]);
+                (here > before && here > after) || (here < before && here < after)
+            })
+            .count() as u64;
+
+        let cycles = reversals / 2;
+
+        // No turns at all means the pulse is slower than the whole sweep, which
+        // is certainly slow enough — `checked_div` gives `None` on the zero and
+        // the fallback says exactly that.
+        let period_ms = PULSE_SWEEP_MS.checked_div(cycles).unwrap_or(PULSE_SWEEP_MS);
+
+        assert!(
+            period_ms > CURSOR_BLINK_MS,
+            "the pulse cycles about every {period_ms}ms against the cursor's \
+             {CURSOR_BLINK_MS}ms — that reads as a second cursor, not as breathing"
+        );
     }
 }
