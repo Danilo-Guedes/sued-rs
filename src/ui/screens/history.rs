@@ -6,7 +6,7 @@ use ratatui::Frame;
 use ratatui::layout::{Constraint, Flex, Layout, Margin, Rect};
 use ratatui::style::Style;
 use ratatui::text::Line;
-use ratatui::widgets::{Clear, Paragraph, Wrap};
+use ratatui::widgets::{Clear, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState, Wrap};
 
 use super::common::{colorfull_bordered_block, create_centered_rect};
 use crate::app::AskingState;
@@ -61,10 +61,13 @@ pub(super) fn render(
         popover,
     );
 
-    let inner_popover = popover.inner(Margin {
-        horizontal: 4,
+    let inner_popover_base = popover.inner(Margin {
+        horizontal: 3,
         vertical: 2,
     });
+
+    let [inner_popover, scrollbar_gutter] =
+        Layout::horizontal([Constraint::Fill(1), Constraint::Length(2)]).areas(inner_popover_base);
 
     let [sued_column] = Layout::horizontal([Constraint::Percentage(66)])
         .flex(Flex::Start)
@@ -121,8 +124,8 @@ pub(super) fn render(
     }
 
     let offset = scroll_offset(from_bottom, total_rows, inner_popover.height);
-    //render the messages
 
+    //render the messages
     for measured in message_list {
         // starts above the window: skip, but later bubbles may still be visible
         if measured.y_position < offset {
@@ -142,6 +145,27 @@ pub(super) fn render(
         );
 
         frame.render_widget(measured.paragraph, bubble_rect);
+    }
+
+    if total_rows > inner_popover.height {
+        let max_offset = total_rows.saturating_sub(inner_popover.height) as usize;
+
+        let scroll_positions = max_offset + 1;
+
+        let mut scrollbar_state = ScrollbarState::new(scroll_positions)
+            .position(offset as usize)
+            .viewport_content_length(inner_popover.height as usize);
+
+        let default_style = Style::default().fg(palette.accent);
+
+        let scrollbar = Scrollbar::new(ScrollbarOrientation::VerticalRight)
+            .thumb_style(default_style)
+            .track_style(default_style.dim())
+            .begin_style(default_style)
+            .end_style(default_style);
+
+        //render the scrollbar
+        frame.render_stateful_widget(scrollbar, scrollbar_gutter, &mut scrollbar_state);
     }
 }
 
