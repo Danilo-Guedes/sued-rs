@@ -46,9 +46,9 @@ const DOTS_WIDTH: u64 = 3;
 
 const PULSE_INTENSITY_MAX: u64 = 255;
 
-const PULSE_INTENSITY_MIN: u64 = 160;
+const PULSE_INTENSITY_MIN: u64 = 100;
 
-const PULSE_INTENSITY_WAVE_TIME: u64 = 1_200;
+const PULSE_INTENSITY_WAVE_TIME: u64 = 1_800;
 
 /// How many characters of the answer should be visible after `elapsed` time has
 /// passed since the reveal began, clamped to `total`.

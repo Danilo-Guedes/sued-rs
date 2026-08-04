@@ -12,8 +12,8 @@ use super::common::{colorfull_bordered_block, create_centered_rect, hint_line, r
 use super::history;
 use crate::app::{App, AskingState};
 use crate::ui::effects::{
-    CURSOR_CHAR, cursor_on, flash_intensity, flicker_intensity, reveal_is_complete, shake_offset,
-    thinking_dots, typewriter_reveal,
+    CURSOR_CHAR, cursor_on, flash_intensity, flicker_intensity, pulse_intensity,
+    reveal_is_complete, shake_offset, thinking_dots, typewriter_reveal,
 };
 use crate::ui::screens::common::{
     DEMON_ART, DEMON_ART_HEIGHT, DEMON_ART_WIDTH, NavTab, create_screen_block,
@@ -121,12 +121,11 @@ pub(super) fn render(frame: &mut Frame, app: &App, asking_state: &AskingState) {
         //
         // Safe against the reply flash: `flash_bg` is driven by `speaking_for`,
         // which is `None` for the whole ponder, so accent-on-accent can't happen.
-        Some(spell_elapsed) => Text::from(if reveal_is_complete(spell, spell_elapsed) {
-            format!("{spell}{}", ".".repeat(thinking_dots(spell_elapsed)))
-        } else {
-            typewriter_reveal(spell, spell_elapsed)
-        })
-        .fg(palette.accent),
+        Some(spell_elapsed) => Text::from(format!(
+            "{spell}{}",
+            ".".repeat(thinking_dots(spell_elapsed))
+        ))
+        .fg(palette.glow(pulse_intensity(spell_elapsed, config.animations()))),
         None => match engine.revealed() {
             Some(answer) => Text::from(typewriter_reveal(answer, elapsed_duration)),
             None => match reply {
