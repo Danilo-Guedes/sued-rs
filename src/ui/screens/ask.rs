@@ -116,8 +116,22 @@ pub(super) fn render(frame: &mut Frame, app: &App, asking_state: &AskingState) {
     let final_sued_words = match casting_for {
         // Accent, where every reply is plain white — so the incantation reads as
         // SueD *acting* and the answer as SueD *speaking*. The colour switch is
-        // what makes the reply land; a white spell would just look like the answer
-        // arriving early and then changing its mind.
+        // what makes the reply land; a white spell would read as the answer
+        // itself, arriving without ceremony.
+        //
+        // ⚠ AMENDED 2026-08-04 (G18) — THE SPELL NO LONGER TYPES, IT BREATHES.
+        // The crawl was deleted from this arm on purpose: `typewriter_reveal` now
+        // has only answer call sites, so letters arriving one at a time means
+        // exactly one thing — SueD is ANSWERING. The spell became atmosphere
+        // rather than a second, slower answer.
+        //
+        // ⚠ AND THE PULSE DOES NOT UNDO THE COLOUR DECISION ABOVE, WHICH RESTS
+        // ON AN INVARIANT WORTH KNOWING: `glow(255)` returns `peak` unscaled, and
+        // every palette's `peak` tuple IS its `accent` (`theme.rs:26-44`). So the
+        // spell breathes along a single hue — its own — dimming toward
+        // `PULSE_INTENSITY_MIN` and back. Give some future palette a `peak` that
+        // differs from its `accent` and this line stops animating the ponder and
+        // starts silently restyling it.
         //
         // Safe against the reply flash: `flash_bg` is driven by `speaking_for`,
         // which is `None` for the whole ponder, so accent-on-accent can't happen.
