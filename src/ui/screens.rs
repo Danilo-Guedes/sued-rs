@@ -408,9 +408,24 @@ mod tests {
     #[test]
     fn the_spell_is_visible_while_sued_ponders() {
         // ⚠ THE REGRESSION TEST FOR THE BUG THAT PROMPTED THIS MODULE.
-        // The ponder is 3–6s and the spell types at ~55ms/char, so 1s in is
-        // safely mid-ponder with ~18 characters revealed. A prefix is asserted
-        // rather than the whole spell precisely because it is still typing.
+        // The ponder is 3–6s, so rewinding 1s lands safely mid-ponder.
+        //
+        // ⚠ AMENDED 2026-08-04 (G18) — THE OLD REASON FOR THE PREFIX IS GONE, AND
+        // THE TEST STAYED GREEN THROUGH ITS DISAPPEARANCE. This used to read "a
+        // prefix rather than the whole spell precisely because it is still
+        // typing": the spell crawled at ~55ms/char, so only ~18 characters
+        // existed 1s in. G18 deleted that crawl — the spell is drawn whole on
+        // frame one and pulses instead — which means this could now assert the
+        // entire string, and the sentence justifying the weaker assertion had
+        // quietly become false.
+        //
+        // The prefix STAYS, but on a different footing, written down here rather
+        // than left as inertia: `speak_layout` is a fixed `Constraint::Length(60)`
+        // at every terminal size, and the longest spell in any pool is ~41 chars
+        // plus dots. A full-string search would go flaky the day a pool entry
+        // crosses that box and wraps — which is the same flakiness this module's
+        // header already refuses to court, for reasons unrelated to the bug being
+        // hunted here.
         let mut app = app_after(&[
             KeyPress::Enter,
             KeyPress::Enter,
