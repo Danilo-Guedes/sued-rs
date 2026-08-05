@@ -11,6 +11,7 @@ use ratatui::widgets::{Block, Borders, Padding, Paragraph, Wrap};
 use super::common::{colorfull_bordered_block, create_centered_rect, hint_line, render_nav_strip};
 use super::history;
 use crate::app::{App, AskingState};
+use crate::conversation::Overlay;
 use crate::ui::effects::{
     CURSOR_CHAR, cursor_on, flash_intensity, flicker_intensity, pulse_intensity,
     reveal_is_complete, shake_offset, thinking_dots, typewriter_reveal,
@@ -211,7 +212,7 @@ pub(super) fn render(frame: &mut Frame, app: &App, asking_state: &AskingState) {
         Some(r) => !reveal_is_complete(r.words(), r.speaking_elapsed()),
     };
 
-    let input_is_unlocked = asking_state.history_view().is_none() && !sued_is_speaking;
+    let input_is_unlocked = asking_state.overlay().is_none() && !sued_is_speaking;
 
     let rendered_cursor = if input_is_unlocked && cursor_on(time_elapsed_from_the_start_at) {
         Span::raw(CURSOR_CHAR.to_string()).fg(palette.accent)
@@ -248,19 +249,19 @@ pub(super) fn render(frame: &mut Frame, app: &App, asking_state: &AskingState) {
     let [hints_area, page_area] =
         Layout::horizontal([Constraint::Fill(1), Constraint::Length(14)]).areas(status_inner);
 
-    let current_hint_slice = if asking_state.history_view().is_some() {
-        translation.history.hints
-    } else {
-        translation.ask.hints
+    let current_hint_slice = match asking_state.overlay() {
+        Some(Overlay::Transcript(_)) => translation.history.hints,
+        Some(Overlay::ConfirmLeave) => todo!(),
+        None => translation.ask.hints,
     };
 
     let hints = hint_line(current_hint_slice, palette);
     frame.render_widget(Paragraph::new(hints), hints_area);
 
-    let current_bottom_title = if asking_state.history_view().is_some() {
-        NavTab::History.label(language)
-    } else {
-        NavTab::Ask.label(language)
+    let current_bottom_title = match asking_state.overlay() {
+        Some(Overlay::Transcript(_)) => NavTab::History.label(language),
+        Some(Overlay::ConfirmLeave) => todo!(),
+        None => NavTab::Ask.label(language),
     };
 
     frame.render_widget(
@@ -281,10 +282,11 @@ pub(super) fn render(frame: &mut Frame, app: &App, asking_state: &AskingState) {
     // while those three stay ADJACENT in the vertical stack above. Reorder that
     // layout and the band silently changes meaning — it still compiles, still
     // draws, and covers the wrong thing.
-    if asking_state.history_view().is_some() {
+    if let Some(history_view) = asking_state.transcript() {
         history::render(
             frame,
             asking_state,
+            history_view,
             sued_art_top_layout.union(sued_logs_layout),
             palette,
             translation,

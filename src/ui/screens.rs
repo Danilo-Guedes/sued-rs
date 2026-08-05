@@ -243,11 +243,13 @@ mod tests {
     /// popover is open" — assert the second one.
     fn assert_popover_is_open(app: &App, when: &str) {
         match app.screen() {
-            Screen::Asking(state) => assert!(
-                state.history_view().is_some(),
-                "the popover must be OPEN {when}, or this test draws the very \
-                 screen every other test already covers"
-            ),
+            Screen::Asking(state) => {
+                assert!(
+                    state.transcript().is_some(),
+                    "the popover must be OPEN {when}, or this test draws the very \
+                     screen every other test already covers"
+                )
+            }
             other => panic!("expected Asking, got {other:?}"),
         }
     }

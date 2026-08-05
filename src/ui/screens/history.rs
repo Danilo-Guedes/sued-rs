@@ -10,7 +10,7 @@ use ratatui::widgets::{Clear, Paragraph, Scrollbar, ScrollbarOrientation, Scroll
 
 use super::common::{colorfull_bordered_block, create_centered_rect};
 use crate::app::AskingState;
-use crate::conversation::Message;
+use crate::conversation::{HistoryView, Message};
 use crate::language::Translation;
 use crate::ui::theme::Palette;
 
@@ -31,17 +31,14 @@ pub struct MeasuredMessage<'a> {
 pub(super) fn render(
     frame: &mut Frame,
     asking_state: &AskingState,
-    // history: &[Message],
+    history_view: &HistoryView,
     band: Rect,
     palette: Palette,
     translation: Translation,
 ) {
     let history = &asking_state.history;
 
-    let from_bottom = match asking_state.history_view() {
-        Some(history_view) => history_view.rows_from_bottom(),
-        None => 0,
-    };
+    let from_bottom = history_view.rows_from_bottom();
 
     let popover =
         create_centered_rect(band, Constraint::Percentage(80), Constraint::Percentage(95));

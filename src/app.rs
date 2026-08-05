@@ -11,7 +11,7 @@ use std::time::{Duration, Instant};
 use crate::{
     audio::AudioCue,
     config::{ConfigOption, Configuration, Direction},
-    conversation::{HistoryView, Message},
+    conversation::{HistoryView, Message, Overlay},
     core::engine::{Engine, KeyPress, StateChange},
     language::{Language, Translation, pick},
     ui::effects::{is_thinking, reveal_elapsed, reveal_is_complete, thinking_duration},
@@ -33,7 +33,7 @@ pub struct App {
 #[derive(Debug)]
 pub struct AskingState {
     thunder_played: bool,
-    history_view: Option<HistoryView>,
+    overlay: Option<Overlay>,
     pub history: Vec<Message>,
     pub engine: Engine,
     pub spell: &'static str,
@@ -75,8 +75,15 @@ impl AskingState {
         spoken.next()
     }
 
-    pub fn history_view(&self) -> Option<&HistoryView> {
-        self.history_view.as_ref()
+    pub fn overlay(&self) -> Option<&Overlay> {
+        self.overlay.as_ref()
+    }
+
+    pub fn transcript(&self) -> Option<&HistoryView> {
+        match self.overlay() {
+            Some(Overlay::Transcript(hv)) => Some(hv),
+            _ => None,
+        }
     }
 }
 
@@ -108,7 +115,7 @@ impl Screen {
             spell: pick(translations.ask.spells, rand::random()),
             thunder_played: false,
             history: vec![Message::Sued(String::from(translations.ask.welcome_line))],
-            history_view: None,
+            overlay: None,
         })
     }
 }
@@ -293,12 +300,12 @@ impl App {
                 spell,
                 thunder_played,
                 history,
-                history_view,
+                overlay,
             }) => {
                 //first we discard the not allowed keypress
                 // to avoind leak somethig to the engine
                 // while the history popover is shown
-                if history_view.is_some() {
+                if overlay.is_some() {
                     match key {
                         KeyPress::F1
                         | KeyPress::Esc
@@ -376,8 +383,8 @@ impl App {
                         AppFlow::Stay
                     }
                     KeyPress::Esc => {
-                        if history_view.is_some() {
-                            *history_view = None;
+                        if overlay.is_some() {
+                            *overlay = None;
                         } else {
                             // here user is in the main ask screen
                             self.screen = Screen::Menu;
@@ -394,23 +401,23 @@ impl App {
                     }
                     KeyPress::CtrlC => AppFlow::Quit,
                     KeyPress::F1 => {
-                        if history_view.is_some() {
+                        if overlay.is_some() {
                             // here the hitview is open already. needs toggle off
-                            *history_view = None;
+                            *overlay = None;
                         } else {
                             // here the hitview is close. needs toggle on
-                            *history_view = Some(HistoryView::new());
+                            *overlay = Some(Overlay::Transcript(HistoryView::new()));
                         }
                         AppFlow::Stay
                     }
                     KeyPress::PageUp => {
-                        if let Some(inner_hist_view) = history_view {
+                        if let Some(Overlay::Transcript(inner_hist_view)) = overlay {
                             inner_hist_view.handle_page_up();
                         }
                         AppFlow::Stay
                     }
                     KeyPress::PageDown => {
-                        if let Some(inner_hist_view) = history_view {
+                        if let Some(Overlay::Transcript(inner_hist_view)) = overlay {
                             inner_hist_view.handle_page_down();
                         }
                         AppFlow::Stay
@@ -418,14 +425,14 @@ impl App {
                     KeyPress::Up => {
                         // logic here
 
-                        if let Some(inner_hist_view) = history_view {
+                        if let Some(Overlay::Transcript(inner_hist_view)) = overlay {
                             inner_hist_view.handle_up();
                         }
                         AppFlow::Stay
                     }
                     KeyPress::Down => {
                         // logic here
-                        if let Some(inner_hist_view) = history_view {
+                        if let Some(Overlay::Transcript(inner_hist_view)) = overlay {
                             inner_hist_view.handle_down();
                         }
                         AppFlow::Stay
@@ -2141,9 +2148,7 @@ mod tests {
     /// `None` when it is shut. `Some(0)` is the view F1 opens on.
     fn transcript_scroll(app: &App) -> Option<u16> {
         match &app.screen {
-            Screen::Asking(AskingState { history_view, .. }) => {
-                history_view.as_ref().map(HistoryView::rows_from_bottom)
-            }
+            Screen::Asking(state) => state.transcript().map(HistoryView::rows_from_bottom),
             other => panic!("expected Asking, got {other:?}"),
         }
     }
@@ -2394,11 +2399,11 @@ mod tests {
             Screen::Asking(AskingState {
                 reply,
                 history,
-                history_view,
+                overlay,
                 ..
             }) => {
                 assert!(
-                    history_view.is_some(),
+                    overlay.is_some(),
                     "precondition: the popover is still open, so that Enter was its own"
                 );
                 assert!(
