@@ -48,3 +48,9 @@ impl HistoryView {
         self.from_bottom = self.from_bottom.saturating_sub(PAGE_ROWS);
     }
 }
+
+#[derive(Debug)]
+pub enum Overlay {
+    Transcript(HistoryView), // this variant OWNS a HistoryView
+    ConfirmLeave,            // this one carries nothing — it has no state
+}
