@@ -297,7 +297,13 @@ pub(super) fn render(frame: &mut Frame, app: &App, asking_state: &AskingState) {
     // share its footprint: the mockup keeps the demon visible above the box,
     // because the thing you are being asked to abandon should still be looking
     // at you while you decide.
-    if matches!(asking_state.overlay(), Some(Overlay::ConfirmLeave(_))) {
-        confirm::render(frame, sued_art_top_layout.union(sued_logs_layout), palette);
+    if let Some(Overlay::ConfirmLeave(choice)) = asking_state.overlay() {
+        confirm::render(
+            frame,
+            sued_art_top_layout.union(sued_logs_layout),
+            choice,
+            palette,
+            translation,
+        );
     }
 }
