@@ -2497,6 +2497,232 @@ mod tests {
         );
     }
 
+    // ── G19 · Esc confirms before it burns the séance ────────────────────────
+    //
+    // `history` dies with the screen by design (G12's call — it is a séance, not
+    // a log), and `Esc → Menu` destroys it with no warning and no undo. G12 made
+    // that loss VISIBLE, which is what created the obligation to guard it.
+    //
+    // ⚠ THE LAYERING IS THE WHOLE SPEC. `Esc` now means three different things
+    // depending on what is up, and the failure mode is that it quietly does two
+    // of them at once. Each of the three is pinned separately below.
+    //
+    // ⚠⚠ THESE OPEN AS COMPILE ERRORS. They name `translation.confirm`, which
+    // does not exist yet — deliberately, see `confirm_keys`. Adding it is the
+    // first move.
+
+    /// `true` when the leave-confirmation dialog is the overlay standing up.
+    fn on_confirm(app: &App) -> bool {
+        matches!(
+            app.screen(),
+            Screen::Asking(AskingState {
+                overlay: Some(Overlay::ConfirmLeave),
+                ..
+            })
+        )
+    }
+
+    /// The yes/no keys for the app's CURRENT language, as keystrokes.
+    ///
+    /// ⚠ Deliberately read from the table instead of written as `'s'`/`'n'`. The
+    /// letter-key binding only survives i18n if the letter is DATA: PT *sim* and
+    /// ES *sí* both bind `s`, EN *yes* binds `y`. A test that hardcodes one of
+    /// them is a test that only holds in one language — and this app ships three.
+    fn confirm_keys(app: &App) -> (KeyPress, KeyPress) {
+        let confirm = app.config().language().translation().confirm;
+        (
+            KeyPress::Char(confirm.yes_key),
+            KeyPress::Char(confirm.no_key),
+        )
+    }
+
+    #[test]
+    fn esc_with_the_transcript_open_does_not_also_raise_the_confirm() {
+        // Layer 1. Esc closes the transcript and STOPS — it must not spend the
+        // same keystroke on the door as well.
+        //
+        // ⚠ This assertion is the reason this test exists next to
+        // `esc_closes_the_transcript_instead_of_leaving_the_oracle`, which looks
+        // like it already covers this and does not: that one checks the
+        // transcript is shut and we are not on the menu, and BOTH of those stay
+        // true if Esc wrongly raises the confirm. It would pass through the bug.
+        let mut app = after_one_exchange();
+
+        feed(&mut app, &[KeyPress::F1, KeyPress::Esc]);
+
+        assert_eq!(transcript_scroll(&app), None, "the transcript closed");
+        assert!(
+            !on_confirm(&app),
+            "closing an overlay is not leaving — the confirm must stay down"
+        );
+    }
+
+    #[test]
+    fn esc_after_an_exchange_raises_the_confirm_instead_of_leaving() {
+        // Layer 2. Something has been said, so the door asks first.
+        let mut app = after_one_exchange();
+
+        feed(&mut app, &[KeyPress::Esc]);
+
+        assert!(on_confirm(&app), "the veil asks before it closes");
+        assert!(
+            !on_menu(&app),
+            "raising the prompt must not ALSO walk out — that is the whole point"
+        );
+    }
+
+    #[test]
+    fn esc_with_nothing_asked_walks_out_without_a_prompt() {
+        // Layer 3. Nothing to mourn, so no ceremony: the door behaves exactly as
+        // it did before G19 existed.
+        //
+        // ⚠ The predicate is "has the mark ever spoken", NOT "are there messages"
+        // — `history` is always seeded with the greeting, so a length check is
+        // never zero and would prompt on a screen where nothing has happened.
+        let mut app = drive(&[KeyPress::Enter, KeyPress::Enter]);
+
+        feed(&mut app, &[KeyPress::Esc]);
+
+        assert!(on_menu(&app), "an untouched séance has nothing to lose");
+    }
+
+    #[test]
+    fn the_yes_key_burns_the_seance_and_returns_to_the_menu() {
+        let mut app = after_one_exchange();
+        let (yes, _no) = confirm_keys(&app);
+
+        feed(&mut app, &[KeyPress::Esc, yes]);
+
+        assert!(on_menu(&app), "yes means yes — the veil closes");
+    }
+
+    #[test]
+    fn the_no_key_cancels_and_the_seance_survives_intact() {
+        // The refusal has to put you back exactly where you were: overlay down,
+        // still in the oracle, and — the part worth pinning — with the transcript
+        // still holding every message. A "cancel" that silently wiped the history
+        // would pass a naive on-screen check.
+        let mut app = after_one_exchange();
+        let (_yes, no) = confirm_keys(&app);
+
+        feed(&mut app, &[KeyPress::Esc, no]);
+
+        assert!(!on_confirm(&app), "the prompt is dismissed");
+        assert!(!on_menu(&app), "and we did NOT leave");
+        assert_eq!(
+            transcript(&app).len(),
+            3,
+            "staying must cost the séance nothing"
+        );
+    }
+
+    #[test]
+    fn esc_cancels_the_confirm_exactly_like_the_no_key() {
+        // Esc raises it and Esc takes it back — so a mistaken Esc costs two
+        // keystrokes and nothing else. ⚠ It must NOT fall through to the door on
+        // the second press: that would make the prompt a speed bump instead of a
+        // guard.
+        let mut app = after_one_exchange();
+
+        feed(&mut app, &[KeyPress::Esc, KeyPress::Esc]);
+
+        assert!(!on_confirm(&app));
+        assert!(
+            !on_menu(&app),
+            "cancel means STAY — Esc must not leak through to the exit"
+        );
+    }
+
+    #[test]
+    fn the_confirm_swallows_every_key_that_would_reach_the_engine() {
+        // ✅ TRICK SAFETY, and it is the reason a modal on Esc is acceptable at
+        // all. While the dialog is up the operator must not be able to paint
+        // decoy characters into a question hidden behind it — the same rule the
+        // transcript popover already obeys.
+        let mut app = after_one_exchange();
+
+        feed(
+            &mut app,
+            &[
+                KeyPress::Esc,
+                KeyPress::Char('x'),
+                KeyPress::Char(';'), // the hidden-mode toggle is not exempt
+                KeyPress::Char('9'),
+                KeyPress::Backspace,
+                KeyPress::Enter,
+            ],
+        );
+
+        assert!(
+            on_confirm(&app),
+            "precondition: the dialog is still up, so those keys were its own"
+        );
+        match &app.screen {
+            Screen::Asking(AskingState {
+                engine, history, ..
+            }) => {
+                assert_eq!(
+                    engine.visible_buffer(),
+                    "",
+                    "not one keystroke may reach the input behind the dialog"
+                );
+                assert_eq!(
+                    history.len(),
+                    3,
+                    "a leaked Enter would have asked a question"
+                );
+            }
+            other => panic!("expected Asking, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn f1_cannot_open_the_transcript_from_behind_the_confirm() {
+        // ⚠ The allowed-key set is PER-VARIANT, and this is the test that says
+        // so. Today's swallow guard lets F1/arrows/PgUp/PgDn through on
+        // `overlay.is_some()` because the transcript was the only overlay there
+        // was. Left alone, F1 would stack a second overlay on top of the dialog —
+        // the exact illegal state `Option<Overlay>` exists to forbid.
+        let mut app = after_one_exchange();
+
+        feed(&mut app, &[KeyPress::Esc, KeyPress::F1]);
+
+        assert_eq!(
+            transcript_scroll(&app),
+            None,
+            "the dialog owns the keys while it is up"
+        );
+        assert!(on_confirm(&app), "and it is still the overlay standing");
+    }
+
+    #[test]
+    fn ctrl_c_still_quits_from_behind_the_confirm() {
+        // The panic buttons are never locked — that is precisely what makes it
+        // safe to put a modal on Esc. Esc is deliberate navigation; Ctrl-C is the
+        // escape hatch, and an escape hatch that asks a question is not one.
+        let mut app = after_one_exchange();
+        feed(&mut app, &[KeyPress::Esc]);
+
+        let flow = app.handle_key(KeyPress::CtrlC);
+
+        assert_eq!(flow, AppFlow::Quit);
+    }
+
+    #[test]
+    fn f5_still_burns_the_seance_from_behind_the_confirm() {
+        // The other panic button. F5 reaches through the dialog and hard-resets,
+        // dialog and all — no prompt, because F5's entire job is to be instant.
+        let mut app = after_one_exchange();
+
+        feed(&mut app, &[KeyPress::Esc, KeyPress::F5]);
+
+        assert!(!on_confirm(&app), "the reset takes the dialog with it");
+        match transcript(&app) {
+            [Message::Sued(greeting)] => assert_eq!(greeting, greeting_of(&app)),
+            other => panic!("expected a freshly greeted screen, got {other:?}"),
+        }
+    }
+
     // ── G2 wiring: SUED's words come from the language pools ─────────────────
     // Decoys and denials are drawn from `Language::translation()` with a random
     // roll at the app edge — so these specs assert pool *membership*, never

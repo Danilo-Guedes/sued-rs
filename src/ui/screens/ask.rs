@@ -9,7 +9,7 @@ use ratatui::text::{Line, Span, Text};
 use ratatui::widgets::{Block, Borders, Padding, Paragraph, Wrap};
 
 use super::common::{colorfull_bordered_block, create_centered_rect, hint_line, render_nav_strip};
-use super::history;
+use super::{confirm, history};
 use crate::app::{App, AskingState};
 use crate::conversation::Overlay;
 use crate::ui::effects::{
@@ -290,6 +290,18 @@ pub(super) fn render(frame: &mut Frame, app: &App, asking_state: &AskingState) {
             sued_art_top_layout.union(sued_logs_layout),
             palette,
             translation,
+        );
+    }
+
+    // The confirm dialog shares the transcript's band, but note it does NOT
+    // share its footprint: the mockup keeps the demon visible above the box,
+    // because the thing you are being asked to abandon should still be looking
+    // at you while you decide.
+    if matches!(asking_state.overlay(), Some(Overlay::ConfirmLeave)) {
+        confirm::render(
+            frame,
+            sued_art_top_layout.union(sued_logs_layout),
+            palette,
         );
     }
 }
