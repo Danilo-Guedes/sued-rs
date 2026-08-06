@@ -1,4 +1,3 @@
-#[allow(dead_code)] // remove after complete the task
 #[derive(Debug)]
 pub enum Message {
     Sued(String),
@@ -15,7 +14,7 @@ pub enum Message {
 /// Tune it by eye once the popover draws.
 pub const PAGE_ROWS: u16 = 10;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Copy, Clone)]
 pub struct HistoryView {
     from_bottom: u16,
 }
@@ -55,9 +54,18 @@ pub enum Overlay {
     ConfirmLeave(ConfirmChoice),
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, Copy, PartialEq)]
 pub enum ConfirmChoice {
     Leave,
     #[default]
     Stay,
+}
+
+impl ConfirmChoice {
+    pub fn toggle(&mut self) {
+        match self {
+            ConfirmChoice::Leave => *self = ConfirmChoice::Stay,
+            ConfirmChoice::Stay => *self = ConfirmChoice::Leave,
+        }
+    }
 }

@@ -251,7 +251,7 @@ pub(super) fn render(frame: &mut Frame, app: &App, asking_state: &AskingState) {
 
     let current_hint_slice = match asking_state.overlay() {
         Some(Overlay::Transcript(_)) => translation.history.hints,
-        Some(Overlay::ConfirmLeave) => todo!(),
+        Some(Overlay::ConfirmLeave(_)) => translation.confirm.hints,
         None => translation.ask.hints,
     };
 
@@ -260,7 +260,7 @@ pub(super) fn render(frame: &mut Frame, app: &App, asking_state: &AskingState) {
 
     let current_bottom_title = match asking_state.overlay() {
         Some(Overlay::Transcript(_)) => NavTab::History.label(language),
-        Some(Overlay::ConfirmLeave) => todo!(),
+        Some(Overlay::ConfirmLeave(_)) => NavTab::Confirm.label(language),
         None => NavTab::Ask.label(language),
     };
 
@@ -297,11 +297,7 @@ pub(super) fn render(frame: &mut Frame, app: &App, asking_state: &AskingState) {
     // share its footprint: the mockup keeps the demon visible above the box,
     // because the thing you are being asked to abandon should still be looking
     // at you while you decide.
-    if matches!(asking_state.overlay(), Some(Overlay::ConfirmLeave)) {
-        confirm::render(
-            frame,
-            sued_art_top_layout.union(sued_logs_layout),
-            palette,
-        );
+    if matches!(asking_state.overlay(), Some(Overlay::ConfirmLeave(_))) {
+        confirm::render(frame, sued_art_top_layout.union(sued_logs_layout), palette);
     }
 }
