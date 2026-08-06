@@ -85,8 +85,8 @@ pub struct ConfirmTexts {
     pub title: &'static str,
     pub lore_text: &'static str,
     pub abandon_question: &'static str,
-    pub yes: &'static str,
-    pub no: &'static str,
+    pub leave: &'static str,
+    pub stay: &'static str,
     pub hints: &'static [(&'static str, &'static str)],
 }
 
@@ -267,8 +267,8 @@ impl Language {
                     title: "O VÉU VAI SE FECHAR",
                     lore_text: "Ao partir, tudo o que foi dito aqui retorna ao silêncio. O oráculo esquecerá vossa voz, e o que vos foi revelado jamais será revelado outra vez",
                     abandon_question: "Deseja mesmo abandonar a sessão?",
-                    yes: "QUE ASSIM SEJA",
-                    no: "PERMANECER",
+                    leave: "QUE ASSIM SEJA",
+                    stay: "PERMANECER",
                     hints: &[
                         ("[← →]", "escolher"),
                         ("[Enter]", "confirmar"),
@@ -426,8 +426,8 @@ impl Language {
                                 The oracle will forget your voice, and what was revealed to \
                                 you shall never be revealed again",
                     abandon_question: "Do you truly wish to abandon the session?",
-                    yes: "SO BE IT",
-                    no: "REMAIN",
+                    leave: "SO BE IT",
+                    stay: "REMAIN",
                     hints: &[
                         ("[← →]", "choose"),
                         ("[Enter]", "confirm"),
@@ -585,8 +585,8 @@ impl Language {
                                 oráculo olvidará vuestra voz, y lo que os fue revelado jamás \
                                 será revelado otra vez",
                     abandon_question: "¿Deseas de verdad abandonar la sesión?",
-                    yes: "QUE ASÍ SEA",
-                    no: "PERMANECER",
+                    leave: "QUE ASÍ SEA",
+                    stay: "PERMANECER",
                     hints: &[
                         ("[← →]", "elegir"),
                         ("[Enter]", "confirmar"),

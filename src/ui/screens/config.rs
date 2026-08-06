@@ -15,8 +15,8 @@ use crate::app::App;
 use crate::config::ConfigOption;
 use crate::language::Language;
 use crate::ui::screens::common::{
-    NavTab, colorfull_bordered_block, create_centered_rect, create_screen_block, hint_line,
-    render_nav_strip,
+    NavTab, colorfull_bordered_block, create_centered_rect, create_screen_block, draw_chip,
+    hint_line, render_nav_strip,
 };
 use crate::ui::theme::{Palette, Theme};
 
@@ -194,12 +194,7 @@ fn option_row(
             spans.push("  ".into());
         }
 
-        let chip = Span::from(format!(" {text} "));
-        spans.push(if selected {
-            chip.bg(palette.accent).fg(palette.on_accent).bold()
-        } else {
-            chip.dim()
-        });
+        spans.push(draw_chip(format!(" {text} "), selected, palette))
     }
 
     Line::from(spans)
@@ -232,12 +227,7 @@ fn styled_label(
     palette: Palette,
     max_label_width: usize,
 ) -> Vec<Span<'static>> {
-    let text = Span::from(label.to_string());
+    let text = draw_chip(label.to_string(), is_focused, palette);
     let pad = " ".repeat(max_label_width + LABEL_GAP - label.chars().count());
-    let text = if is_focused {
-        text.bg(palette.accent).fg(palette.on_accent)
-    } else {
-        text.dim()
-    };
     vec![text, Span::from(pad)]
 }

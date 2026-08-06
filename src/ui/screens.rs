@@ -44,6 +44,7 @@ mod tests {
     use super::*;
     use crate::app::{AppFlow, AskingState};
     use crate::config::Configuration;
+    use crate::conversation::Overlay;
     use crate::core::engine::KeyPress;
     use crate::language::Translation;
     use ratatui::Terminal;
@@ -201,17 +202,28 @@ mod tests {
 
     /// Draw at 132×41 and flatten the buffer to text, one line per row.
     fn screen_text(app: &App) -> String {
-        let backend = TestBackend::new(132, 41);
+        screen_text_at(app, 132, 41)
+    }
+
+    /// The same, at a size you choose.
+    ///
+    /// ⚠ Worth its own helper because **ratatui clips rather than panicking**: a
+    /// box that fits at 132×41 can lose its bottom rows at the 80×24 floor with
+    /// no error at all, so `draw()` above stays perfectly green through exactly
+    /// that failure. Reading the buffer back at the small size is the only way
+    /// to see it.
+    fn screen_text_at(app: &App, width: u16, height: u16) -> String {
+        let backend = TestBackend::new(width, height);
         let mut terminal = Terminal::new(backend).expect("TestBackend must build a terminal");
         terminal
             .draw(|frame| render(frame, app))
             .expect("draw must succeed");
 
         let buffer = terminal.backend().buffer();
-        let width = buffer.area.width as usize;
+        let row_width = buffer.area.width as usize;
         buffer
             .content()
-            .chunks(width)
+            .chunks(row_width)
             .map(|row| row.iter().map(|cell| cell.symbol()).collect::<String>())
             .collect::<Vec<_>>()
             .join("\n")
@@ -394,6 +406,90 @@ mod tests {
             "F1 must put the transcript's frame on screen; without its title \
              nothing distinguishes an open popover from a broken keybinding"
         );
+    }
+
+    #[test]
+    fn the_confirm_dialog_draws_whole_at_every_size_and_language() {
+        // ⚠ THE GAP THIS CLOSES. Nothing else in this module ever raises the
+        // confirm dialog, and `draw()` could not catch the failure that matters
+        // here even if it did: ratatui CLIPS. A dialog taller than the band it is
+        // centred in loses its bottom rows silently — no panic, no error — so the
+        // smoke tests stay green while the buttons vanish and `Esc` looks broken.
+        //
+        // The dialog's height is DERIVED from `Paragraph::line_count`, and the
+        // lore wraps to a different number of rows in each language. So the two
+        // ENDS of that arithmetic get asserted: the last word of the prose (did
+        // the box reserve enough rows for the wrap?) and the button row beneath
+        // it (did the whole box fit the band?). At the 80×24 floor especially —
+        // that is where the height has the least room to be wrong in.
+        for language_steps in 0..3 {
+            let mut keys = vec![
+                KeyPress::Enter, // Intro → Menu
+                KeyPress::Down,
+                KeyPress::Down,
+                KeyPress::Down,
+                KeyPress::Enter, // → Config
+                KeyPress::Down,
+                KeyPress::Down,
+                KeyPress::Down, // → language
+            ];
+            keys.extend(std::iter::repeat_n(KeyPress::Right, language_steps));
+            keys.extend([
+                KeyPress::Esc, // → Menu
+                KeyPress::Up,
+                KeyPress::Up,
+                KeyPress::Up,
+                KeyPress::Enter, // → Asking
+                // A real question first: `Esc` only raises the dialog once there
+                // is a séance to burn. Without these four keys it walks straight
+                // back to the Menu and every assertion below reads a screen the
+                // dialog was never on.
+                KeyPress::Char(';'),
+                KeyPress::Char('4'),
+                KeyPress::Char('2'),
+                KeyPress::Enter,
+                KeyPress::Esc,
+            ]);
+
+            let app = app_after(&keys);
+            let confirm = app.config().language().translation().confirm;
+
+            // The precondition, asserted rather than assumed — the lesson from
+            // the two G19 tests that passed for the wrong reason.
+            match app.screen() {
+                Screen::Asking(state) => assert!(
+                    matches!(state.overlay(), Some(Overlay::ConfirmLeave(_))),
+                    "the confirm dialog must be OPEN, or this test searches the \
+                     ordinary ask screen and can only pass by accident"
+                ),
+                other => panic!("expected Asking, got {other:?}"),
+            }
+
+            // Derived, not hardcoded: each language ends its lore on a different
+            // word, and a literal here would silently stop checking the other two.
+            let last_word = confirm
+                .lore_text
+                .split_whitespace()
+                .next_back()
+                .expect("the lore is never empty");
+
+            for (width, height) in SIZES {
+                let screen = screen_text_at(&app, width, height);
+
+                assert!(
+                    screen.contains(last_word),
+                    "the lore's last word ({last_word:?}) must survive at \
+                     {width}x{height} — losing it means the box reserved fewer \
+                     rows than the prose actually wrapped to"
+                );
+                assert!(
+                    screen.contains(confirm.leave) && screen.contains(confirm.stay),
+                    "both choices must be on screen at {width}x{height} — the \
+                     button row is the LAST row of the dialog, so it is the first \
+                     thing clipping eats"
+                );
+            }
+        }
     }
 
     #[test]

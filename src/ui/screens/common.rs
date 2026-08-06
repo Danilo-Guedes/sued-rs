@@ -255,3 +255,13 @@ pub(super) fn create_screen_block(frame: &mut Frame, palette: Palette) -> Rect {
 
     inner_layout
 }
+
+pub fn draw_chip(text: String, selected: bool, palette: Palette) -> Span<'static> {
+    let mut span = Span::from(text.to_owned());
+    if selected {
+        span = span.bg(palette.accent).fg(palette.on_accent).bold();
+    } else {
+        span = span.dim();
+    }
+    span
+}
