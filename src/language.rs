@@ -25,6 +25,7 @@ pub struct Translation {
     pub info: InfoTexts,
     pub ask: AskTexts,
     pub history: HistoryTexts,
+    pub confirm: ConfirmTexts,
     pub config: ConfigTexts,
     pub menu: MenuTexts,
     pub common: CommonTexts,
@@ -76,6 +77,16 @@ pub struct AskTexts {
 pub struct HistoryTexts {
     pub title: &'static str,
     pub you: &'static str,
+    pub hints: &'static [(&'static str, &'static str)],
+}
+
+#[derive(Debug, Copy, Clone)]
+pub struct ConfirmTexts {
+    pub title: &'static str,
+    pub lore_text: &'static str,
+    pub abandon_question: &'static str,
+    pub yes: &'static str,
+    pub no: &'static str,
     pub hints: &'static [(&'static str, &'static str)],
 }
 
@@ -252,6 +263,19 @@ impl Language {
                         ("[Ctrl+C]", "sair"),
                     ],
                 },
+                confirm: ConfirmTexts {
+                    title: "O VÉU VAI SE FECHAR",
+                    lore_text: "Ao partir, tudo o que foi dito aqui retorna ao silêncio. O oráculo esquecerá vossa voz, e o que vos foi revelado jamais será revelado outra vez",
+                    abandon_question: "Deseja mesmo abandonar a sessão?",
+                    yes: "QUE ASSIM SEJA",
+                    no: "PERMANECER",
+                    hints: &[
+                        ("[← →]", "escolher"),
+                        ("[Enter]", "confirmar"),
+                        ("[Esc]", "cancelar"),
+                        ("[Ctrl+C]", "sair"),
+                    ],
+                },
                 config: ConfigTexts {
                     configuration: "CONFIGURAÇÃO",
                     subtitle: "ajuste o ritual ao seu gosto — o oráculo observa",
@@ -396,6 +420,21 @@ impl Language {
                         ("[Ctrl+C]", "quit"),
                     ],
                 },
+                confirm: ConfirmTexts {
+                    title: "THE VEIL IS ABOUT TO CLOSE",
+                    lore_text: "When you depart, all that was spoken here returns to silence. \
+                                The oracle will forget your voice, and what was revealed to \
+                                you shall never be revealed again",
+                    abandon_question: "Do you truly wish to abandon the session?",
+                    yes: "SO BE IT",
+                    no: "REMAIN",
+                    hints: &[
+                        ("[← →]", "choose"),
+                        ("[Enter]", "confirm"),
+                        ("[Esc]", "cancel"),
+                        ("[Ctrl+C]", "quit"),
+                    ],
+                },
                 config: ConfigTexts {
                     configuration: "CONFIGURATION",
                     subtitle: "tune the ritual to your taste — the oracle watches",
@@ -534,9 +573,24 @@ impl Language {
                     title: "HISTORIAL DE LA SESIÓN",
                     you: "TÚ",
                     hints: &[
-                        ("[↑↓]", "rolar"),               // UPDATE THIS SPANISH PLEASE
-                        ("[PgUp PgDn]", "rolar pagina"), // UPDATE THIS SPANISH PLEASE
+                        ("[↑↓]", "desplazar"),
+                        ("[PgUp PgDn]", "desplazar página"),
                         ("[Esc]", "cerrar"),
+                        ("[Ctrl+C]", "salir"),
+                    ],
+                },
+                confirm: ConfirmTexts {
+                    title: "EL VELO VA A CERRARSE",
+                    lore_text: "Al partir, todo lo que aquí se dijo vuelve al silencio. El \
+                                oráculo olvidará vuestra voz, y lo que os fue revelado jamás \
+                                será revelado otra vez",
+                    abandon_question: "¿Deseas de verdad abandonar la sesión?",
+                    yes: "QUE ASÍ SEA",
+                    no: "PERMANECER",
+                    hints: &[
+                        ("[← →]", "elegir"),
+                        ("[Enter]", "confirmar"),
+                        ("[Esc]", "cancelar"),
                         ("[Ctrl+C]", "salir"),
                     ],
                 },

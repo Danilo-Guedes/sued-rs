@@ -52,5 +52,12 @@ impl HistoryView {
 #[derive(Debug)]
 pub enum Overlay {
     Transcript(HistoryView), // this variant OWNS a HistoryView
-    ConfirmLeave,            // this one carries nothing — it has no state
+    ConfirmLeave(ConfirmChoice),
+}
+
+#[derive(Debug, Default)]
+pub enum ConfirmChoice {
+    Leave,
+    #[default]
+    Stay,
 }

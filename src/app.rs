@@ -2512,27 +2512,17 @@ mod tests {
     // first move.
 
     /// `true` when the leave-confirmation dialog is the overlay standing up.
+    ///
+    /// ⚠ `ConfirmLeave { .. }` and not `ConfirmLeave` — the `{ .. }` form matches
+    /// a unit, tuple OR struct variant, so this helper survives you deciding how
+    /// the dialog carries its selection without every test in the block caring.
     fn on_confirm(app: &App) -> bool {
         matches!(
             app.screen(),
             Screen::Asking(AskingState {
-                overlay: Some(Overlay::ConfirmLeave),
+                overlay: Some(Overlay::ConfirmLeave { .. }),
                 ..
             })
-        )
-    }
-
-    /// The yes/no keys for the app's CURRENT language, as keystrokes.
-    ///
-    /// ⚠ Deliberately read from the table instead of written as `'s'`/`'n'`. The
-    /// letter-key binding only survives i18n if the letter is DATA: PT *sim* and
-    /// ES *sí* both bind `s`, EN *yes* binds `y`. A test that hardcodes one of
-    /// them is a test that only holds in one language — and this app ships three.
-    fn confirm_keys(app: &App) -> (KeyPress, KeyPress) {
-        let confirm = app.config().language().translation().confirm;
-        (
-            KeyPress::Char(confirm.yes_key),
-            KeyPress::Char(confirm.no_key),
         )
     }
 
@@ -2587,25 +2577,78 @@ mod tests {
     }
 
     #[test]
-    fn the_yes_key_burns_the_seance_and_returns_to_the_menu() {
+    fn a_reflexive_enter_cannot_burn_the_seance() {
+        // ⚠⚠ THE SAFETY PROPERTY OF THE WHOLE FEATURE, and the reason the dialog
+        // has to carry a selection at all. `Enter` is bound now, and mid-
+        // performance the operator hammers it — so the button standing under the
+        // cursor when the dialog opens must be the HARMLESS one. Destructive
+        // actions do not get to be the default.
+        //
+        // ⚠ This contradicts `design-refs/03-c-confirm-leave.png`, which
+        // highlights QUE ASSIM SEJA. If you keep the mockup's default, this is
+        // the test to delete — but delete it deliberately, not by flipping a bool
+        // until the bar goes green.
         let mut app = after_one_exchange();
-        let (yes, _no) = confirm_keys(&app);
 
-        feed(&mut app, &[KeyPress::Esc, yes]);
+        feed(&mut app, &[KeyPress::Esc, KeyPress::Enter]);
 
-        assert!(on_menu(&app), "yes means yes — the veil closes");
+        assert!(
+            !on_menu(&app),
+            "an untouched Enter must never be the one that closes the veil"
+        );
+        assert_eq!(
+            transcript(&app).len(),
+            3,
+            "and the séance is still whole behind it"
+        );
     }
 
     #[test]
-    fn the_no_key_cancels_and_the_seance_survives_intact() {
-        // The refusal has to put you back exactly where you were: overlay down,
+    fn choosing_the_other_option_and_confirming_burns_the_seance() {
+        // The door still works — it just costs a deliberate move first.
+        //
+        // ⚠ `Left` because the mockup puts the leave option on the LEFT and the
+        // safe one on the right. If that order changes, this key changes with it.
+        let mut app = after_one_exchange();
+
+        feed(&mut app, &[KeyPress::Esc, KeyPress::Left, KeyPress::Enter]);
+
+        assert!(on_menu(&app), "chosen deliberately, the veil closes");
+    }
+
+    #[test]
+    fn the_selection_survives_being_moved_back_and_forth() {
+        // ←→ is a two-item toggle, not a counter: landing back where you started
+        // must mean what it meant when you started. A selection stored as an
+        // index that keeps incrementing would pass the test above and fail this
+        // one.
+        let mut app = after_one_exchange();
+
+        feed(
+            &mut app,
+            &[
+                KeyPress::Esc,
+                KeyPress::Left,
+                KeyPress::Right,
+                KeyPress::Enter,
+            ],
+        );
+
+        assert!(
+            !on_menu(&app),
+            "back on the safe option, Enter must be harmless again"
+        );
+    }
+
+    #[test]
+    fn cancelling_leaves_the_seance_intact() {
+        // A refusal has to put you back exactly where you were: overlay down,
         // still in the oracle, and — the part worth pinning — with the transcript
         // still holding every message. A "cancel" that silently wiped the history
         // would pass a naive on-screen check.
         let mut app = after_one_exchange();
-        let (_yes, no) = confirm_keys(&app);
 
-        feed(&mut app, &[KeyPress::Esc, no]);
+        feed(&mut app, &[KeyPress::Esc, KeyPress::Esc]);
 
         assert!(!on_confirm(&app), "the prompt is dismissed");
         assert!(!on_menu(&app), "and we did NOT leave");
@@ -2613,23 +2656,6 @@ mod tests {
             transcript(&app).len(),
             3,
             "staying must cost the séance nothing"
-        );
-    }
-
-    #[test]
-    fn esc_cancels_the_confirm_exactly_like_the_no_key() {
-        // Esc raises it and Esc takes it back — so a mistaken Esc costs two
-        // keystrokes and nothing else. ⚠ It must NOT fall through to the door on
-        // the second press: that would make the prompt a speed bump instead of a
-        // guard.
-        let mut app = after_one_exchange();
-
-        feed(&mut app, &[KeyPress::Esc, KeyPress::Esc]);
-
-        assert!(!on_confirm(&app));
-        assert!(
-            !on_menu(&app),
-            "cancel means STAY — Esc must not leak through to the exit"
         );
     }
 
@@ -2700,8 +2726,13 @@ mod tests {
         // The panic buttons are never locked — that is precisely what makes it
         // safe to put a modal on Esc. Esc is deliberate navigation; Ctrl-C is the
         // escape hatch, and an escape hatch that asks a question is not one.
+        // ⚠ The precondition is the whole test. Without it this passes TODAY for
+        // the wrong reason: Esc currently walks straight out, so Ctrl-C would be
+        // quitting from the MENU and the assertion below would never once have
+        // seen the dialog. Same trap `assert_popover_is_open` exists to close.
         let mut app = after_one_exchange();
         feed(&mut app, &[KeyPress::Esc]);
+        assert!(on_confirm(&app), "precondition: the dialog is up");
 
         let flow = app.handle_key(KeyPress::CtrlC);
 
