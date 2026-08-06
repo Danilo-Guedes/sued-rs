@@ -18,6 +18,21 @@ pub struct Translation {
     pub decoys: &'static [&'static str],
     /// Taunts for a question asked without a staged answer.
     pub denials: &'static [&'static str],
+    /// The refusal reserved for a question too SHORT to be a question (G17) —
+    /// picked instead of a random `denial`, so it is a sibling of that pool and
+    /// lives beside it rather than in `AskTexts`.
+    ///
+    /// ⚠ **`{question}` is real substitution, not `{{markup}}`.** `template.rs`
+    /// only marks segments for the accent colour, so `{{question}}` would print
+    /// the literal word. And this string must stay **markup-free entirely**:
+    /// replies render through `typewriter_reveal`, which reveals a *prefix* —
+    /// a prefix of `"foo {{bar}}"` is `"foo {{ba"`, broken braces on screen for
+    /// every frame of the crawl. Markup and the typewriter do not compose.
+    ///
+    /// ⚠ The placeholder lives INSIDE the translated string, never concatenated
+    /// in Rust: word order is not universal, and which word goes where belongs
+    /// to the language (`template.rs`'s own argument).
+    pub rebuke: &'static str,
 
     ///SCREENS TEXTS
     pub intro: IntroTexts,
@@ -176,6 +191,11 @@ impl Language {
                     "Não. O véu não se abre para perguntas tão rasas, mergulhe mais fundo",
                     "Minha bola de cristal embaçou de tédio, formule sua pergunta novamente",
                 ],
+                // ⚠⚠ DANILO — THIS PT LINE IS A CLAUDE PLACEHOLDER, REWRITE IT.
+                // The established split is yours-seeds-PT, Claude-recreates-EN/ES,
+                // and this one was written backwards only so the tests could
+                // compile. Keep `{question}` and keep it free of `{{markup}}`.
+                rebuke: "{question} ??? Não leste o que eu disse? Bajula-me primeiro, mortal, e só então pergunta — o véu não se abre para gentilezas",
                 intro: IntroTexts {
                     subtitle: "SUA ÚLTIMA ESPERANÇA DIVINA",
                     attention: "A T E N Ç Ã O",
@@ -332,6 +352,7 @@ impl Language {
                     "No. The veil does not part for questions so shallow, dig deeper",
                     "My crystal ball fogged over with boredom, phrase your question again",
                 ],
+                rebuke: "{question} ??? Did you not read what I said? Flatter me first, mortal, and only then ask — the veil does not part for pleasantries",
                 intro: IntroTexts {
                     subtitle: "YOUR LAST DIVINE HOPE",
                     attention: "A T T E N T I O N",
@@ -491,6 +512,7 @@ impl Language {
                     "No. El velo no se abre ante preguntas tan superficiales, sumérgete más hondo",
                     "Mi bola de cristal se empañó de aburrimiento, formula tu pregunta de nuevo",
                 ],
+                rebuke: "{question} ??? ¿No leíste lo que dije? Halágame primero, mortal, y sólo entonces pregunta — el velo no se abre para cortesías",
                 intro: IntroTexts {
                     subtitle: "TU ÚLTIMA ESPERANZA DIVINA",
                     attention: "A T E N C I Ó N",
