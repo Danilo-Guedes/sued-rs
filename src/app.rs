@@ -19,6 +19,17 @@ use crate::{
 
 pub const THUNDER_AT_CHARS_REMAINING: usize = 20;
 
+/// G17 — a question of this many characters **or fewer** earns the rebuke
+/// instead of a random denial. Inclusive: 18 is short, 19 is not.
+///
+/// ⚠ His call, 2026-08-06, and the tradeoff is deliberate rather than an
+/// oversight: 18 catches every greeting he named (`hello there` = 11,
+/// `what is this?` = 13, `how you doing?` = 14) **and also catches genuinely
+/// short real questions** — `does she love me?` is 17, `vou passar?` is 11.
+/// That is in character (the ritual demands you flatter and elaborate), so a
+/// terse question earning a rebuke is the feature, not a bug. Do not "fix" it.
+pub const SHORT_QUESTION_CHARS: usize = 18;
+
 #[derive(Debug)]
 pub struct App {
     screen: Screen,
@@ -1636,13 +1647,38 @@ mod tests {
     /// Menu → Asking, type a visible question with nothing hidden → SUED denies
     /// you. The question must have words: an EMPTY Enter is ignored outright
     /// (no denial), so the denial path has to actually ask something.
-    const ASK_AND_BE_DENIED: [KeyPress; 5] = [
-        KeyPress::Enter, // Intro → Menu
-        KeyPress::Enter, // Menu → Asking
-        KeyPress::Char('o'),
-        KeyPress::Char('i'), // a visible question, no hidden answer
-        KeyPress::Enter,     // → Denied
-    ];
+    /// One keystroke per character of `text`.
+    fn typing(text: &str) -> Vec<KeyPress> {
+        text.chars().map(KeyPress::Char).collect()
+    }
+
+    /// Reach the ask screen and submit `question` with NO hidden answer staged,
+    /// so the engine answers `Denied` and SueD refuses.
+    fn ask_openly(question: &str) -> Vec<KeyPress> {
+        let mut keys = vec![
+            KeyPress::Enter, // Intro → Menu
+            KeyPress::Enter, // Menu → Asking
+        ];
+        keys.extend(typing(question));
+        keys.push(KeyPress::Enter); // → Denied
+        keys
+    }
+
+    /// ⚠ **AMENDED BY G17 (2026-08-06).** This fixture used to type `"oi"`, and
+    /// every test below read that as "a refused question". G17 splits refusals in
+    /// two on LENGTH, and `"oi"` is 2 characters — so under the new rule it earns
+    /// the *rebuke*, not a denial from the pool, and three assertions here would
+    /// have started failing for a reason that had nothing to do with what they
+    /// test.
+    ///
+    /// The question is now comfortably past `SHORT_QUESTION_CHARS`, which keeps
+    /// this fixture meaning exactly what its name says — before G17 **and after**.
+    /// Use `ASK_AND_BE_REBUKED` for the short path.
+    const DENIED_QUESTION: &str = "will the oracle answer me tonight?";
+
+    fn ask_and_be_denied() -> Vec<KeyPress> {
+        ask_openly(DENIED_QUESTION)
+    }
 
     #[test]
     fn enter_with_an_empty_question_earns_no_reply_at_all() {
@@ -1756,7 +1792,7 @@ mod tests {
     fn a_finished_denial_is_remembered_the_same_way_as_an_answer() {
         // A taunt is a reply too — it must linger on screen exactly like an
         // answer does, not vanish the moment you start typing again.
-        let mut app = drive(&ASK_AND_BE_DENIED);
+        let mut app = drive(&ask_and_be_denied());
         finish_the_reveal(&mut app);
 
         feed(&mut app, &[KeyPress::Char('x')]);
@@ -2037,7 +2073,7 @@ mod tests {
     fn a_taunt_is_recorded_like_any_other_reply() {
         // A denial is something SueD said out loud in front of the mark, so the
         // transcript must not quietly drop it and disagree with the screen.
-        let app = drive(&ASK_AND_BE_DENIED);
+        let app = drive(&ask_and_be_denied());
         let denials = app.config().language().translation().denials;
 
         match transcript(&app) {
@@ -2047,7 +2083,7 @@ mod tests {
                 Message::Sued(taunt),
             ] => {
                 assert_eq!(
-                    question, "oi",
+                    question, DENIED_QUESTION,
                     "a question asked in the open is recorded exactly as typed"
                 );
                 assert!(
@@ -2056,6 +2092,224 @@ mod tests {
                 );
             }
             other => panic!("expected greeting → question → taunt, got {other:?}"),
+        }
+    }
+
+    // ── G17 · the short-question rebuke ──────────────────────────────────────
+    //
+    // A refusal now comes in two flavours, chosen by the LENGTH of what was
+    // typed: `<= SHORT_QUESTION_CHARS` earns the rebuke — SueD echoing the
+    // question back and pointing at the rule — and anything longer still earns a
+    // random line from the `denials` pool.
+    //
+    // ⚠⚠ THE HAZARD THESE EXIST TO PIN. The length test MUST live INSIDE the
+    // `Denied` arm, never before it. `engine.rs:150` branches on
+    // `answer_buffer.is_empty()`, NOT on the question — and hidden-mode
+    // keystrokes advance the decoy 1:1, so an operator who stages a SHORT secret
+    // (`sim`, `42`, a name) leaves a 2–3 character visible buffer. A guard placed
+    // ahead of the answer check would rebuke the operator's own setup and throw
+    // the staged answer away at the exact moment the prank lands. Short answers
+    // are the COMMON case here, not the freak one.
+    // `a_short_staged_answer_is_revealed_not_rebuked` is that tripwire.
+
+    /// A question short enough to earn the rebuke rather than a pooled denial.
+    const REBUKED_QUESTION: &str = "hello there";
+
+    fn ask_and_be_rebuked() -> Vec<KeyPress> {
+        ask_openly(REBUKED_QUESTION)
+    }
+
+    /// The words SueD is currently speaking, whatever kind of reply they are.
+    fn live_reply(app: &App) -> String {
+        match &app.screen {
+            Screen::Asking(AskingState {
+                reply: Some(reply), ..
+            }) => reply.words().to_string(),
+            other => panic!("expected Asking with a live reply, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn a_short_question_is_rebuked_in_sueds_own_words() {
+        let app = drive(&ask_and_be_rebuked());
+        let translation = app.config().language().translation();
+
+        assert_eq!(
+            live_reply(&app),
+            translation.rebuke.replace("{question}", REBUKED_QUESTION),
+            "a throwaway question must come back quoted, with the rule pointed at \
+             — that is the whole feature: it teaches the ritual IN character, \
+             which is the one channel G16's out-of-app manual cannot use"
+        );
+    }
+
+    #[test]
+    fn a_long_question_still_earns_a_random_denial() {
+        // The other half of the branch. Without this the rebuke could swallow
+        // every refusal and the eight-line denial pool would go silently dead.
+        let app = drive(&ask_and_be_denied());
+        let translation = app.config().language().translation();
+        let spoken = live_reply(&app);
+
+        assert!(
+            translation.denials.contains(&spoken.as_str()),
+            "a question past the threshold must still draw from the denial pool, \
+             got {spoken:?}"
+        );
+        assert!(
+            !spoken.contains(DENIED_QUESTION),
+            "and it must NOT echo the question — echoing is what marks the rebuke \
+             as different from an ordinary refusal"
+        );
+    }
+
+    #[test]
+    fn the_short_question_threshold_is_inclusive() {
+        // Both sides derived from the constant, so retuning it moves the test
+        // with it instead of breaking it. `<=` is the spec: 18 is short, 19 is
+        // not.
+        let at_the_line = "x".repeat(SHORT_QUESTION_CHARS);
+        let one_past_it = "x".repeat(SHORT_QUESTION_CHARS + 1);
+
+        let rebuked = drive(&ask_openly(&at_the_line));
+        let translation = rebuked.config().language().translation();
+
+        assert_eq!(
+            live_reply(&rebuked),
+            translation.rebuke.replace("{question}", &at_the_line),
+            "exactly SHORT_QUESTION_CHARS must still count as short — the bound \
+             is inclusive"
+        );
+
+        let denied = drive(&ask_openly(&one_past_it));
+        assert!(
+            translation.denials.contains(&live_reply(&denied).as_str()),
+            "one character past the bound must fall through to the denial pool"
+        );
+    }
+
+    #[test]
+    fn a_short_staged_answer_is_revealed_not_rebuked() {
+        // ⚠⚠ THE TRIPWIRE FOR THE ONE WAY THIS FEATURE CAN RUIN THE PRANK.
+        // The operator stages `42` in hidden mode: three keystrokes, so the
+        // DECOY on screen is only a couple of characters long — comfortably
+        // inside the rebuke's range. If the length test is ever hoisted above the
+        // answer check, this is the case that silently discards the secret and
+        // taunts the operator in front of the mark.
+        let app = drive(&[
+            KeyPress::Enter, // Intro → Menu
+            KeyPress::Enter, // Menu → Asking
+            KeyPress::Char(';'),
+            KeyPress::Char('4'),
+            KeyPress::Char('2'),
+            KeyPress::Enter,
+        ]);
+
+        // The precondition, asserted rather than assumed — otherwise a long decoy
+        // would make this pass without ever exercising the hazard.
+        match transcript(&app) {
+            [_, Message::User(shown), ..] => assert!(
+                shown.chars().count() <= SHORT_QUESTION_CHARS,
+                "this test is only meaningful while the decoy is SHORT enough to \
+                 be rebuked; got {shown:?}, so the tripwire is not armed"
+            ),
+            other => panic!("expected a question in the transcript, got {other:?}"),
+        }
+
+        assert_eq!(
+            live_reply(&app),
+            "42",
+            "a staged answer ALWAYS wins — length may only ever choose which \
+             flavour of refusal you get, never whether the secret survives"
+        );
+    }
+
+    #[test]
+    fn a_rebuke_is_recorded_like_any_other_reply() {
+        // It is something SueD said out loud in front of the mark, so the
+        // transcript must not quietly disagree with the screen.
+        let app = drive(&ask_and_be_rebuked());
+        let translation = app.config().language().translation();
+
+        match transcript(&app) {
+            [
+                Message::Sued(_),
+                Message::User(question),
+                Message::Sued(rebuke),
+            ] => {
+                assert_eq!(question, REBUKED_QUESTION);
+                assert_eq!(
+                    rebuke,
+                    &translation.rebuke.replace("{question}", REBUKED_QUESTION)
+                );
+            }
+            other => panic!("expected greeting → question → rebuke, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn every_language_substitutes_the_question_into_its_rebuke() {
+        // `{question}` is real substitution, not `{{markup}}` — so the failure
+        // this catches is the placeholder reaching the screen as literal text,
+        // which no amount of drawing would reveal.
+        for language_steps in 0..3 {
+            let mut keys = vec![
+                KeyPress::Enter,
+                KeyPress::Down,
+                KeyPress::Down,
+                KeyPress::Down,
+                KeyPress::Enter, // → Config
+                KeyPress::Down,
+                KeyPress::Down,
+                KeyPress::Down, // → language
+            ];
+            keys.extend(std::iter::repeat_n(KeyPress::Right, language_steps));
+            keys.extend([
+                KeyPress::Esc,
+                KeyPress::Up,
+                KeyPress::Up,
+                KeyPress::Up,
+                KeyPress::Enter, // → Asking
+            ]);
+            keys.extend(typing(REBUKED_QUESTION));
+            keys.push(KeyPress::Enter);
+
+            let app = drive(&keys);
+            let spoken = live_reply(&app);
+
+            assert!(
+                spoken.contains(REBUKED_QUESTION),
+                "every language must echo the question back; got {spoken:?}"
+            );
+            assert!(
+                !spoken.contains("{question}"),
+                "the placeholder must be SUBSTITUTED, not printed — got {spoken:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn no_rebuke_carries_markup_or_loses_its_placeholder() {
+        // Two content rules that only a table sweep can hold, both of them
+        // invisible until the app is running.
+        //
+        // ⚠ Markup and the typewriter DO NOT COMPOSE: replies crawl out through
+        // `typewriter_reveal`, which reveals a PREFIX, and a prefix of
+        // `"foo {{bar}} baz"` is `"foo {{ba"` — broken braces on screen for every
+        // frame of the reveal. Same family as markup-cannot-cross-a-newline.
+        for language in [Language::PtBr, Language::EnUs, Language::EsEs] {
+            let rebuke = language.translation().rebuke;
+
+            assert!(
+                !rebuke.contains("{{"),
+                "{language:?}'s rebuke must be markup-free — it renders through \
+                 the typewriter, which would leave broken braces mid-crawl"
+            );
+            assert!(
+                rebuke.contains("{question}"),
+                "{language:?}'s rebuke must keep the placeholder, or the echo \
+                 silently vanishes in that language alone"
+            );
         }
     }
 
@@ -2674,7 +2928,7 @@ mod tests {
         // It matters because the taunt path is the one the mark actually walks
         // when the operator has not armed anything yet — losing that exchange is
         // still losing an exchange.
-        let mut app = drive(&ASK_AND_BE_DENIED);
+        let mut app = drive(&ask_and_be_denied());
         finish_the_reveal(&mut app);
 
         feed(&mut app, &[KeyPress::Esc]);
@@ -3013,7 +3267,7 @@ mod tests {
         // The ponder is NOT reveal-only (Danilo's call 2026-07-27): SueD weighing
         // a mortal before rejecting them sells the seance better than an instant
         // refusal, and it keeps one clock rule instead of two.
-        let app = drive(&ASK_AND_BE_DENIED);
+        let app = drive(&ask_and_be_denied());
         assert!(
             app.is_pondering(),
             "a denial must ponder too, or denials skip the pause and the sting \
@@ -3365,7 +3619,7 @@ mod tests {
         // `match denied_message { Some(..) => .., None => engine.revealed()... }`
         // picks between them at every read site. One field carrying BOTH kinds is
         // what dissolves that match — and the `.expect` inside it.
-        let app = drive(&ASK_AND_BE_DENIED);
+        let app = drive(&ask_and_be_denied());
         let denials = app.config().language().translation().denials;
 
         match &app.screen {
