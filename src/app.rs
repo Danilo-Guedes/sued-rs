@@ -11,7 +11,7 @@ use std::time::{Duration, Instant};
 use crate::{
     audio::AudioCue,
     config::{ConfigOption, Configuration, Direction},
-    conversation::{HistoryView, Message, Overlay},
+    conversation::{ConfirmChoice, HistoryView, Message, Overlay},
     core::engine::{Engine, KeyPress, StateChange},
     language::{Language, Translation, pick},
     ui::effects::{is_thinking, reveal_elapsed, reveal_is_complete, thinking_duration},
@@ -84,6 +84,10 @@ impl AskingState {
             Some(Overlay::Transcript(hv)) => Some(hv),
             _ => None,
         }
+    }
+
+    pub fn is_transcript_dirty(&self) -> bool {
+        self.last_question().is_some()
     }
 }
 
@@ -294,29 +298,35 @@ impl App {
                 KeyPress::CtrlC => AppFlow::Quit,
                 _ => AppFlow::Stay,
             },
-            Screen::Asking(AskingState {
-                engine,
-                reply,
-                spell,
-                thunder_played,
-                history,
-                overlay,
-            }) => {
-                //first we discard the not allowed keypress
-                // to avoind leak somethig to the engine
-                // while the history popover is shown
-                if overlay.is_some() {
-                    match key {
-                        KeyPress::F1
-                        | KeyPress::Esc
-                        | KeyPress::Up
-                        | KeyPress::Down
-                        | KeyPress::PageUp
-                        | KeyPress::PageDown => {} // the popover's own keys
-                        KeyPress::F5 => {} // the panic button still works
-                        KeyPress::CtrlC => return AppFlow::Quit,
-                        _ => return AppFlow::Stay, // everything else swallowed
+            Screen::Asking(asking_state) => {
+                let is_transcript_dirty = asking_state.is_transcript_dirty();
+
+                match asking_state.overlay() {
+                    Some(Overlay::Transcript(_)) => {
+                        //first we discard the not allowed keypress
+                        // to avoind leak somethig to the engine
+                        // while the history popover is shown
+                        match key {
+                            KeyPress::F1
+                            | KeyPress::Esc
+                            | KeyPress::Up
+                            | KeyPress::Down
+                            | KeyPress::PageUp
+                            | KeyPress::PageDown => {} // the popover's own keys
+                            KeyPress::F5 => {}
+                            KeyPress::CtrlC => return AppFlow::Quit,
+                            _ => return AppFlow::Stay, // everything else swallowed
+                        }
                     }
+                    Some(Overlay::ConfirmLeave(_)) => {
+                        match key {
+                            KeyPress::Esc | KeyPress::Left | KeyPress::Right | KeyPress::Enter => {} // the confirm's own keys
+                            KeyPress::F5 => {}
+                            KeyPress::CtrlC => return AppFlow::Quit,
+                            _ => return AppFlow::Stay, // everything else swallowed
+                        }
+                    }
+                    None => {}
                 }
 
                 // The conversation guard (G8). Three time-paths converge on the
@@ -324,7 +334,7 @@ impl App {
                 // through; SueD mid-reply → swallow the key (only F5/Esc still
                 // act); SueD finished → this key begins the next exchange, so
                 // the live reply rotates aside and everything re-arms first.
-                if let Some(replied) = reply {
+                if let Some(replied) = &mut asking_state.reply {
                     let current_sued_words = replied.words();
 
                     let sued_finished_speaking = reveal_is_complete(
@@ -333,13 +343,15 @@ impl App {
                     );
 
                     if sued_finished_speaking {
-                        engine.reset(pick(translations.decoys, rand::random()));
+                        asking_state
+                            .engine
+                            .reset(pick(translations.decoys, rand::random()));
                         // A new decoy owes a new warning. This is the SECOND
                         // `engine.reset` site (F5 is the other) — re-arming
                         // belongs wherever a decoy begins, not to one key.
-                        *thunder_played = false;
+                        asking_state.thunder_played = false;
 
-                        *reply = None;
+                        asking_state.reply = None;
                     } else {
                         match key {
                             // The lock only holds keys that would feed the
@@ -355,44 +367,72 @@ impl App {
 
                 match key {
                     KeyPress::Enter => {
-                        let question = engine.visible_buffer().to_string();
+                        match &mut asking_state.overlay {
+                            Some(Overlay::Transcript(_)) => {}
+                            Some(Overlay::ConfirmLeave(confirm_choises)) => match confirm_choises {
+                                ConfirmChoice::Leave => {
+                                    self.screen = Screen::Menu;
+                                }
+                                ConfirmChoice::Stay => {
+                                    asking_state.overlay = None;
+                                }
+                            },
+                            None => {
+                                let question = asking_state.engine.visible_buffer().to_string();
 
-                        let state = engine.handle_key(KeyPress::Enter);
+                                let state = asking_state.engine.handle_key(KeyPress::Enter);
 
-                        let sued_words = match state {
-                            StateChange::Revealed => Some(
-                                engine
-                                    .revealed()
-                                    .expect("Revealed implied a revealed answer")
-                                    .to_string(),
-                            ),
-                            StateChange::Denied => {
-                                Some(pick(translations.denials, rand::random()).to_string())
+                                let sued_words = match state {
+                                    StateChange::Revealed => Some(
+                                        asking_state
+                                            .engine
+                                            .revealed()
+                                            .expect("Revealed implied a revealed answer")
+                                            .to_string(),
+                                    ),
+                                    StateChange::Denied => {
+                                        Some(pick(translations.denials, rand::random()).to_string())
+                                    }
+                                    _ => None,
+                                };
+
+                                if let Some(words) = sued_words {
+                                    asking_state.history.push(Message::User(question));
+                                    asking_state.history.push(Message::Sued(words.clone()));
+                                    asking_state.reply = Some(Reply::new(words));
+                                    asking_state.spell =
+                                        pick(translations.ask.spells, rand::random());
+                                    asking_state.thunder_played = false;
+                                }
                             }
-                            _ => None,
-                        };
-
-                        if let Some(words) = sued_words {
-                            history.push(Message::User(question));
-                            history.push(Message::Sued(words.clone()));
-                            *reply = Some(Reply::new(words));
-                            *spell = pick(translations.ask.spells, rand::random());
-                            *thunder_played = false;
                         }
 
                         AppFlow::Stay
                     }
                     KeyPress::Esc => {
-                        if overlay.is_some() {
-                            *overlay = None;
-                        } else {
-                            // here user is in the main ask screen
-                            self.screen = Screen::Menu;
+                        match &mut asking_state.overlay {
+                            Some(Overlay::Transcript(_)) => {
+                                asking_state.overlay = None;
+                            }
+                            Some(Overlay::ConfirmLeave(_)) => {
+                                asking_state.overlay = None;
+                            }
+
+                            None => {
+                                // here user is in the main ask screen
+                                if is_transcript_dirty {
+                                    asking_state.overlay =
+                                        Some(Overlay::ConfirmLeave(ConfirmChoice::default()));
+                                } else {
+                                    self.screen = Screen::Menu;
+                                }
+                            }
                         }
+
                         AppFlow::Stay
                     }
                     KeyPress::Backspace => {
-                        engine.handle_key(KeyPress::Backspace);
+                        asking_state.engine.handle_key(KeyPress::Backspace);
                         AppFlow::Stay
                     }
                     KeyPress::F5 => {
@@ -401,23 +441,26 @@ impl App {
                     }
                     KeyPress::CtrlC => AppFlow::Quit,
                     KeyPress::F1 => {
-                        if overlay.is_some() {
-                            // here the hitview is open already. needs toggle off
-                            *overlay = None;
+                        if let Some(Overlay::Transcript(_)) = &mut asking_state.overlay {
+                            asking_state.overlay = None;
                         } else {
                             // here the hitview is close. needs toggle on
-                            *overlay = Some(Overlay::Transcript(HistoryView::new()));
+                            asking_state.overlay = Some(Overlay::Transcript(HistoryView::new()));
                         }
                         AppFlow::Stay
                     }
                     KeyPress::PageUp => {
-                        if let Some(Overlay::Transcript(inner_hist_view)) = overlay {
+                        if let Some(Overlay::Transcript(inner_hist_view)) =
+                            &mut asking_state.overlay
+                        {
                             inner_hist_view.handle_page_up();
                         }
                         AppFlow::Stay
                     }
                     KeyPress::PageDown => {
-                        if let Some(Overlay::Transcript(inner_hist_view)) = overlay {
+                        if let Some(Overlay::Transcript(inner_hist_view)) =
+                            &mut asking_state.overlay
+                        {
                             inner_hist_view.handle_page_down();
                         }
                         AppFlow::Stay
@@ -425,26 +468,38 @@ impl App {
                     KeyPress::Up => {
                         // logic here
 
-                        if let Some(Overlay::Transcript(inner_hist_view)) = overlay {
+                        if let Some(Overlay::Transcript(inner_hist_view)) =
+                            &mut asking_state.overlay
+                        {
                             inner_hist_view.handle_up();
                         }
                         AppFlow::Stay
                     }
                     KeyPress::Down => {
                         // logic here
-                        if let Some(Overlay::Transcript(inner_hist_view)) = overlay {
+                        if let Some(Overlay::Transcript(inner_hist_view)) =
+                            &mut asking_state.overlay
+                        {
                             inner_hist_view.handle_down();
                         }
                         AppFlow::Stay
                     }
-                    other_char => {
-                        engine.handle_key(other_char);
+                    KeyPress::Left | KeyPress::Right => {
+                        if let Some(Overlay::ConfirmLeave(choices)) = &mut asking_state.overlay {
+                            choices.toggle();
+                        }
+                        AppFlow::Stay
+                    }
 
-                        if !*thunder_played
-                            && (engine.decoy_chars_remaining() <= THUNDER_AT_CHARS_REMAINING)
+                    other_char => {
+                        asking_state.engine.handle_key(other_char);
+
+                        if !asking_state.thunder_played
+                            && (asking_state.engine.decoy_chars_remaining()
+                                <= THUNDER_AT_CHARS_REMAINING)
                         {
                             self.pending_cue = Some(AudioCue::Thunder);
-                            *thunder_played = true;
+                            asking_state.thunder_played = true;
                         }
 
                         AppFlow::Stay
@@ -1872,7 +1927,16 @@ mod tests {
         finish_the_reveal(&mut app);
         feed(&mut app, &[KeyPress::Char('x')]); // "42" is now the kept reply
 
-        feed(&mut app, &[KeyPress::Esc, KeyPress::Enter]); // → Menu → Asking again
+        // ⚠ AMENDED BY G19 — see `leaving_the_oracle_burns_the_transcript_too`.
+        feed(
+            &mut app,
+            &[
+                KeyPress::Esc,
+                KeyPress::Left,
+                KeyPress::Enter, // → Menu
+                KeyPress::Enter, // → Asking again
+            ],
+        );
 
         match &app.screen {
             Screen::Asking(asking_state) => {
@@ -2112,7 +2176,18 @@ mod tests {
         let mut app = drive(&ASK_AND_REVEAL);
         finish_the_reveal(&mut app);
 
-        feed(&mut app, &[KeyPress::Esc, KeyPress::Enter]); // → Menu → Asking again
+        // ⚠ AMENDED BY G19 — Esc raises the confirm, so leaving is now
+        // Esc → Left (off the safe default) → Enter. The trailing Enter is the
+        // menu's, walking back into the oracle.
+        feed(
+            &mut app,
+            &[
+                KeyPress::Esc,
+                KeyPress::Left,
+                KeyPress::Enter, // → Menu
+                KeyPress::Enter, // → Asking again
+            ],
+        );
 
         match transcript(&app) {
             [Message::Sued(greeting)] => assert_eq!(greeting, greeting_of(&app)),
@@ -2209,7 +2284,20 @@ mod tests {
         // meanings, disambiguated entirely by the `Option`.
         let mut app = after_one_exchange();
 
-        feed(&mut app, &[KeyPress::F1, KeyPress::Esc, KeyPress::Esc]);
+        // ⚠ AMENDED BY G19 — the door now asks first. The third Esc raises the
+        // confirm rather than leaving, so walking out costs `Left` (off the safe
+        // default) then `Enter`. The claim under test is unchanged: two Escs
+        // still mean "close the popover, then head for the door".
+        feed(
+            &mut app,
+            &[
+                KeyPress::F1,
+                KeyPress::Esc,
+                KeyPress::Esc,
+                KeyPress::Left,
+                KeyPress::Enter,
+            ],
+        );
 
         assert!(on_menu(&app));
     }
@@ -2577,6 +2665,27 @@ mod tests {
     }
 
     #[test]
+    fn a_question_that_earned_only_a_taunt_still_counts_as_having_spoken() {
+        // ⚠ There are TWO ways to put a `Message::User` in the transcript, and a
+        // predicate written against the reveal path alone would miss this one: a
+        // question with no staged answer is DENIED, and the denial arm pushes the
+        // question and the taunt exactly like the reveal arm does.
+        //
+        // It matters because the taunt path is the one the mark actually walks
+        // when the operator has not armed anything yet — losing that exchange is
+        // still losing an exchange.
+        let mut app = drive(&ASK_AND_BE_DENIED);
+        finish_the_reveal(&mut app);
+
+        feed(&mut app, &[KeyPress::Esc]);
+
+        assert!(
+            on_confirm(&app),
+            "being refused is still a conversation worth guarding"
+        );
+    }
+
+    #[test]
     fn a_reflexive_enter_cannot_burn_the_seance() {
         // ⚠⚠ THE SAFETY PROPERTY OF THE WHOLE FEATURE, and the reason the dialog
         // has to carry a selection at all. `Enter` is bound now, and mid-
@@ -2624,14 +2733,12 @@ mod tests {
         // one.
         let mut app = after_one_exchange();
 
+        feed(&mut app, &[KeyPress::Esc]);
+        assert!(on_confirm(&app), "precondition: the dialog is up");
+
         feed(
             &mut app,
-            &[
-                KeyPress::Esc,
-                KeyPress::Left,
-                KeyPress::Right,
-                KeyPress::Enter,
-            ],
+            &[KeyPress::Left, KeyPress::Right, KeyPress::Enter],
         );
 
         assert!(
@@ -2675,7 +2782,11 @@ mod tests {
                 KeyPress::Char(';'), // the hidden-mode toggle is not exempt
                 KeyPress::Char('9'),
                 KeyPress::Backspace,
-                KeyPress::Enter,
+                // ⚠ `Enter` is deliberately NOT in this list. It belongs to the
+                // dialog now — it commits the choice — so feeding it here would
+                // dismiss the very overlay this test is standing behind. That a
+                // leaked `Enter` cannot ask a question is pinned separately, by
+                // `a_reflexive_enter_cannot_burn_the_seance`.
             ],
         );
 
