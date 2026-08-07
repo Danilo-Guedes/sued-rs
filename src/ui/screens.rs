@@ -493,6 +493,46 @@ mod tests {
     }
 
     #[test]
+    fn the_spell_never_reaches_the_screen_on_a_rebuke() {
+        // ⚠ THE SYMPTOM, pinned where it was actually seen — the app-side rule
+        // lives in `a_rebuke_lands_instantly_because_nothing_was_consulted`, but
+        // what Danilo noticed while playing was the SPELL: SueD announcing he was
+        // "leafing through the forbidden books of darkness" before telling you he
+        // had not read your question. The incantation says he went looking. On a
+        // rebuke he never did.
+        //
+        // ⚠ `asking_state.spell` stays POPULATED through a rebuke — it is re-picked
+        // on every exchange and simply must not be drawn — so this asserts the
+        // rendered buffer, not the field. Reading the field would pass on the bug.
+        // ⚠ Read at elapsed ≈ 0 — NO rewind, deliberately. The spell only ever
+        // draws while `is_pondering()`, so winding the clock forward would hide
+        // the bug rather than catch it: the buggy build would have finished its
+        // ponder by then and this would pass on both.
+        let mut keys = vec![KeyPress::Enter, KeyPress::Enter]; // Intro → Menu → Asking
+        keys.extend("hello there".chars().map(KeyPress::Char));
+        keys.push(KeyPress::Enter); // → Denied, and short enough to be rebuked
+
+        let app = app_after(&keys);
+        let spell = live_spell(&app);
+        let rebuke = app.config().language().translation().rebuke;
+
+        // Precondition: a rebuke must genuinely be the live reply. Without one the
+        // screen falls to the greeting branch, which draws no spell either — and
+        // this test would pass having exercised nothing.
+        assert_eq!(
+            live_reply_words(&app),
+            rebuke.replace("{question}", "hello there"),
+            "precondition: the live reply must be the rebuke"
+        );
+
+        assert!(
+            !screen_text(&app).contains(spell),
+            "the spell must not be drawn on a rebuke — it reads as SueD consulting \
+             the dark, and a rebuke is him refusing to look at all; got {spell:?}"
+        );
+    }
+
+    #[test]
     fn a_fresh_ask_screen_greets_you() {
         let app = app_after(&[KeyPress::Enter, KeyPress::Enter]);
         let welcome = app.config().language().translation().ask.welcome_line;
@@ -604,8 +644,8 @@ mod tests {
     /// is a substring search over the whole 132×41 buffer, so a plausible word
     /// would risk matching a taunt in one of three languages and going green for
     /// the wrong reason.
-    const QUESTION: &str = "xyzzy";
-    const SECOND_QUESTION: &str = "plugh";
+    const QUESTION: &str = "Hey Sued, the best of all times, do you know who is Amanda?";
+    const SECOND_QUESTION: &str = "Lord Sued, the king of the dark, where's Wally?";
 
     fn type_out(app: &mut App, word: &str) {
         for character in word.chars() {
