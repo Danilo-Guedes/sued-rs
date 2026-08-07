@@ -9,6 +9,7 @@ mod history;
 mod info;
 mod intro;
 mod menu;
+mod story;
 
 use ratatui::Frame;
 
@@ -44,10 +45,13 @@ mod tests {
     use super::*;
     use crate::app::{AppFlow, AskingState};
     use crate::config::Configuration;
+    use crate::constants::{HOW_IT_WORKS_COMMAND, REPO_URL};
     use crate::conversation::Overlay;
     use crate::core::engine::KeyPress;
     use crate::language::Translation;
-    use crate::test_fixtures::{REBUKED_QUESTION, ask_and_be_denied, ask_and_be_rebuked};
+    use crate::test_fixtures::{
+        REBUKED_QUESTION, STORY_KEY, ask_and_be_denied, ask_and_be_rebuked,
+    };
     use ratatui::Terminal;
     use ratatui::backend::TestBackend;
     use std::time::Duration;
@@ -502,6 +506,202 @@ mod tests {
                      thing clipping eats"
                 );
             }
+        }
+    }
+
+    // ── G16 · the story popover ──────────────────────────────────────────────
+
+    /// Reach About in the `language_steps`-th language and raise the story.
+    fn about_with_the_story_open(language_steps: usize) -> App {
+        let mut keys = vec![
+            KeyPress::Enter, // Intro → Menu
+            KeyPress::Down,
+            KeyPress::Down,
+            KeyPress::Down,
+            KeyPress::Enter, // → Config
+            KeyPress::Down,
+            KeyPress::Down,
+            KeyPress::Down, // → language
+        ];
+        keys.extend(std::iter::repeat_n(KeyPress::Right, language_steps));
+        keys.extend([
+            KeyPress::Esc,   // → Menu, cursor resting on Configurações
+            KeyPress::Up,    // → Sobre
+            KeyPress::Enter, // → About
+            STORY_KEY,       // raise the popover
+        ]);
+
+        let app = app_after(&keys);
+
+        // The precondition, asserted rather than assumed — the lesson from the
+        // two G19 tests that passed for the wrong reason. Without this, a `?`
+        // that stopped working would leave every assertion below searching the
+        // ordinary About screen.
+        match app.screen() {
+            Screen::About(state) => assert!(
+                state.story().is_some(),
+                "the story popover must be OPEN, or this test reads the plain \
+                 About screen every other test already covers"
+            ),
+            other => panic!("expected About, got {other:?}"),
+        }
+
+        app
+    }
+
+    #[test]
+    fn the_story_popover_draws_its_pinned_block_at_every_size_and_language() {
+        // ⚠ THE GAP THIS CLOSES, and it is NOT the same gap the confirm dialog
+        // had. That box is sized to its content, so its failure was "the prose
+        // needed a row the box never reserved". This one SCROLLS — the prose is
+        // *expected* to run past the fold, so its last word being off screen is
+        // correct behaviour, not a bug.
+        //
+        // What must never be off screen is the PINNED block: the URL and the
+        // `--how-it-works` command. They are the actionable payload for the
+        // confused `cargo install` user this whole popover exists for, and they
+        // sit in the LAST rows of the box — which is the first thing ratatui's
+        // silent clipping eats. Assert those, plus the title at the top, and
+        // both ends of the box are pinned.
+        for language_steps in 0..3 {
+            let app = about_with_the_story_open(language_steps);
+            let story = app.config().language().translation().about.story;
+
+            for (width, height) in SIZES {
+                let screen = screen_text_at(&app, width, height);
+
+                assert!(
+                    screen.contains(story.title),
+                    "the popover's title must survive at {width}x{height} — it \
+                     rides the top border, so losing it means the box itself \
+                     never fit the band"
+                );
+                assert!(
+                    screen.contains(REPO_URL.trim_start_matches("https://")),
+                    "the repo URL must survive at {width}x{height} — it is pinned \
+                     precisely so it cannot fall below the fold"
+                );
+                assert!(
+                    screen.contains(HOW_IT_WORKS_COMMAND),
+                    "the bridge command must survive at {width}x{height} — it is \
+                     the last row of the box and the first thing clipping eats"
+                );
+                assert!(
+                    screen.contains(story.bridge),
+                    "the bridge line must not wrap or clip at {width}x{height} — \
+                     the signature block's height is measured from it, so a \
+                     language whose bridge runs long is exactly the case that \
+                     silently loses a row"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn the_story_actually_scrolls_when_it_does_not_fit() {
+        // ⚠ Run at the 80×24 floor DELIBERATELY, and this is the whole point of
+        // the test. At 132×41 the box is tall enough to hold the entire story,
+        // so `max_offset` is 0 and PgDn is correctly a no-op — a scroll test at
+        // the comfortable size would pass on an implementation that ignored the
+        // offset entirely. The small terminal is the only place the arithmetic
+        // is exercised at all.
+        let app_before = about_with_the_story_open(0);
+        let story = app_before.config().language().translation().about.story;
+        let before = screen_text_at(&app_before, 80, 24);
+
+        // ⚠⚠ THE PRECONDITION THAT NAMES ITS OWN CAUSE, and it is owed because
+        // `body` is about to be REWRITTEN by hand. This whole test silently
+        // depends on the PT story staying long enough to overflow the box at
+        // 80×24 — trim it to a few lines and `max_offset` becomes 0, PgDn
+        // correctly does nothing, and both assertions below fail complaining
+        // about a scroll bug that does not exist.
+        //
+        // The scrollbar is the render's OWN statement that the content
+        // overflows: it is drawn only when `max_offset > 0`. So asking for its
+        // arrow turns "someone shortened the copy" from a confusing failure into
+        // a named one. Same job as `the_fixtures_actually_straddle_the_threshold`.
+        assert!(
+            before.contains('▲'),
+            "precondition: the story must be long enough to OVERFLOW the box at \
+             80×24 — no scrollbar means nothing to scroll, and every assertion \
+             below would then be testing the wrong thing. If the copy was \
+             shortened on purpose, this test needs a smaller terminal, not a fix."
+        );
+
+        // A short prefix, not the whole first line: the prose wraps at ~56
+        // columns and `screen_text_at` joins rows with newlines, so any search
+        // string long enough to wrap can never match.
+        let opening: String = story.body.chars().take(20).collect();
+
+        assert!(
+            before.contains(&opening),
+            "precondition: the story opens on its first line, so the opening \
+             words must be on screen before anything is scrolled"
+        );
+
+        let mut app = about_with_the_story_open(0);
+        app.handle_key(KeyPress::PageDown);
+
+        assert!(
+            !screen_text_at(&app, 80, 24).contains(&opening),
+            "PgDn must move the prose — the offset is clamped in the render, and \
+             a clamp computed from the wrong height pins it at 0 forever while \
+             every state test stays green"
+        );
+
+        // ⬅ THE FAR CLAMP, and the reason it needs its own assertion: `StoryView`
+        // counts up without a ceiling on purpose, because the last legal row is
+        // `wrapped_rows - viewport` and neither number exists until the render
+        // has measured the text. Lean on PgDn and an unclamped offset scrolls the
+        // prose clean off the top, leaving a bordered box of empty rows — no
+        // panic, no clipping, nothing any state test can see.
+        let last_word = story
+            .body
+            .split_whitespace()
+            .next_back()
+            .expect("the story is never empty");
+
+        for _ in 0..20 {
+            app.handle_key(KeyPress::PageDown);
+        }
+
+        assert!(
+            screen_text_at(&app, 80, 24).contains(last_word),
+            "scrolling past the end must stop at the last line ({last_word:?}), \
+             not run off into blank rows"
+        );
+    }
+
+    #[test]
+    fn the_status_bar_stops_offering_the_menu_while_the_story_is_up() {
+        // With the popover raised, `Esc` closes it rather than going back. A
+        // strip still advertising "voltar ao menu" would be describing a key
+        // that now does something else — and this screen's strip is the only
+        // instruction the reader gets.
+        let app = about_with_the_story_open(0);
+        let about = app.config().language().translation().about;
+
+        // ⚠ SCOPED TO THE STATUS ROWS, not the whole buffer, and that is not
+        // fussiness. The negative assertion below searches for a phrase of
+        // ordinary Portuguese, and the thing filling most of this screen is a
+        // page of ordinary Portuguese that is about to be rewritten by hand. A
+        // whole-buffer `!contains` would turn any innocent collision in the
+        // story's prose into a failure blaming the hint strip.
+        let screen = screen_text(&app);
+        let status = screen.lines().rev().take(3).collect::<Vec<_>>().join("\n");
+
+        let (_, back_to_menu) = about.hints[0];
+
+        assert!(
+            !status.contains(back_to_menu),
+            "the About strip must be replaced while the story is up, not left \
+             describing keys the overlay has taken over"
+        );
+        for (_, label) in about.story.hints {
+            assert!(
+                status.contains(label),
+                "the popover's own hint {label:?} must reach the strip"
+            );
         }
     }
 

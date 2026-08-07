@@ -63,6 +63,40 @@ pub struct AboutTexts {
     pub table: &'static [(&'static str, &'static str)],
     pub footer: &'static str,
     pub hints: &'static [(&'static str, &'static str)],
+    pub story: StoryTexts,
+}
+
+/// The `[?]` popover on About — the one place this app speaks out of character.
+///
+/// ⚠ **What is NOT here, on purpose:** the `;` toggle, hidden mode, and how the
+/// decoy paints itself. Those are the *operator's* manual and they live outside
+/// the app in `--how-it-works`, because anything drawn on screen can be read
+/// over the operator's shoulder mid-prank. This struct is the *story* only —
+/// who wrote it, why, and where the source is. Do not let the two drift back
+/// together (PLAN §G16).
+///
+/// 📌 `body` is deliberately plain prose with **no `{{accent}}` markup**, unlike
+/// `AboutTexts::lore`. It is measured with `Paragraph::line_count` and then
+/// scrolled by row, and `styled_line`'s per-row splitting would have to happen
+/// before that measurement — two passes that could disagree about how many rows
+/// the text occupies, which is exactly the drift G19 spent four rounds finding.
+///
+/// The repo URL and the command itself are NOT fields: they carry no language.
+/// See `constants::REPO_URL` / `constants::HOW_IT_WORKS_COMMAND`.
+#[derive(Debug, Copy, Clone)]
+pub struct StoryTexts {
+    pub title: &'static str,
+    /// The long one — paragraphs separated by a blank line. Scrolls.
+    pub body: &'static str,
+    /// Byline, pinned below the prose so it is never below the fold.
+    pub signature: &'static str,
+    /// The question that hands the reader off to the operator's manual.
+    pub bridge: &'static str,
+    /// "rode:" / "run:" — the verb in front of the command.
+    pub run_prefix: &'static str,
+    /// Replaces the About screen's own strip while the popover is up, so the
+    /// bar never describes keys that currently do something else.
+    pub hints: &'static [(&'static str, &'static str)],
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -221,7 +255,33 @@ impl Language {
                         env!("CARGO_PKG_VERSION"),
                         " · recriação do clássico brasileiro · use por sua conta e risco"
                     ),
-                    hints: &[("[Esc]", "voltar ao menu")],
+                    hints: &[("[Esc]", "voltar ao menu"), ("[?]", "por trás do véu")],
+                    story: StoryTexts {
+                        title: "POR TRÁS DO VÉU",
+                        // ⏳ PLACEHOLDER — lifted from the Claude Design mockup so
+                        // the layout has real prose to wrap. This paragraph is
+                        // DANILO's to write (PLAN §G16: the PT one is his memory);
+                        // the Phase 6 pass writes it alongside the README and the
+                        // `--how-it-works` text, one job with three outputs.
+                        body: "Eu tinha uns dez anos quando vi o Sued pela primeira \
+                               vez, no PC da sala do meu amigo. Ele digitou uma \
+                               pergunta boba e a tela respondeu com o nome do \
+                               cachorro dele. Ninguém tinha contado nada pra aquela \
+                               máquina.\n\n\
+                               Foi ali que entendi o truque — e mesmo sabendo, ainda \
+                               deu arrepio. A gente ficou até tarde, revezando \
+                               perguntas, esperando o oráculo dizer alguma coisa que \
+                               só nós dois sabíamos.\n\n\
+                               Sued nasceu como brincadeira de porão no Brasil dos \
+                               anos 2000 e correu o país de disquete em disquete, de \
+                               lan house em lan house.\n\n\
+                               Esta versão é uma recriação em Rust — o primeiro \
+                               projeto que escrevi na linguagem.",
+                        signature: "danilo guedes · feito pra aprender rust",
+                        bridge: "curioso pra saber como o oráculo funciona?",
+                        run_prefix: "rode:",
+                        hints: &[("[↑↓ PgUp PgDn]", "rolar"), ("[Esc] [?]", "fechar")],
+                    },
                 },
                 info: InfoTexts {
                     title: "O RITUAL",
@@ -379,7 +439,32 @@ impl Language {
                         env!("CARGO_PKG_VERSION"),
                         " · a recreation of the Brazilian classic · use at your own risk"
                     ),
-                    hints: &[("[Esc]", "back to menu")],
+                    hints: &[("[Esc]", "back to menu"), ("[?]", "behind the veil")],
+                    story: StoryTexts {
+                        title: "BEHIND THE VEIL",
+                        // ⏳ PLACEHOLDER — tracks the PT above and gets rewritten
+                        // with it at Phase 6. Kept the same paragraph count and
+                        // roughly the same length on purpose: the box wraps this
+                        // text at 56 columns, so a translation that drifts long
+                        // silently changes how far the reader has to scroll.
+                        body: "I was about ten when I first saw Sued, on the PC in \
+                               my friend's living room. He typed some silly question \
+                               and the screen came back with his dog's name. Nobody \
+                               had told that machine anything.\n\n\
+                               That was when I worked out the trick — and even \
+                               knowing, it still raised the hair on my arms. We \
+                               stayed up late taking turns, waiting for the oracle \
+                               to say something only the two of us knew.\n\n\
+                               Sued started as a basement prank in 2000s Brazil and \
+                               travelled the country floppy by floppy, LAN house by \
+                               LAN house.\n\n\
+                               This version is a recreation in Rust — the first \
+                               project I ever wrote in the language.",
+                        signature: "danilo guedes · built to learn rust",
+                        bridge: "curious how the oracle really works?",
+                        run_prefix: "run:",
+                        hints: &[("[↑↓ PgUp PgDn]", "scroll"), ("[Esc] [?]", "close")],
+                    },
                 },
                 info: InfoTexts {
                     title: "THE RITUAL",
@@ -539,7 +624,29 @@ impl Language {
                         env!("CARGO_PKG_VERSION"),
                         " · recreación del clásico brasileño · úsalo bajo tu propio riesgo"
                     ),
-                    hints: &[("[Esc]", "volver al menú")],
+                    hints: &[("[Esc]", "volver al menú"), ("[?]", "tras el velo")],
+                    story: StoryTexts {
+                        title: "TRAS EL VELO",
+                        // ⏳ PLACEHOLDER — same note as the other two.
+                        body: "Tenía unos diez años cuando vi a Sued por primera \
+                               vez, en el PC del salón de mi amigo. Escribió una \
+                               pregunta tonta y la pantalla respondió con el nombre \
+                               de su perro. Nadie le había contado nada a esa \
+                               máquina.\n\n\
+                               Ahí fue cuando entendí el truco — y aun sabiéndolo, \
+                               igual me puso la piel de gallina. Nos quedamos hasta \
+                               tarde turnándonos, esperando que el oráculo dijera \
+                               algo que solo nosotros dos sabíamos.\n\n\
+                               Sued nació como una broma de sótano en el Brasil de \
+                               los años 2000 y recorrió el país de disquete en \
+                               disquete, de ciber en ciber.\n\n\
+                               Esta versión es una recreación en Rust — el primer \
+                               proyecto que escribí en el lenguaje.",
+                        signature: "danilo guedes · hecho para aprender rust",
+                        bridge: "¿con curiosidad por cómo funciona el oráculo?",
+                        run_prefix: "ejecuta:",
+                        hints: &[("[↑↓ PgUp PgDn]", "desplazar"), ("[Esc] [?]", "cerrar")],
+                    },
                 },
                 info: InfoTexts {
                     title: "EL RITUAL",

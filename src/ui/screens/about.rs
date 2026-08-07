@@ -13,9 +13,10 @@ use crate::ui::screens::common::{
     DEMON_ART, DEMON_ART_HEIGHT, DEMON_ART_WIDTH, NavTab, colorfull_bordered_block,
     create_centered_rect, create_screen_block, hint_line, render_nav_strip, table_row,
 };
+use crate::ui::screens::story;
 use crate::ui::template::styled_line;
 
-pub(super) fn render(frame: &mut Frame, config: Configuration, _about_state: &AboutState) {
+pub(super) fn render(frame: &mut Frame, config: Configuration, about_state: &AboutState) {
     let palette = config.theme().palette();
     let layout = create_screen_block(frame, palette);
     let language = config.language();
@@ -23,7 +24,7 @@ pub(super) fn render(frame: &mut Frame, config: Configuration, _about_state: &Ab
 
     let [
         nav_layout,
-        _empty_space,
+        empty_space,
         center_layout,
         footer_layout,
         status_layout,
@@ -119,12 +120,47 @@ pub(super) fn render(frame: &mut Frame, config: Configuration, _about_state: &Ab
     let [hints_area, page_area] =
         Layout::horizontal([Constraint::Fill(1), Constraint::Length(14)]).areas(status_inner);
 
-    let hints = hint_line(translation.about.hints, palette);
+    // The strip describes the keys as they behave RIGHT NOW, so it swaps with
+    // the overlay — same idiom as `ask.rs`, and here it is not merely tidy:
+    // with the popover up `Esc` closes it rather than going back, so a strip
+    // that kept saying "voltar ao menu" would be actively lying.
+    //
+    // 📌 Deliberately the screen's own strip and NOT a second one drawn inside
+    // the popover, which is where the mockup put it. Two strips would be a
+    // hand-maintained duplicate of each other — the exact complaint G20 exists
+    // to fix on the Ritual screen — and the two rows it saves are worth having
+    // at the 80×24 floor, where the prose viewport is single digits.
+    let (current_hints, current_page) = match about_state.story() {
+        Some(_) => (translation.about.story.hints, NavTab::Story),
+        None => (translation.about.hints, NavTab::About),
+    };
+
+    let hints = hint_line(current_hints, palette);
     frame.render_widget(Paragraph::new(hints), hints_area);
     frame.render_widget(
-        Paragraph::new(NavTab::About.label(language).to_uppercase())
+        Paragraph::new(current_page.label(language).to_uppercase())
             .dim()
             .right_aligned(),
         page_area,
     );
+
+    // ⚠ LAST, so it lands on top of everything above it — a `Clear` only clears
+    // what has already been drawn.
+    //
+    // The band deliberately excludes the nav strip and the status bar: the strip
+    // says which screen you are on and the bar now carries the popover's own
+    // keys, so covering either would hide the only thing telling the reader how
+    // to get out. ⚠ `union` is the bounding box of the two rects, so this spans
+    // empty→center→footer only while those three stay ADJACENT in the vertical
+    // layout above. Reorder that stack and the band silently changes meaning —
+    // it still compiles, still draws, and covers the wrong thing.
+    if let Some(story_view) = about_state.story() {
+        story::render(
+            frame,
+            empty_space.union(footer_layout),
+            story_view,
+            palette,
+            translation,
+        );
+    }
 }
