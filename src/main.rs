@@ -83,6 +83,14 @@ fn main() -> Result<()> {
             .with_context(|| format!("saving in {}", config_path.display()))?;
     }
 
+    if args.how_it_works {
+        println!(
+            "{}",
+            cli::how_it_works_text(parsed_config.language().translation())
+        );
+        return Ok(());
+    }
+
     let _guard = TerminalGuard::new()?; // declared first → dropped LAST (cleans up after the terminal)
     let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
 

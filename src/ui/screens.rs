@@ -45,7 +45,7 @@ mod tests {
     use super::*;
     use crate::app::{AppFlow, AskingState};
     use crate::config::Configuration;
-    use crate::constants::{HOW_IT_WORKS_COMMAND, REPO_URL};
+    use crate::constants::{AUTHOR_GITHUB, AUTHOR_LINKEDIN, HOW_IT_WORKS_COMMAND};
     use crate::conversation::Overlay;
     use crate::core::engine::KeyPress;
     use crate::language::Translation;
@@ -577,9 +577,9 @@ mod tests {
                      never fit the band"
                 );
                 assert!(
-                    screen.contains(REPO_URL.trim_start_matches("https://")),
-                    "the repo URL must survive at {width}x{height} — it is pinned \
-                     precisely so it cannot fall below the fold"
+                    screen.contains(AUTHOR_GITHUB) && screen.contains(AUTHOR_LINKEDIN),
+                    "both author links must survive at {width}x{height} — they are \
+                     pinned precisely so they cannot fall below the fold"
                 );
                 assert!(
                     screen.contains(HOW_IT_WORKS_COMMAND),
@@ -628,10 +628,16 @@ mod tests {
              shortened on purpose, this test needs a smaller terminal, not a fix."
         );
 
-        // A short prefix, not the whole first line: the prose wraps at ~56
+        // A short prefix, not the whole first line: the prose wraps at ~64
         // columns and `screen_text_at` joins rows with newlines, so any search
         // string long enough to wrap can never match.
-        let opening: String = story.body.chars().take(20).collect();
+        //
+        // ⚠ Markup stripped first. `body` carries `{{accent}}` markers that the
+        // render resolves away, so a raw slice of the source can contain braces
+        // that are on no screen anywhere — a search that could never match, for
+        // a reason that looks nothing like its cause.
+        let rendered_body = story.body.replace("{{", "").replace("}}", "");
+        let opening: String = rendered_body.chars().take(20).collect();
 
         assert!(
             before.contains(&opening),
@@ -655,8 +661,7 @@ mod tests {
         // has measured the text. Lean on PgDn and an unclamped offset scrolls the
         // prose clean off the top, leaving a bordered box of empty rows — no
         // panic, no clipping, nothing any state test can see.
-        let last_word = story
-            .body
+        let last_word = rendered_body
             .split_whitespace()
             .next_back()
             .expect("the story is never empty");
@@ -697,12 +702,45 @@ mod tests {
             "the About strip must be replaced while the story is up, not left \
              describing keys the overlay has taken over"
         );
-        for (_, label) in about.story.hints {
-            assert!(
-                status.contains(label),
-                "the popover's own hint {label:?} must reach the strip"
-            );
-        }
+        let (_, close) = about.story.close_hint;
+        assert!(
+            status.contains(close),
+            "the popover's own close hint {close:?} must reach the strip"
+        );
+    }
+
+    #[test]
+    fn the_scroll_hint_appears_only_when_there_is_something_to_scroll() {
+        // ⚠ THE BUG DANILO ACTUALLY REPORTED, and it was never a scroll bug.
+        // On his terminal the whole story FITS, so PgDn correctly does nothing —
+        // but the strip advertised `[↑↓ PgUp PgDn] rolar` anyway, which reads as
+        // broken scrolling rather than as nothing left to scroll. Same rule as
+        // the `Esc` hint above: the strip must describe the keys as they behave
+        // right now.
+        //
+        // Both directions are asserted, because a strip that NEVER offers the
+        // keys is just as wrong as one that always does — and only the pair
+        // pins the predicate rather than a constant.
+        let app = about_with_the_story_open(0);
+        let story = app.config().language().translation().about.story;
+        let (_, scroll) = story.scroll_hint;
+
+        let cramped = screen_text_at(&app, 132, 30);
+        assert!(
+            cramped.contains(scroll),
+            "at 132×30 the story cannot fit, so the scroll keys must be offered"
+        );
+
+        // Tall enough for the whole story plus its chrome. If this ever starts
+        // failing because the copy grew, it means the story no longer fits at
+        // ANY size — raise the height here rather than deleting the assertion,
+        // or the always-scrollable case stops being covered.
+        let roomy = screen_text_at(&app, 132, 48);
+        assert!(
+            !roomy.contains(scroll),
+            "at 132×48 the whole story fits, so offering the scroll keys would \
+             promise motion the render will not produce"
+        );
     }
 
     #[test]
