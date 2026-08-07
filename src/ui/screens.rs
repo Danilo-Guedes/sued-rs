@@ -20,7 +20,7 @@ pub fn render(frame: &mut Frame, app: &App) {
         Screen::Menu => menu::render(frame, app.menu(), app.config()),
         Screen::Asking(asking_state) => ask::render(frame, app, asking_state),
         Screen::Info => info::render(frame, app.config()),
-        Screen::About => about::render(frame, app.config()),
+        Screen::About(about_state) => about::render(frame, app.config(), about_state),
         Screen::Config => config::render(frame, app),
     }
 }

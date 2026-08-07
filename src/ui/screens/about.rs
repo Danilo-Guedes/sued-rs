@@ -6,6 +6,7 @@ use ratatui::style::{Style, Stylize};
 use ratatui::text::{Line, Text};
 use ratatui::widgets::{Borders, Padding, Paragraph, Wrap};
 
+use crate::app::AboutState;
 use crate::config::Configuration;
 use crate::ui::effects::flicker_intensity;
 use crate::ui::screens::common::{
@@ -14,7 +15,7 @@ use crate::ui::screens::common::{
 };
 use crate::ui::template::styled_line;
 
-pub(super) fn render(frame: &mut Frame, config: Configuration) {
+pub(super) fn render(frame: &mut Frame, config: Configuration, _about_state: &AboutState) {
     let palette = config.theme().palette();
     let layout = create_screen_block(frame, palette);
     let language = config.language();

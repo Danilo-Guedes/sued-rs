@@ -102,14 +102,14 @@ impl AskingState {
     }
 }
 
-// `Asking` is 201 bytes against clippy's 200-byte threshold — one byte over,
-// which `thunder_played` tipped. There is exactly ONE `Screen` in the program
-// (`App.screen`, never in a collection), so the "waste" this lint is protecting
-// against totals 207 bytes, once. Boxing would buy that back with a heap
-// allocation per screen transition and a pointer indirection on every `engine`
-// access — and `engine` is read in the render path, which runs every tick.
-// ⏳ Revisit at G11+G12: folding these fields into `Option<Reply>` reshapes the
-// variant anyway, and may drop it back under the threshold on its own.
+#[derive(Debug, Default)]
+pub struct AboutState {
+    story: Option<StoryView>,
+}
+
+#[derive(Debug)]
+pub struct StoryView;
+
 #[allow(clippy::large_enum_variant)]
 #[derive(Default, Debug)]
 pub enum Screen {
@@ -118,7 +118,7 @@ pub enum Screen {
     Menu,
     Asking(AskingState),
     Info,
-    About,
+    About(AboutState),
     Config,
 }
 
@@ -285,7 +285,7 @@ impl App {
                         AppFlow::Stay
                     }
                     MenuOption::About => {
-                        self.screen = Screen::About;
+                        self.screen = Screen::About(AboutState { story: None });
                         AppFlow::Stay
                     }
                     MenuOption::Config => {
@@ -545,7 +545,7 @@ impl App {
                 KeyPress::CtrlC => AppFlow::Quit,
                 _ => AppFlow::Stay,
             },
-            Screen::About => match key {
+            Screen::About(_about_state) => match key {
                 KeyPress::Esc => {
                     self.screen = Screen::Menu;
                     AppFlow::Stay
@@ -871,7 +871,7 @@ mod tests {
             KeyPress::Down,
             KeyPress::Enter,
         ]);
-        assert!(matches!(state.screen(), Screen::About));
+        assert!(matches!(state.screen(), Screen::About(_)));
     }
 
     #[test]
