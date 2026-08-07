@@ -137,6 +137,7 @@ pub(super) enum NavTab {
     Config,
     History,
     Confirm,
+    Story,
 }
 
 impl NavTab {
@@ -187,6 +188,11 @@ impl NavTab {
                 Language::PtBr => "Confirmar",
                 Language::EnUs => "Confirm",
                 Language::EsEs => "Confirmar",
+            },
+            NavTab::Story => match language {
+                Language::PtBr => "História",
+                Language::EnUs => "Story",
+                Language::EsEs => "Historia",
             },
         }
     }
