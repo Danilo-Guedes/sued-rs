@@ -47,6 +47,7 @@ mod tests {
     use crate::conversation::Overlay;
     use crate::core::engine::KeyPress;
     use crate::language::Translation;
+    use crate::test_fixtures::{REBUKED_QUESTION, ask_and_be_denied, ask_and_be_rebuked};
     use ratatui::Terminal;
     use ratatui::backend::TestBackend;
     use std::time::Duration;
@@ -140,13 +141,25 @@ mod tests {
     fn the_ask_screen_draws_a_denial() {
         // The other half of the reply `Option`: a denial fills the same field
         // an answer does, so it must draw through the same branches.
-        let app = app_after(&[
-            KeyPress::Enter,
-            KeyPress::Enter,
-            KeyPress::Char('o'),
-            KeyPress::Char('i'), // a question with no hidden answer
-            KeyPress::Enter,     // → Denied
-        ]);
+        //
+        // ⚠ **AMENDED BY G17 (2026-08-06) — THIS TEST HAD SILENTLY STOPPED
+        // DRAWING A DENIAL.** It used to type `"oi"`, and G17 split refusals on
+        // length: 2 characters now earns the *rebuke*. The test kept passing —
+        // `draw()` only asks that nothing panics — while the denial render path
+        // it exists for went to zero coverage with nothing to say so. Going
+        // through the shared fixture is what stops that recurring.
+        let app = app_after(&ask_and_be_denied());
+
+        draw(&app);
+    }
+
+    #[test]
+    fn the_ask_screen_draws_a_rebuke() {
+        // The branch the test above was accidentally covering, now on purpose —
+        // and it is genuinely a different draw path, not a relabelling: a rebuke
+        // never ponders, so it takes the `casting_for: None` arm on frame one
+        // while a denial spends 3-6s in the spell arm first.
+        let app = app_after(&ask_and_be_rebuked());
 
         draw(&app);
     }
@@ -508,11 +521,7 @@ mod tests {
         // draws while `is_pondering()`, so winding the clock forward would hide
         // the bug rather than catch it: the buggy build would have finished its
         // ponder by then and this would pass on both.
-        let mut keys = vec![KeyPress::Enter, KeyPress::Enter]; // Intro → Menu → Asking
-        keys.extend("hello there".chars().map(KeyPress::Char));
-        keys.push(KeyPress::Enter); // → Denied, and short enough to be rebuked
-
-        let app = app_after(&keys);
+        let app = app_after(&ask_and_be_rebuked());
         let spell = live_spell(&app);
         let rebuke = app.config().language().translation().rebuke;
 
@@ -521,7 +530,7 @@ mod tests {
         // this test would pass having exercised nothing.
         assert_eq!(
             live_reply_words(&app),
-            rebuke.replace("{question}", "hello there"),
+            rebuke.replace("{question}", REBUKED_QUESTION),
             "precondition: the live reply must be the rebuke"
         );
 
@@ -608,13 +617,12 @@ mod tests {
 
     #[test]
     fn the_taunt_is_visible_once_sued_refuses() {
-        let mut app = app_after(&[
-            KeyPress::Enter,
-            KeyPress::Enter,
-            KeyPress::Char('o'),
-            KeyPress::Char('i'), // a question with no hidden answer
-            KeyPress::Enter,     // → Denied
-        ]);
+        // ⚠ **AMENDED BY G17 (2026-08-06)** — same silent drift as
+        // `the_ask_screen_draws_a_denial`. This typed `"oi"` and so asserted on a
+        // *rebuke* while claiming to cover the denial pool, and it passed the
+        // whole time because it reads `live_reply_words()` and only checks that
+        // whatever SueD said reached the screen. Self-consistent, and wrong.
+        let mut app = app_after(&ask_and_be_denied());
         app.rewind_reply(Duration::from_secs(60));
 
         let taunt = live_reply_words(&app);

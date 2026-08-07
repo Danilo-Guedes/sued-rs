@@ -12,6 +12,8 @@ mod constants;
 mod conversation;
 mod core;
 mod language;
+#[cfg(test)]
+mod test_fixtures;
 mod ui;
 
 use std::io::{Stdout, stdout};

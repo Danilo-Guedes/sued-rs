@@ -700,6 +700,10 @@ impl ConfigIndex {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_fixtures::{
+        DENIED_QUESTION, DENIED_QUESTION_PT, REBUKED_QUESTION, ask_and_be_denied,
+        ask_and_be_rebuked, ask_openly, typing,
+    };
     use crate::{conversation::PAGE_ROWS, core::engine::KeyPress};
     use std::time::Duration;
 
@@ -770,50 +774,6 @@ mod tests {
         KeyPress::Char('2'), // the secret answer
         KeyPress::Enter,     // reveal
     ];
-
-    /// Menu → Asking, type a visible question with nothing hidden → SUED denies
-    /// you. The question must have words: an EMPTY Enter is ignored outright
-    /// (no denial), so the denial path has to actually ask something.
-    /// One keystroke per character of `text`.
-    fn typing(text: &str) -> Vec<KeyPress> {
-        text.chars().map(KeyPress::Char).collect()
-    }
-
-    // char count > 18
-    fn enter_ask_mode_and_create_rebuke_safe_question_without_hidden_answer(app: &mut App) {
-        app.handle_key(KeyPress::Enter);
-        app.handle_key(KeyPress::Enter);
-        feed(app, &typing("Hey Sued, what do you know about me?"));
-        app.handle_key(KeyPress::Enter);
-    }
-
-    /// Reach the ask screen and submit `question` with NO hidden answer staged,
-    /// so the engine answers `Denied` and SueD refuses.
-    fn ask_openly(question: &str) -> Vec<KeyPress> {
-        let mut keys = vec![
-            KeyPress::Enter, // Intro → Menu
-            KeyPress::Enter, // Menu → Asking
-        ];
-        keys.extend(typing(question));
-        keys.push(KeyPress::Enter); // → Denied
-        keys
-    }
-
-    /// ⚠ **AMENDED BY G17 (2026-08-06).** This fixture used to type `"oi"`, and
-    /// every test below read that as "a refused question". G17 splits refusals in
-    /// two on LENGTH, and `"oi"` is 2 characters — so under the new rule it earns
-    /// the *rebuke*, not a denial from the pool, and three assertions here would
-    /// have started failing for a reason that had nothing to do with what they
-    /// test.
-    ///
-    /// The question is now comfortably past `SHORT_QUESTION_CHARS`, which keeps
-    /// this fixture meaning exactly what its name says — before G17 **and after**.
-    /// Use `ASK_AND_BE_REBUKED` for the short path.
-    const DENIED_QUESTION: &str = "will the oracle answer me tonight?";
-
-    fn ask_and_be_denied() -> Vec<KeyPress> {
-        ask_openly(DENIED_QUESTION)
-    }
 
     // ── Intro ────────────────────────────────────────────────────────────────
 
@@ -958,9 +918,7 @@ mod tests {
 
     #[test]
     fn enter_with_no_hidden_answer_shows_the_denial_phrase_if_pass_rebuke_char_count() {
-        let mut state = drive(&[]);
-
-        enter_ask_mode_and_create_rebuke_safe_question_without_hidden_answer(&mut state);
+        let state = drive(&ask_and_be_denied());
 
         let denials = state.config().language().translation().denials;
         match state.screen {
@@ -2137,13 +2095,6 @@ mod tests {
     // are the COMMON case here, not the freak one.
     // `a_short_staged_answer_is_revealed_not_rebuked` is that tripwire.
 
-    /// A question short enough to earn the rebuke rather than a pooled denial.
-    const REBUKED_QUESTION: &str = "hello there";
-
-    fn ask_and_be_rebuked() -> Vec<KeyPress> {
-        ask_openly(REBUKED_QUESTION)
-    }
-
     /// The words SueD is currently speaking, whatever kind of reply they are.
     fn live_reply(app: &App) -> String {
         match &app.screen {
@@ -3242,7 +3193,11 @@ mod tests {
 
     #[test]
     fn a_denial_speaks_the_configured_language() {
-        let mut state = ask_in_portuguese(&typing("Eae Sued, o quê você sabe sobre mim?"));
+        // ⚠ The question must clear `SHORT_QUESTION_CHARS` or this stops testing
+        // what it claims: a rebuke refuses in the configured language too, so it
+        // would pass while covering the wrong branch. The constant is guarded by
+        // `the_fixtures_actually_straddle_the_threshold`.
+        let mut state = ask_in_portuguese(&typing(DENIED_QUESTION_PT));
 
         state.handle_key(KeyPress::Enter);
 
