@@ -20,7 +20,7 @@ use crate::ui::theme::Palette;
 
 /// Blank columns between the two chips. They already carry a space of padding
 /// each, so the gap you SEE is this + 2.
-const CHOICE_GAP: &str = " ";
+const CHOICE_GAP: &str = "   ";
 
 /// Fixed, not a percentage — and for the same reason the height is a `Length`:
 /// this dialog's content never grows, so it must not breathe with the terminal.
