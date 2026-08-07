@@ -107,8 +107,40 @@ pub struct AboutState {
     story: Option<StoryView>,
 }
 
-#[derive(Debug)]
-pub struct StoryView;
+#[derive(Debug, Default, Copy, Clone)]
+pub struct StoryView {
+    from_top: u16,
+}
+
+pub const STORY_PAGE_ROWS: u16 = 10;
+
+impl StoryView {
+    pub fn rows_from_top(&self) -> u16 {
+        self.from_top
+    }
+    pub fn handle_down(&mut self) {
+        // grows — deliberately unbounded
+        self.from_top = self.from_top.saturating_add(1);
+    }
+    pub fn handle_up(&mut self) {
+        // saturating_sub — ⬅ the real clamp
+        self.from_top = self.from_top.saturating_sub(1);
+    }
+    pub fn handle_page_down(&mut self) {
+        // += PAGE_ROWS
+        self.from_top = self.from_top.saturating_add(STORY_PAGE_ROWS);
+    }
+    pub fn handle_page_up(&mut self) {
+        // -= PAGE_ROWS
+        self.from_top = self.from_top.saturating_sub(STORY_PAGE_ROWS);
+    }
+}
+
+impl AboutState {
+    pub fn story(&self) -> Option<&StoryView> {
+        self.story.as_ref()
+    }
+}
 
 #[allow(clippy::large_enum_variant)]
 #[derive(Default, Debug)]
@@ -545,9 +577,47 @@ impl App {
                 KeyPress::CtrlC => AppFlow::Quit,
                 _ => AppFlow::Stay,
             },
-            Screen::About(_about_state) => match key {
+            Screen::About(about_state) => match key {
                 KeyPress::Esc => {
-                    self.screen = Screen::Menu;
+                    if about_state.story.is_some() {
+                        about_state.story = None;
+                    } else {
+                        self.screen = Screen::Menu;
+                    }
+                    AppFlow::Stay
+                }
+                KeyPress::PageUp => {
+                    if let Some(story_view) = &mut about_state.story {
+                        story_view.handle_page_up();
+                    }
+                    AppFlow::Stay
+                }
+                KeyPress::PageDown => {
+                    if let Some(story_view) = &mut about_state.story {
+                        story_view.handle_page_down();
+                    }
+                    AppFlow::Stay
+                }
+                KeyPress::Up => {
+                    if let Some(story_view) = &mut about_state.story {
+                        story_view.handle_up();
+                    }
+                    AppFlow::Stay
+                }
+                KeyPress::Down => {
+                    if let Some(story_view) = &mut about_state.story {
+                        story_view.handle_down();
+                    }
+                    AppFlow::Stay
+                }
+                KeyPress::Char('?') => {
+                    if about_state.story.is_some() {
+                        *about_state = AboutState { story: None };
+                    } else {
+                        *about_state = AboutState {
+                            story: Some(StoryView::default()),
+                        };
+                    }
                     AppFlow::Stay
                 }
                 KeyPress::CtrlC => AppFlow::Quit,
@@ -701,10 +771,10 @@ impl ConfigIndex {
 mod tests {
     use super::*;
     use crate::test_fixtures::{
-        DENIED_QUESTION, DENIED_QUESTION_PT, REBUKED_QUESTION, ask_and_be_denied,
-        ask_and_be_rebuked, ask_openly, typing,
+        DENIED_QUESTION, DENIED_QUESTION_PT, REBUKED_QUESTION, STORY_KEY, ask_and_be_denied,
+        ask_and_be_rebuked, ask_openly, open_the_story, reach_about, typing,
     };
-    use crate::{conversation::PAGE_ROWS, core::engine::KeyPress};
+    use crate::{conversation::HISTORY_PAGE_ROWS, core::engine::KeyPress};
     use std::time::Duration;
 
     /// Replay a sequence of keystrokes from a fresh app, handing back the final
@@ -2600,7 +2670,7 @@ mod tests {
         feed(&mut app, &[KeyPress::F1, KeyPress::PageUp]);
         assert_eq!(
             transcript_scroll(&app),
-            Some(PAGE_ROWS),
+            Some(HISTORY_PAGE_ROWS),
             "PgUp jumps a page back, not a row"
         );
 
@@ -3673,6 +3743,241 @@ mod tests {
                     "the taunt must come from the active language's denial pool, \
                      got {:?}",
                     reply.words()
+                );
+            }
+            other => panic!("expected Asking, got {other:?}"),
+        }
+    }
+
+    // ── G16: the story popover — the one screen that speaks out of character ──
+    //
+    // `?` on About raises "POR TRÁS DO VÉU": who wrote this, that it was built to
+    // learn Rust, the GitHub URL, and the memory it came from. It exists because
+    // NOTHING in the running app currently tells a solo `cargo install` user what
+    // they are looking at — "O RITUAL" is theater aimed at the mark, not
+    // documentation. (The operator's manual is the separate `--how-it-works`
+    // flag, deliberately outside the app so it cannot be read over a shoulder.)
+    //
+    // ⚠⚠ THE SHAPE THESE SPECS PIN, AND WHY IT IS NOT A THIRD `Overlay` VARIANT.
+    // PLAN.md promised G16 would be `Overlay::Story` alongside `Transcript` and
+    // `ConfirmLeave`. It cannot be: `Overlay` is reachable only through
+    // `AskingState.overlay`, and About is a different screen. Hoisting `Overlay`
+    // onto `App` to share it would make `Overlay::Transcript` while standing on
+    // About REPRESENTABLE — re-creating the exact illegal state G19's refactor
+    // bought away. So the state lives on the screen that owns it,
+    // `Screen::About(AboutState)`, and "the transcript is open on About" stops
+    // being something to guard against and becomes something you cannot spell.
+    //
+    // ⚠ `StoryView` IS THE MIRROR IMAGE OF `HistoryView`, NOT A COPY OF IT.
+    // The transcript is anchored at the BOTTOM (it opens on the newest message),
+    // so its `handle_up` grows and is unbounded. The story is prose: it is
+    // anchored at the TOP, opens on its first line, and scrolls DOWN. So
+    // `handle_down` is the one that grows — and `handle_up`'s clamp at zero is a
+    // REAL clamp doing real work here, not the incidental end.
+    // The far end stays deliberately unbounded, for the same reason `PAGE_ROWS`
+    // is a constant: the last legal row depends on how the prose WRAPS, which is
+    // only known inside the render. Clamp it there when the popover draws.
+    //
+    // These specs name `AboutState::story()`, `StoryView::rows_from_top()` and
+    // four `handle_*` methods that do not exist yet, so this phase opens as
+    // compile errors rather than failed assertions.
+
+    /// The story popover's scroll position in rows down from its FIRST line, or
+    /// `None` when it is shut. `Some(0)` is the view `?` opens on.
+    fn story_scroll(app: &App) -> Option<u16> {
+        match &app.screen {
+            Screen::About(state) => state.story().map(StoryView::rows_from_top),
+            other => panic!("expected About, got {other:?}"),
+        }
+    }
+
+    // ── raising and lowering it ──────────────────────────────────────────────
+
+    #[test]
+    fn the_story_opens_on_its_first_line() {
+        // Prose is read from the top, so "open" costs no arithmetic — which is
+        // the whole reason this view anchors where it does.
+        let app = drive(&open_the_story());
+
+        assert_eq!(
+            story_scroll(&app),
+            Some(0),
+            "the story opens flush with its first line"
+        );
+    }
+
+    #[test]
+    fn the_same_key_closes_the_story_again() {
+        // Matches F1 on the transcript: the key that opens an overlay closes it.
+        let mut keys = open_the_story();
+        keys.push(STORY_KEY);
+
+        let app = drive(&keys);
+
+        assert_eq!(story_scroll(&app), None, "the same key closes it");
+    }
+
+    #[test]
+    fn esc_closes_the_story_instead_of_leaving_about() {
+        // ⬅ THE LAYERING, and the reason this feature touches `Esc` at all.
+        // `Esc` is overloaded and the overlay wins: closing what is on top is
+        // what `Esc` means everywhere else in this app and everywhere else in
+        // the world. Getting this backwards means one press throws the reader
+        // out to the menu while the thing they were reading is still up.
+        let mut keys = open_the_story();
+        keys.push(KeyPress::Esc);
+
+        let app = drive(&keys);
+
+        assert!(
+            matches!(app.screen(), Screen::About(_)),
+            "Esc closed the story, so it must NOT also have left the screen"
+        );
+        assert_eq!(story_scroll(&app), None, "and the story is down");
+    }
+
+    #[test]
+    fn esc_still_returns_to_the_menu_when_no_story_is_up() {
+        // ⚠ THE REGRESSION GUARD FOR THE TEST ABOVE. Without this one, an `Esc`
+        // arm that swallowed the key unconditionally would still pass — it would
+        // just strand the user on About forever with no way back but Ctrl+C.
+        let mut keys = reach_about();
+        keys.push(KeyPress::Esc);
+
+        let app = drive(&keys);
+
+        assert!(
+            on_menu(&app),
+            "with nothing on top, Esc goes back exactly as it always has"
+        );
+    }
+
+    #[test]
+    fn ctrl_c_reaches_through_the_open_story() {
+        // An overlay is not a trap. Ctrl+C is the one key that must never be
+        // swallowed by anything — the same rule G19's confirm dialog obeys.
+        let mut keys = open_the_story();
+        keys.push(KeyPress::CtrlC);
+
+        let (_app, flow) = drive_flow(&keys);
+
+        assert_eq!(flow, AppFlow::Quit);
+    }
+
+    // ── scrolling the prose ──────────────────────────────────────────────────
+
+    #[test]
+    fn down_scrolls_the_story_one_row() {
+        let mut keys = open_the_story();
+        keys.push(KeyPress::Down);
+
+        let app = drive(&keys);
+
+        assert_eq!(story_scroll(&app), Some(1));
+    }
+
+    #[test]
+    fn up_clamps_at_the_first_line() {
+        // ⚠ LOAD-BEARING, TWICE OVER. `rows_from_top` is a `u16`, so scrolling
+        // above the first line does not merely look wrong — it underflows and
+        // panics in debug, or wraps to 65535 and scrolls the reader into empty
+        // space in release. Two presses, because a single one can be swallowed
+        // by an off-by-one that a one-press test cannot see.
+        let mut keys = open_the_story();
+        keys.extend([KeyPress::Up, KeyPress::Up]);
+
+        let app = drive(&keys);
+
+        assert_eq!(
+            story_scroll(&app),
+            Some(0),
+            "there is nothing above the first line to scroll to"
+        );
+    }
+
+    #[test]
+    fn the_page_keys_jump_by_page_rows() {
+        // Both directions in one test, and it asserts the LANDING POINT before
+        // the round trip — a `PgUp` that mirrored a wrong `PgDn` would cancel out
+        // and pass if this only checked that you end where you started.
+        //
+        // ⚠ What it does NOT pin: the distance itself. Test and implementation
+        // both read `PAGE_ROWS`, so retuning that constant moves them together
+        // and this stays green. That is deliberate — `PAGE_ROWS` is a by-eye
+        // tuning knob (see its doc comment), not domain truth like
+        // `SHORT_QUESTION_CHARS`. What is pinned is the SHAPE: a page is one
+        // jump of exactly one `PAGE_ROWS`, not a row and not two pages.
+        let mut down = open_the_story();
+        down.push(KeyPress::PageDown);
+        let app = drive(&down);
+        assert_eq!(
+            story_scroll(&app),
+            Some(HISTORY_PAGE_ROWS),
+            "PgDn jumps a page down"
+        );
+
+        let mut back = down;
+        back.push(KeyPress::PageUp);
+        let app = drive(&back);
+        assert_eq!(story_scroll(&app), Some(0), "and PgUp brings it back");
+    }
+
+    #[test]
+    fn reopening_the_story_starts_it_from_the_top_again() {
+        // A decision, not an accident: the story is read once, not resumed, so
+        // closing it forgets where you were. It also falls straight out of
+        // storing the cursor INSIDE the `Option` — there is no stale offset left
+        // lying around to restore, which is the same argument that put
+        // `HistoryView` inside `Overlay::Transcript` rather than beside it.
+        let mut keys = open_the_story();
+        keys.extend([
+            KeyPress::PageDown, // read a way in
+            STORY_KEY,          // close
+            STORY_KEY,          // and open it again
+        ]);
+
+        let app = drive(&keys);
+
+        assert_eq!(story_scroll(&app), Some(0));
+    }
+
+    // ── the keys stay local to this screen ───────────────────────────────────
+
+    #[test]
+    fn the_arrows_do_nothing_while_the_story_is_shut() {
+        // About has no list and no cursor of its own, so an arrow with no
+        // overlay up is a no-op — not a crash, and not a silent scroll of a
+        // popover nobody opened.
+        let mut keys = reach_about();
+        keys.extend([KeyPress::Down, KeyPress::PageDown, KeyPress::Up]);
+
+        let app = drive(&keys);
+
+        assert_eq!(story_scroll(&app), None, "no overlay was ever raised");
+        assert!(matches!(app.screen(), Screen::About(_)));
+    }
+
+    #[test]
+    fn the_story_key_still_types_a_character_into_the_oracle() {
+        // ⚠ `?` MUST NOT BECOME A GLOBAL. On Ask it is an ordinary character —
+        // "sued, what awaits me?" ends in one — and a screen-agnostic binding
+        // would eat it, or worse, throw the operator into a popover mid-prank.
+        // This is exactly the collision that ruled `F1` out for this feature,
+        // pointed at the key we chose instead.
+        let mut keys = vec![
+            KeyPress::Enter, // Intro → Menu
+            KeyPress::Enter, // Menu → Asking
+        ];
+        keys.push(STORY_KEY);
+
+        let app = drive(&keys);
+
+        match &app.screen {
+            Screen::Asking(AskingState { engine, .. }) => {
+                assert_eq!(
+                    engine.visible_buffer(),
+                    "?",
+                    "on Ask, `?` is just a character the mark can see"
                 );
             }
             other => panic!("expected Asking, got {other:?}"),
