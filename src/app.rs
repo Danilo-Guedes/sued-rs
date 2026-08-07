@@ -143,11 +143,11 @@ pub struct Reply {
 }
 
 impl Reply {
-    pub fn new(words: String) -> Self {
+    pub fn new(words: String, thinking_for: Duration) -> Self {
         Reply {
             words,
             asked_at: Instant::now(),
-            thinking_for: thinking_duration(rand::random()),
+            thinking_for,
         }
     }
     pub fn words(&self) -> &str {
@@ -393,28 +393,44 @@ impl App {
 
                                 let state = asking_state.engine.handle_key(KeyPress::Enter);
 
-                                let sued_words = match state {
-                                    StateChange::Revealed => Some(
-                                        asking_state
-                                            .engine
-                                            .revealed()
-                                            .expect("Revealed implied a revealed answer")
-                                            .to_string(),
+                                let (sued_words, thinking_duration) = match state {
+                                    StateChange::Revealed => (
+                                        Some(
+                                            asking_state
+                                                .engine
+                                                .revealed()
+                                                .expect("Revealed implied a revealed answer")
+                                                .to_string(),
+                                        ),
+                                        thinking_duration(rand::random()),
                                     ),
                                     StateChange::Denied => {
-                                        Some(if question.chars().count() <= SHORT_QUESTION_CHARS {
-                                            translations.rebuke.replace("{question}", &question)
+                                        if question.chars().count() <= SHORT_QUESTION_CHARS {
+                                            (
+                                                Some(
+                                                    translations
+                                                        .rebuke
+                                                        .replace("{question}", &question),
+                                                ),
+                                                Duration::ZERO,
+                                            )
                                         } else {
-                                            pick(translations.denials, rand::random()).to_string()
-                                        })
+                                            (
+                                                Some(
+                                                    pick(translations.denials, rand::random())
+                                                        .to_string(),
+                                                ),
+                                                thinking_duration(rand::random()),
+                                            )
+                                        }
                                     }
-                                    _ => None,
+                                    _ => (None, Duration::ZERO),
                                 };
 
                                 if let Some(words) = sued_words {
                                     asking_state.history.push(Message::User(question));
                                     asking_state.history.push(Message::Sued(words.clone()));
-                                    asking_state.reply = Some(Reply::new(words));
+                                    asking_state.reply = Some(Reply::new(words, thinking_duration));
                                     asking_state.spell =
                                         pick(translations.ask.spells, rand::random());
                                     asking_state.thunder_played = false;
@@ -3236,8 +3252,6 @@ mod tests {
             }) => {
                 let taunt = reply.words();
 
-                println!("{taunt}");
-
                 assert!(
                     Language::PtBr.translation().denials.contains(&taunt),
                     "the oracle must taunt in the configured language, got {taunt:?}"
@@ -3283,6 +3297,69 @@ mod tests {
             "a denial must ponder too, or denials skip the pause and the sting \
              fires early for exactly one of the two outcomes"
         );
+    }
+
+    #[test]
+    fn a_rebuke_lands_instantly_because_nothing_was_consulted() {
+        // ⚠ THE LINE THIS DRAWS, and it is narrower than "the ponder is for
+        // answers". A DENIAL still ponders and must keep doing so (the test above
+        // pins it): SueD heard the question, weighed it, and found it beneath him
+        // — a consultation happened, so the pause and the spell are earned.
+        //
+        // A REBUKE is the one refusal that answers the RITUAL rather than the
+        // question. You did not flatter him, so he never went looking: there is
+        // nothing to dig out of the dark, no incantation to cast, and no reason
+        // to wait. Instant contempt is the character.
+        //
+        // ⚠⚠ AND THE PRECONDITION IS NOT DECORATION. `App::is_pondering()` is
+        // `false` whenever there is no reply AT ALL (`app.rs:643`), so the
+        // assertion below would pass just as happily on a rebuke that never
+        // fired — the most likely way for this to rot into a test of nothing.
+        let app = drive(&ask_and_be_rebuked());
+        let translation = app.config().language().translation();
+
+        assert_eq!(
+            live_reply(&app),
+            translation.rebuke.replace("{question}", REBUKED_QUESTION),
+            "precondition: a rebuke must actually have been spoken, or the ponder \
+             assertion below is vacuously true"
+        );
+
+        assert!(
+            !app.is_pondering(),
+            "a rebuke must land with no pause — SueD consulted nothing, so there \
+             is no spell to cast and nothing to wait for"
+        );
+    }
+
+    #[test]
+    fn a_rebuke_fires_no_sting_because_there_is_no_falling_edge() {
+        // The consequence of the test above, written down where it can be seen.
+        // `main.rs:133` plays `JumpScare` on the FALLING EDGE of `is_pondering()`
+        // — `was_pondering && !pondering_now`. A rebuke never ponders, so the
+        // edge never happens and no sting plays. That is deliberate: the sting
+        // belongs to SueD *arriving with an answer*, not to him brushing you off.
+        //
+        // Pinned app-side because `main`'s loop cannot be unit-tested — what this
+        // guards is the CAUSE (never pondering, therefore never a falling edge),
+        // which is the half that lives here.
+        let mut app = drive(&ask_and_be_rebuked());
+
+        assert!(
+            !app.is_pondering(),
+            "frame one: already not pondering, so there is no rising edge either"
+        );
+
+        // Wind the clock forward across the window a ponder would have occupied.
+        // If it never becomes true, it can never fall.
+        for _ in 0..10 {
+            app.rewind_reply(Duration::from_millis(500));
+            assert!(
+                !app.is_pondering(),
+                "a rebuke must never enter the pondering state at any point, or a \
+                 falling edge appears later and the sting fires on a brush-off"
+            );
+        }
     }
 
     #[test]
