@@ -1,14 +1,24 @@
-//! 04 · INFORMAÇÕES.
+//! 04 · O RITUAL.
+//!
+//! ⚠ **This screen is addressed to the MARK, and G20 is what made that true.**
+//! It used to carry a second panel listing keyboard shortcuts — including
+//! `[F5]`, the operator's panic button, which burns the staged answer. Printing
+//! that on the page you hand the victim is self-sabotage, so the panel is gone
+//! and the operator's key table lives in `--how-it-works`, outside the app,
+//! where only the operator can read it.
+//!
+//! Everything drawn here is in character: light a candle, flatter SueD, ask one
+//! question, wait. If you find yourself adding a key to this file, it almost
+//! certainly belongs in `cli::how_it_works_text` instead.
 
 use ratatui::Frame;
-use ratatui::layout::{Constraint, Layout, Rect};
+use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::style::{Style, Stylize};
 use ratatui::text::Line;
 use ratatui::widgets::{Block, Borders, Padding, Paragraph, Wrap};
 
 use super::common::{
     aside, colorfull_bordered_block, hint_line, render_nav_strip, shouldered_heading, step_badge,
-    table_row,
 };
 
 use crate::config::Configuration;
@@ -17,6 +27,17 @@ use crate::language::Translation;
 use crate::ui::screens::common::{NavTab, create_screen_block};
 use crate::ui::template::styled_line;
 use crate::ui::theme::Palette;
+
+/// How wide the ritual column is allowed to get.
+///
+/// ⚠ A bounded, centred column rather than the literal full width G20 sketched.
+/// Same argument Danilo already accepted twice (the confirm dialog, the story
+/// popover): content that does not grow must not breathe with the terminal.
+/// Stretched to 132 columns the four steps would sit as four lonely lines with
+/// 80 columns of dead air after them, and the divider would become a red rule
+/// across the whole screen. This is also the shape G3 wants — a column that is
+/// already size-independent is a column G3 barely has to touch.
+const RITUAL_WIDTH: u16 = 76;
 
 pub(super) fn render(frame: &mut Frame, config: Configuration) {
     let palette = config.theme().palette();
@@ -29,7 +50,7 @@ pub(super) fn render(frame: &mut Frame, config: Configuration) {
 
     let [nav_layout, center_layout, status_layout] = Layout::vertical([
         Constraint::Length(4), // nav strip
-        Constraint::Fill(1),   // center: two panels
+        Constraint::Fill(1),   // center: the ritual
         Constraint::Length(2), // status bar
     ])
     .areas(layout);
@@ -43,14 +64,15 @@ pub(super) fn render(frame: &mut Frame, config: Configuration) {
         translation,
     );
 
-    // The body is two side-by-side panels. Each panel is its own fn that takes
-    // only its `Rect`, so it owns its internal layout — the screen fn just hands
-    // out areas. That is the pattern to reuse on every complex screen.
-    let [ritual_area, shortcuts_area] =
-        Layout::horizontal([Constraint::Fill(6), Constraint::Fill(4)]).areas(center_layout);
+    // ⬅ ONE column now, where G20 found two. `.min` rather than a bare `Length`
+    // so a terminal narrower than the column still gets everything it has,
+    // instead of a rect wider than the screen it is drawn on.
+    let [ritual_area] =
+        Layout::horizontal([Constraint::Length(RITUAL_WIDTH.min(center_layout.width))])
+            .flex(Flex::Center)
+            .areas(center_layout);
 
     render_ritual_panel(frame, ritual_area, palette, translation);
-    render_shortcuts_panel(frame, shortcuts_area, palette, translation);
 
     // Status bar: split the *inside* of one border into left hints + right page tag.
     let status_block =
@@ -71,7 +93,8 @@ pub(super) fn render(frame: &mut Frame, config: Configuration) {
     );
 }
 
-/// Left panel — the 4-step ritual.
+/// The ritual: a heading, the numbered steps, an example, and the one piece of
+/// housekeeping that survived the cut.
 fn render_ritual_panel(frame: &mut Frame, area: Rect, palette: Palette, translation: Translation) {
     // Borderless panel: a padding-only `Block` still hands back an inset `inner`
     // rect (nothing is drawn), and the old `.title(...)` that sat on the border
@@ -81,19 +104,24 @@ fn render_ritual_panel(frame: &mut Frame, area: Rect, palette: Palette, translat
     frame.render_widget(block, area);
 
     // Steps take their natural height so the divider + example sit *right under*
-    // step 4; the trailing `Fill(1)` sinks the leftover space to the bottom.
+    // step 4; the `Fill(1)` sinks the leftover space to the bottom, which is
+    // what pins the terminal hint to the floor of the screen.
     let [
+        _top_spacer,
         heading_area,
         steps_area,
         divider_area,
         example_area,
-        _spacer,
+        _bottom_spacer,
+        terminal_hint_area,
     ] = Layout::vertical([
+        Constraint::Fill(1),    // ⬅ matching spacers centre the block vertically
         Constraint::Length(2),  // heading + blank line
         Constraint::Length(10), // 4 numbered steps + 3 blank lines between them
         Constraint::Length(1),  // red divider
         Constraint::Length(2),  // example, directly below the last step
-        Constraint::Fill(1),    // empty space sinks here
+        Constraint::Fill(1),    // ⬅ …and the leftover splits evenly between them
+        Constraint::Length(1),  // the size hint, bottom-pinned
     ])
     .areas(inner);
 
@@ -135,51 +163,12 @@ fn render_ritual_panel(frame: &mut Frame, area: Rect, palette: Palette, translat
             .block(Block::new().padding(Padding::new(2, 0, 1, 0))),
         example_area,
     );
-}
 
-/// Right panel — the keyboard shortcuts table.
-fn render_shortcuts_panel(
-    frame: &mut Frame,
-    area: Rect,
-    palette: Palette,
-    translation: Translation,
-) {
-    // Borderless, same move as the ritual panel: padding-only block for the inset,
-    // the title becomes a heading `Line`.
-    let block =
-        colorfull_bordered_block(Some(Borders::LEFT), palette).padding(Padding::new(2, 0, 1, 0));
-    let inner = block.inner(area);
-    frame.render_widget(block, area);
-
-    let [heading_area, rows_area, footer_area] = Layout::vertical([
-        Constraint::Length(2), // heading + blank line
-        Constraint::Fill(1),   // key/desc rows
-        Constraint::Length(1), // bottom-pinned footer
-    ])
-    .areas(inner);
-
-    frame.render_widget(
-        Paragraph::new(
-            Line::from(format!("⌨   {}", translation.info.shortcut_title))
-                .fg(palette.accent)
-                .bold(),
-        ),
-        heading_area,
-    );
-
-    // A "table" here is just aligned lines: pad the key column to a fixed width
-    // so every description starts at the same column. No table widget needed.
-    const KEY_WIDTH: usize = 10;
-
-    let rows = translation
-        .info
-        .shortcuts
-        .iter()
-        .map(|(key, action)| table_row(key, action, KEY_WIDTH, palette))
-        .collect::<Vec<_>>();
-
-    frame.render_widget(Paragraph::new(rows), rows_area);
-
+    // ⬅ REHOMED BY G20. This used to be the shortcuts panel's footer, so cutting
+    // the panel would have taken it with it. It survives the cut on purpose and
+    // on the screen's own terms: "your terminal should be this big" is advice for
+    // whoever is *running* the séance, not a key the operator must keep secret —
+    // the one line in that panel that was never aimed at the wrong reader.
     frame.render_widget(
         Paragraph::new(
             Line::from(format!(
@@ -190,7 +179,8 @@ fn render_shortcuts_panel(
                     .replace("{size}", RECOMMENDED_TERMINAL_SIZE)
             ))
             .dim(),
-        ),
-        footer_area,
+        )
+        .block(Block::new().padding(Padding::left(2))),
+        terminal_hint_area,
     );
 }
