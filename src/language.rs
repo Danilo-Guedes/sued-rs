@@ -191,11 +191,7 @@ impl Language {
                     "Não. O véu não se abre para perguntas tão rasas, mergulhe mais fundo",
                     "Minha bola de cristal embaçou de tédio, formule sua pergunta novamente",
                 ],
-                // ⚠⚠ DANILO — THIS PT LINE IS A CLAUDE PLACEHOLDER, REWRITE IT.
-                // The established split is yours-seeds-PT, Claude-recreates-EN/ES,
-                // and this one was written backwards only so the tests could
-                // compile. Keep `{question}` and keep it free of `{{markup}}`.
-                rebuke: "{question} ??? Não leste o que eu disse? Bajula-me primeiro, mortal, e só então pergunta — o véu não se abre para gentilezas",
+                rebuke: "{question} ??? Você não entendeu o que eu disse? Me bajule primeiro, mortal, e só então pergunte, por que humanos dificultam tanto?",
                 intro: IntroTexts {
                     subtitle: "SUA ÚLTIMA ESPERANÇA DIVINA",
                     attention: "A T E N Ç Ã O",
@@ -352,7 +348,7 @@ impl Language {
                     "No. The veil does not part for questions so shallow, dig deeper",
                     "My crystal ball fogged over with boredom, phrase your question again",
                 ],
-                rebuke: "{question} ??? Did you not read what I said? Flatter me first, mortal, and only then ask — the veil does not part for pleasantries",
+                rebuke: "{question} ??? Did you not understand what I said? Flatter me first, mortal, and only then ask, why do humans make it so difficult?",
                 intro: IntroTexts {
                     subtitle: "YOUR LAST DIVINE HOPE",
                     attention: "A T T E N T I O N",
@@ -512,7 +508,7 @@ impl Language {
                     "No. El velo no se abre ante preguntas tan superficiales, sumérgete más hondo",
                     "Mi bola de cristal se empañó de aburrimiento, formula tu pregunta de nuevo",
                 ],
-                rebuke: "{question} ??? ¿No leíste lo que dije? Halágame primero, mortal, y sólo entonces pregunta — el velo no se abre para cortesías",
+                rebuke: "{question} ??? ¿No entendiste lo que dije? Halágame primero, mortal, y sólo entonces pregunta, ¿por qué los humanos lo complican tanto?",
                 intro: IntroTexts {
                     subtitle: "TU ÚLTIMA ESPERANZA DIVINA",
                     attention: "A T E N C I Ó N",
