@@ -12,7 +12,7 @@ pub enum Message {
 /// or two screens long, "a big jump" is all this key has to be, so a constant
 /// buys the behaviour without plumbing render geometry back into key handling.
 /// Tune it by eye once the popover draws.
-pub const PAGE_ROWS: u16 = 10;
+pub const HISTORY_PAGE_ROWS: u16 = 10;
 
 #[derive(Debug, Default, Copy, Clone)]
 pub struct HistoryView {
@@ -39,12 +39,12 @@ impl HistoryView {
     }
 
     pub fn handle_page_up(&mut self) {
-        self.from_bottom = self.from_bottom.saturating_add(PAGE_ROWS);
+        self.from_bottom = self.from_bottom.saturating_add(HISTORY_PAGE_ROWS);
     }
 
     pub fn handle_page_down(&mut self) {
         // self.selected = (self.selected() + 1).min(self.len.saturating_sub(1));
-        self.from_bottom = self.from_bottom.saturating_sub(PAGE_ROWS);
+        self.from_bottom = self.from_bottom.saturating_sub(HISTORY_PAGE_ROWS);
     }
 }
 

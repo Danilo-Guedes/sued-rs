@@ -66,6 +66,32 @@ pub(crate) fn ask_and_be_rebuked() -> Vec<KeyPress> {
     ask_openly(REBUKED_QUESTION)
 }
 
+/// The key that raises the story popover on About.
+///
+/// `?` and deliberately **not** `F1`: `F1` already means "transcript" on Ask,
+/// which is one nav-strip step away, and one key meaning two things across
+/// adjacent screens is a collision rather than a per-screen binding.
+pub(crate) const STORY_KEY: KeyPress = KeyPress::Char('?');
+
+/// Reach the About screen from a fresh app. Menu order is
+/// Perguntar · Informações · Sobre · Configurações · Sair, so Sobre is two
+/// steps down — encoded once here so nobody counts `Down`s at a call site.
+pub(crate) fn reach_about() -> Vec<KeyPress> {
+    vec![
+        KeyPress::Enter, // Intro → Menu
+        KeyPress::Down,  // → Informações
+        KeyPress::Down,  // → Sobre
+        KeyPress::Enter, // Menu → About
+    ]
+}
+
+/// Reach About and raise the story popover, which opens on its first line.
+pub(crate) fn open_the_story() -> Vec<KeyPress> {
+    let mut keys = reach_about();
+    keys.push(STORY_KEY);
+    keys
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
