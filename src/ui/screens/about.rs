@@ -117,6 +117,27 @@ pub(super) fn render(frame: &mut Frame, config: Configuration, about_state: &Abo
 
     frame.render_widget(footer_text, bottom_footer_layout);
 
+    // ⚠ Drawn AFTER everything it covers — a `Clear` only clears what is already
+    // in the buffer — but BEFORE the hint strip, which is not something it
+    // covers and which needs an answer only the popover has (see below).
+    //
+    // The band deliberately excludes the nav strip and the status bar: the strip
+    // says which screen you are on and the bar carries the popover's own keys,
+    // so covering either would hide the only thing telling the reader how to get
+    // out. ⚠ `union` is the bounding box of the two rects, so this spans
+    // empty→center→footer only while those three stay ADJACENT in the vertical
+    // layout above. Reorder that stack and the band silently changes meaning —
+    // it still compiles, still draws, and covers the wrong thing.
+    let story_scrolls = about_state.story().map(|story_view| {
+        story::render(
+            frame,
+            empty_space.union(footer_layout),
+            story_view,
+            palette,
+            translation,
+        )
+    });
+
     let [hints_area, page_area] =
         Layout::horizontal([Constraint::Fill(1), Constraint::Length(14)]).areas(status_inner);
 
@@ -125,17 +146,28 @@ pub(super) fn render(frame: &mut Frame, config: Configuration, about_state: &Abo
     // with the popover up `Esc` closes it rather than going back, so a strip
     // that kept saying "voltar ao menu" would be actively lying.
     //
+    // ⬅ AND THE SCROLL HINT OBEYS THE SAME RULE, which is subtler and is what
+    // sent Danilo hunting for a scroll bug that did not exist. On a tall
+    // terminal the whole story FITS, so `[↑↓ PgUp PgDn]` genuinely does nothing
+    // — and a strip advertising it reads as broken scrolling rather than as
+    // nothing left to scroll. So the hint appears only when the prose actually
+    // overflows, which is a fact the RENDER owns: it depends on the wrapped row
+    // count against the viewport, and neither number exists until the box has
+    // been measured. Hence `story::render` handing the answer back.
+    //
     // 📌 Deliberately the screen's own strip and NOT a second one drawn inside
     // the popover, which is where the mockup put it. Two strips would be a
     // hand-maintained duplicate of each other — the exact complaint G20 exists
-    // to fix on the Ritual screen — and the two rows it saves are worth having
-    // at the 80×24 floor, where the prose viewport is single digits.
-    let (current_hints, current_page) = match about_state.story() {
-        Some(_) => (translation.about.story.hints, NavTab::Story),
-        None => (translation.about.hints, NavTab::About),
+    // to fix on the Ritual screen — and the rows it saves are worth having at
+    // the 80×24 floor, where the prose viewport is single digits.
+    let story = translation.about.story;
+    let (current_hints, current_page) = match story_scrolls {
+        Some(true) => (vec![story.scroll_hint, story.close_hint], NavTab::Story),
+        Some(false) => (vec![story.close_hint], NavTab::Story),
+        None => (translation.about.hints.to_vec(), NavTab::About),
     };
 
-    let hints = hint_line(current_hints, palette);
+    let hints = hint_line(&current_hints, palette);
     frame.render_widget(Paragraph::new(hints), hints_area);
     frame.render_widget(
         Paragraph::new(current_page.label(language).to_uppercase())
@@ -143,24 +175,4 @@ pub(super) fn render(frame: &mut Frame, config: Configuration, about_state: &Abo
             .right_aligned(),
         page_area,
     );
-
-    // ⚠ LAST, so it lands on top of everything above it — a `Clear` only clears
-    // what has already been drawn.
-    //
-    // The band deliberately excludes the nav strip and the status bar: the strip
-    // says which screen you are on and the bar now carries the popover's own
-    // keys, so covering either would hide the only thing telling the reader how
-    // to get out. ⚠ `union` is the bounding box of the two rects, so this spans
-    // empty→center→footer only while those three stay ADJACENT in the vertical
-    // layout above. Reorder that stack and the band silently changes meaning —
-    // it still compiles, still draws, and covers the wrong thing.
-    if let Some(story_view) = about_state.story() {
-        story::render(
-            frame,
-            empty_space.union(footer_layout),
-            story_view,
-            palette,
-            translation,
-        );
-    }
 }

@@ -6,15 +6,25 @@ pub const APP_TITLE: &str = " ☠  SueD — O Oráculo  ☠ ";
 /// carries no language, and `Cargo.toml` already has to hold it for crates.io.
 /// Three hand-copied strings would be three chances to drift the day the repo
 /// moves — the same argument that put `RECOMMENDED_TERMINAL_SIZE` below.
+///
+/// 📌 This is the SOURCE, and it belongs with the operator's manual rather than
+/// in the story popover: reading the repo is how you learn the trick, which is
+/// precisely what `--how-it-works` is for and what the on-screen popover is
+/// deliberately not.
 pub const REPO_URL: &str = env!("CARGO_PKG_REPOSITORY");
+
+/// The author, as opposed to the project. These are what the story popover
+/// shows — someone who read a personal memory wants the person, not the crate.
+pub const AUTHOR_GITHUB: &str = "https://github.com/Danilo-Guedes";
+
+pub const AUTHOR_LINKEDIN: &str = "https://linkedin.com/in/danilo-guedes-dev";
 
 /// The operator's manual, advertised at the foot of the story popover.
 ///
-/// ⏳ **This flag does not exist yet** (PLAN §G16 · Phase 6). The popover names
-/// it because the design does, and the whole point of the story popover is to
-/// give the one confused `cargo install` user somewhere to go. Wiring `clap`
-/// is the outstanding half of G16 — until it lands, this line advertises a
-/// command that errors.
+/// ⚠ Keep this in step with `cli::Args::how_it_works`. It is a *string* naming a
+/// flag, so nothing in the type system ties the two together — rename the flag
+/// and the popover cheerfully goes on advertising the old one. The tests around
+/// `cli::how_it_works_text` cover the manual's contents, not its name.
 pub const HOW_IT_WORKS_COMMAND: &str = "sued-rs --how-it-works";
 
 /// The terminal size the info screen tells people to use.

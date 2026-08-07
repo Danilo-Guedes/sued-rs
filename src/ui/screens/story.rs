@@ -17,15 +17,16 @@
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Margin, Rect};
 use ratatui::style::{Style, Stylize};
-use ratatui::text::{Line, Span};
+use ratatui::text::{Line, Span, Text};
 use ratatui::widgets::{
     BorderType, Clear, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState, Wrap,
 };
 
 use super::common::{colorfull_bordered_block, create_centered_rect};
 use crate::app::StoryView;
-use crate::constants::{HOW_IT_WORKS_COMMAND, REPO_URL};
+use crate::constants::{AUTHOR_GITHUB, AUTHOR_LINKEDIN, HOW_IT_WORKS_COMMAND};
 use crate::language::Translation;
+use crate::ui::template::styled_line;
 use crate::ui::theme::Palette;
 
 /// Total width of the box.
@@ -35,15 +36,26 @@ use crate::ui::theme::Palette;
 /// so a narrower dialog lets its edges peek past the `Clear` as stray brackets.
 /// About draws nothing bordered in its centre, so nothing can peek and there is
 /// no floor at all. This 62 is a *measure* — minus the margins and the gutter it
-/// leaves 56 columns of prose, inside the 45–75 band where running text stays
-/// readable. The match is a coincidence; changing one has no bearing on the other.
-const STORY_WIDTH: u16 = 62;
+/// leaves 70 columns of prose, just inside the 45–75 band where running text
+/// stays readable. The match is a coincidence; changing one has no bearing on
+/// the other.
+///
+/// 📌 Grown twice on Danilo's eye (62 → 72 → 82), and the two knobs move for
+/// different reasons: **this** one sets how much of the screen the popover
+/// occupies, `H_MARGIN` sets how much of that is air. Widening this alone makes
+/// the prose column longer and *harder* to read; widening it together with the
+/// margin is what buys presence without buying a worse measure.
+const STORY_WIDTH: u16 = 82;
 
-/// Inset from the box edge to the text column. ⚠ `Rect::inner` knows nothing
-/// about the block's border, so this margin *contains* it — never subtract the
-/// border again on top of it. (4th "which width" bug on the confirm dialog.)
-const H_MARGIN: u16 = 2;
-const V_MARGIN: u16 = 1;
+/// Inset from the box edge to the text column — the popover's breathing room.
+///
+/// ⚠ `Rect::inner` knows nothing about the block's border, so this margin
+/// *contains* it: the visible padding is always **one less than this number**.
+/// That is the 5th outing of this particular bug on this project, and it is why
+/// an earlier `2` here looked like no padding at all rather than like two
+/// columns of it.
+const H_MARGIN: u16 = 6;
+const V_MARGIN: u16 = 2;
 
 /// The scrollbar's column — **reserved whether or not the bar is drawn**.
 ///
@@ -61,13 +73,22 @@ const RULE_ROWS: u16 = 1;
 /// The caller hands over the region, not the dimensions: how big the popover is
 /// inside that region is the popover's own business. Same contract as
 /// `history::render` and `confirm::render`, deliberately.
+///
+/// **Returns whether the prose actually overflows its box**, i.e. whether the
+/// scroll keys do anything at all right now. ⚠ A render returning a value is
+/// unusual here, and the alternative is worse: the answer depends on the wrapped
+/// row count against the viewport height, and *this function is the only place
+/// either number exists*. `about.rs` needs it to decide whether to advertise the
+/// scroll keys, and the only other way to give it that is to measure the prose
+/// twice and hope the two measurements agree — which is precisely the drift that
+/// cost G19 four rounds.
 pub(super) fn render(
     frame: &mut Frame,
     band: Rect,
     story_view: &StoryView,
     palette: Palette,
     translation: Translation,
-) {
+) -> bool {
     let story = translation.about.story;
 
     // Widths come from the constants, NOT from the rects further down — the
@@ -81,9 +102,24 @@ pub(super) fn render(
     // ⚠ Built ONCE, measured, then rendered — the same binding, never a
     // lookalike. Measuring one `Paragraph` and drawing a second that merely
     // resembles it is how the confirm dialog's lore lost its last line.
-    let prose = Paragraph::new(story.body)
-        .style(Style::default().white())
-        .wrap(Wrap { trim: false });
+    //
+    // ⬅ `{{markup}}` is resolved PER SOURCE LINE, before wrapping, and the order
+    // matters. `styled_line` strips the braces and hands back styled spans, so
+    // what `line_count` then measures is the *rendered* width — markup out,
+    // accent in. Feed the raw string to a `Paragraph` instead and the braces go
+    // on screen AND inflate the measurement by four columns a marker.
+    //
+    // 📌 Wrapping still happens afterwards on the whole `Paragraph`, so a source
+    // line longer than the column breaks normally; these `Line`s are paragraphs,
+    // not display rows.
+    let prose = Paragraph::new(Text::from(
+        story
+            .body
+            .lines()
+            .map(|paragraph| styled_line(paragraph, Style::default().white(), palette.accent))
+            .collect::<Vec<_>>(),
+    ))
+    .wrap(Wrap { trim: false });
     let prose_rows = prose.line_count(text_width) as u16;
 
     // The signature is PINNED — it never scrolls. The URL and the command are
@@ -97,10 +133,12 @@ pub(super) fn render(
     // command line to a silent clip.
     let signature = Paragraph::new(vec![
         Line::from(story.signature).dim(),
-        // The scheme is stripped for the reader's benefit only — `REPO_URL`
-        // stays the single source of truth, read from `Cargo.toml` at compile
-        // time so it cannot drift from what crates.io publishes.
-        Line::from(REPO_URL.trim_start_matches("https://")).fg(palette.accent),
+        // ⬅ The AUTHOR's links, not the project's. Someone who just read a
+        // personal memory wants the person; the repository is a different offer
+        // and it belongs with `--how-it-works`, because reading the source is
+        // how you learn the trick — which this popover exists NOT to teach.
+        Line::from(AUTHOR_GITHUB).fg(palette.accent),
+        Line::from(AUTHOR_LINKEDIN).fg(palette.accent),
         Line::from(""),
         Line::from(story.bridge).white(),
         Line::from(vec![
@@ -228,4 +266,9 @@ pub(super) fn render(
             &mut scrollbar_state,
         );
     }
+
+    // The same predicate the scrollbar is drawn on, returned rather than
+    // recomputed — so the hint strip and the scrollbar can never disagree about
+    // whether this story scrolls.
+    max_offset > 0
 }

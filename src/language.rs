@@ -34,6 +34,18 @@ pub struct Translation {
     /// to the language (`template.rs`'s own argument).
     pub rebuke: &'static str,
 
+    /// The OPERATOR's manual, printed by `--how-it-works` and never drawn on a
+    /// screen — see `cli::how_it_works_text` for why that split is the design
+    /// and not a convenience.
+    ///
+    /// ⚠ `{repo}` is real substitution, not `{{markup}}`: this string goes to
+    /// stdout as plain text and never passes through `template.rs`.
+    ///
+    /// ⏳ **PROVISIONAL COPY.** PLAN §G16 schedules the real prose for Phase 6,
+    /// written in one pass with the README and the story popover — three
+    /// outputs, one job, and writing them apart is how they drift.
+    pub how_it_works: &'static str,
+
     ///SCREENS TEXTS
     pub intro: IntroTexts,
     pub about: AboutTexts,
@@ -75,14 +87,16 @@ pub struct AboutTexts {
 /// who wrote it, why, and where the source is. Do not let the two drift back
 /// together (PLAN §G16).
 ///
-/// 📌 `body` is deliberately plain prose with **no `{{accent}}` markup**, unlike
-/// `AboutTexts::lore`. It is measured with `Paragraph::line_count` and then
-/// scrolled by row, and `styled_line`'s per-row splitting would have to happen
-/// before that measurement — two passes that could disagree about how many rows
-/// the text occupies, which is exactly the drift G19 spent four rounds finding.
+/// 📌 `body` **does** take `{{accent}}` markup, like `AboutTexts::lore`.
+/// ⚠ An earlier draft of this comment claimed it did not, on the theory that
+/// resolving markup would fight the `line_count` measurement. It does not — as
+/// long as `styled_line` runs FIRST, per source line: the braces are gone before
+/// anything is measured, so `line_count` sees the rendered width. Feed the raw
+/// string to a `Paragraph` and you get the opposite of both halves — braces on
+/// screen, and four phantom columns per marker in the measurement.
 ///
-/// The repo URL and the command itself are NOT fields: they carry no language.
-/// See `constants::REPO_URL` / `constants::HOW_IT_WORKS_COMMAND`.
+/// The links and the command are NOT fields: they carry no language. See
+/// `constants::{AUTHOR_GITHUB, AUTHOR_LINKEDIN, HOW_IT_WORKS_COMMAND}`.
 #[derive(Debug, Copy, Clone)]
 pub struct StoryTexts {
     pub title: &'static str,
@@ -94,9 +108,14 @@ pub struct StoryTexts {
     pub bridge: &'static str,
     /// "rode:" / "run:" — the verb in front of the command.
     pub run_prefix: &'static str,
-    /// Replaces the About screen's own strip while the popover is up, so the
-    /// bar never describes keys that currently do something else.
-    pub hints: &'static [(&'static str, &'static str)],
+    /// ⚠ Two hints, not one slice, and the split is load-bearing. The strip is
+    /// composed at render time because the scroll keys only exist *conditionally*
+    /// — on a terminal tall enough to hold the whole story there is nothing to
+    /// scroll, and advertising the keys anyway reads as broken scrolling. Only
+    /// the render knows which case it is (see `story::render`'s return), so the
+    /// pieces travel separately and it assembles them.
+    pub scroll_hint: (&'static str, &'static str),
+    pub close_hint: (&'static str, &'static str),
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -226,6 +245,68 @@ impl Language {
                     "Minha bola de cristal embaçou de tédio, formule sua pergunta novamente",
                 ],
                 rebuke: "{question} ??? Você não entendeu o que eu disse? Me bajule primeiro, mortal, e só então pergunte, por quê humanos dificultam tanto?",
+                how_it_works: "\
+SueD é uma pegadinha. Não existe oráculo nenhum.
+
+Quem responde é VOCÊ. O truque é digitar a resposta em segredo enquanto
+finge estar digitando a pergunta.
+
+Teste você mesmo:
+
+  1. Abra \"Perguntar\".
+  2. Aperte  ;  — nada muda na tela. Você está em modo OCULTO.
+  3. Digite a RESPOSTA que o Sued deve dar. A tela mostra uma pergunta
+     falsa se escrevendo sozinha, um caractere por tecla apertada.
+  4. Aperte  ;  de novo para voltar ao normal, termine o elogio de onde
+     parou e finalize a sua pergunta.
+  5. Enter. O Sued pondera e então \"revela\" o que você preparou.
+
+Aperte Enter sem nada preparado e ele se recusa a responder — uma
+provocação, ou uma bronca se a pergunta foi curta demais.
+
+Se a pergunta falsa estiver acabando — ou seja, você está digitando uma
+resposta longa — você ouvirá o estrondo de um raio, sinal de que precisa
+terminar sua resposta escondida logo. Isso acontece quando ainda faltam
+{THUNDER_AT_CHARS_REMAINING} caracteres da pergunta falsa.
+
+Algumas dicas que deixam a brincadeira mais interessante:
+
+  1. Se possível, construa uma história antes de apresentar o SUED, algo
+     como \"consegui um software secreto\" ou \"achei este software sombrio
+     que faz coisas estranhas\".
+  2. Evite perguntas e respostas muito diretas, como \"quem foi?\". Quanto
+     mais elaboradas as perguntas e as respostas, mais impressionante o
+     truque fica. O SUED também se recusa a responder perguntas com
+     menos de {SHORT_QUESTION_CHARS} caracteres.
+  3. Como em qualquer peça ou apresentação, fica muito melhor quando
+     você ensaia antes — assim já terá pegado o jeito de conduzir a
+     pegadinha.
+  4. Separe um tempo para escolher boas perguntas sobre a vítima, e
+     prefira assuntos que não são conhecidos por todos: isso faz a
+     experiência dela ser bem mais aterrorizante.
+  5. Seja um condutor da brincadeira. Para evitar que percebam que você
+     digita uma coisa enquanto eles leem outra, vá falando em voz alta
+     o elogio que o SUED exige antes da pergunta.
+  6. Às vezes se permita fazer perguntas sem resposta escondida, e deixe
+     o SUED recusar. Assim não fica óbvio que só funciona quando é você
+     quem conduz.
+  7. O truque funciona melhor com pessoas não muito ligadas em
+     tecnologia, sejam crianças ou adultos — aproveite para testar com
+     seu sobrinho, ou com seu pai e sua mãe.
+
+Principais comandos:
+
+  ;         liga/desliga o modo oculto — o truque inteiro
+  F5        botão de pânico: queima a resposta preparada e recomeça
+  F1        histórico da sessão
+  Esc       volta / fecha o que estiver por cima
+  Ctrl+C    sai na hora
+
+Não deixe isto na tela. Todo o resto do app é escrito para a vítima;
+esta é a única página escrita para você.
+
+feito por: Danilo Guedes
+fonte: {repo}",
                 intro: IntroTexts {
                     subtitle: "SUA ÚLTIMA ESPERANÇA DIVINA",
                     attention: "A T E N Ç Ã O",
@@ -248,7 +329,7 @@ impl Language {
                         ("natureza", "oráculo onisciente"),
                         ("humor", "vaidoso, sarcástico, imprevisível"),
                         ("origem", "o além · desconhecida"),
-                        ("runtime", "rust · ratatui · crossterm"),
+                        ("runtime", "rust · ratatui · crossterm · kira"),
                     ],
                     footer: concat!(
                         "sued-rs v",
@@ -258,29 +339,37 @@ impl Language {
                     hints: &[("[Esc]", "voltar ao menu"), ("[?]", "por trás do véu")],
                     story: StoryTexts {
                         title: "POR TRÁS DO VÉU",
-                        // ⏳ PLACEHOLDER — lifted from the Claude Design mockup so
-                        // the layout has real prose to wrap. This paragraph is
-                        // DANILO's to write (PLAN §G16: the PT one is his memory);
-                        // the Phase 6 pass writes it alongside the README and the
-                        // `--how-it-works` text, one job with three outputs.
+                        // ⚠ EVERY line ends in `\` and every paragraph break is an
+                        // explicit `\n\n`. A source line that just ENDS keeps its
+                        // newline *and* the indentation of the next line — which is
+                        // how the first draft got a paragraph break followed by 31
+                        // literal spaces on screen. The `\` is what eats both.
                         body: "Eu tinha uns dez anos quando vi o Sued pela primeira \
-                               vez, no PC da sala do meu amigo. Ele digitou uma \
-                               pergunta boba e a tela respondeu com o nome do \
-                               cachorro dele. Ninguém tinha contado nada pra aquela \
-                               máquina.\n\n\
-                               Foi ali que entendi o truque — e mesmo sabendo, ainda \
-                               deu arrepio. A gente ficou até tarde, revezando \
-                               perguntas, esperando o oráculo dizer alguma coisa que \
-                               só nós dois sabíamos.\n\n\
-                               Sued nasceu como brincadeira de porão no Brasil dos \
-                               anos 2000 e correu o país de disquete em disquete, de \
-                               lan house em lan house.\n\n\
-                               Esta versão é uma recriação em Rust — o primeiro \
-                               projeto que escrevi na linguagem.",
-                        signature: "danilo guedes · feito pra aprender rust",
+                               vez, a internet ainda era algo novo no Brasil, tudo era \
+                               novidade. Um amigo me chamou para perto do computador, e \
+                               falou que havia baixado um programa {{sinistro}} que \
+                               sabia de coisas profundas e obscuras. O programa era \
+                               realmente com um tema de terror, todo em vermelho e \
+                               preto, com imagens do tal {{SUED}}.\n\n\
+                               Foi então que iniciamos uma sessão de perguntas, e logo \
+                               no início me lembro de {{me arrepiar}} quando vi SUED \
+                               digitando algo íntimo sobre mim e minha família. Este \
+                               amigo continuou pregando a peça em mim, e me lembro de \
+                               ficar de queixo caído, sem entender como {{SUED}} sabia \
+                               de tudo aquilo, só poderia ser algo do {{além}}. Foi \
+                               então que, após algum tempo, meu amigo revelou o segredo \
+                               e caímos na gargalhada.\n\n\
+                               {{SUED}} provavelmente nasceu como brincadeira de porão \
+                               no Brasil dos anos 2000 e correu o país de disquete em \
+                               disquete, de lan house em lan house.\n\n\
+                               Esta versão é uma recriação em Rust 🦀 em forma de CLI — \
+                               o primeiro projeto que escrevi na linguagem.",
+                        signature: "Danilo Guedes · Desenvolvedor de Software que ama \
+                                    aprender e resolver problemas com tecnologia",
                         bridge: "curioso pra saber como o oráculo funciona?",
                         run_prefix: "rode:",
-                        hints: &[("[↑↓ PgUp PgDn]", "rolar"), ("[Esc] [?]", "fechar")],
+                        scroll_hint: ("[↑↓ PgUp PgDn]", "rolar"),
+                        close_hint: ("[Esc] [?]", "fechar"),
                     },
                 },
                 info: InfoTexts {
@@ -409,6 +498,63 @@ impl Language {
                     "My crystal ball fogged over with boredom, phrase your question again",
                 ],
                 rebuke: "{question} ??? Did you not understand what I said? Flatter me first, mortal, and only then ask, why do humans make it so difficult?",
+                how_it_works: "\
+SueD is a prank. There is no oracle.
+
+YOU are the one answering. The trick is typing the answer in secret while
+you appear to be typing the question.
+
+Try it yourself:
+
+  1. Open \"Ask\".
+  2. Press  ;  — nothing on screen changes. You are now in HIDDEN mode.
+  3. Type the ANSWER you want SueD to give. The screen shows a fake
+     question writing itself, one character per key you press.
+  4. Press  ;  again to go back to normal, finish the flattery where you
+     left it, and round off your question.
+  5. Enter. SueD ponders, then \"reveals\" what you staged.
+
+Press Enter with nothing staged and he refuses instead — a taunt, or a
+rebuke if the question was too short.
+
+If the fake question is running out — that is, you are typing a long
+answer — you will hear a thunderclap, your cue to finish the hidden
+answer soon. It fires while there are still
+{THUNDER_AT_CHARS_REMAINING} characters of fake question left.
+
+A few things that make the game far better:
+
+  1. If you can, build a story before introducing SueD: \"I got hold of
+     some secret software\", or \"I found this grim program that does
+     strange things\".
+  2. Avoid blunt questions and answers like \"who was it?\". The more
+     elaborate both are, the more impressive the trick. SueD also
+     refuses questions shorter than {SHORT_QUESTION_CHARS} characters.
+  3. Like any act, it plays much better rehearsed — a run-through is how
+     you get the feel for steering the whole thing.
+  4. Spend some time picking good questions about your mark, and prefer
+     subjects not everyone in the room knows: that is what makes it
+     genuinely unsettling for them.
+  5. Be the host. To stop anyone noticing you type one thing while they
+     read another, say the flattery SueD demands out loud as you go.
+  6. Now and then, ask with nothing staged and let SueD refuse. It stops
+     being obvious that this only works while you are driving.
+  7. It lands best on people who are not especially technical, children
+     and adults alike — try it on your niece, or on your parents.
+
+Main keys:
+
+  ;         toggle hidden mode — the whole trick
+  F5        panic button: burns the staged answer and starts over
+  F1        transcript of the séance
+  Esc       back / close whatever is on top
+  Ctrl+C    quit immediately
+
+Do not leave this on screen. Everything else in the app is written for
+the mark; this is the only page written for you.
+
+made by: Danilo Guedes
+source: {repo}",
                 intro: IntroTexts {
                     subtitle: "YOUR LAST DIVINE HOPE",
                     attention: "A T T E N T I O N",
@@ -432,7 +578,7 @@ impl Language {
                         ("nature", "omniscient oracle"),
                         ("mood", "vain, sarcastic, unpredictable"),
                         ("origin", "the beyond · unknown"),
-                        ("runtime", "rust · ratatui · crossterm"),
+                        ("runtime", "rust · ratatui · crossterm · kira"),
                     ],
                     footer: concat!(
                         "sued-rs v",
@@ -442,28 +588,37 @@ impl Language {
                     hints: &[("[Esc]", "back to menu"), ("[?]", "behind the veil")],
                     story: StoryTexts {
                         title: "BEHIND THE VEIL",
-                        // ⏳ PLACEHOLDER — tracks the PT above and gets rewritten
-                        // with it at Phase 6. Kept the same paragraph count and
-                        // roughly the same length on purpose: the box wraps this
-                        // text at 56 columns, so a translation that drifts long
-                        // silently changes how far the reader has to scroll.
-                        body: "I was about ten when I first saw Sued, on the PC in \
-                               my friend's living room. He typed some silly question \
-                               and the screen came back with his dog's name. Nobody \
-                               had told that machine anything.\n\n\
-                               That was when I worked out the trick — and even \
-                               knowing, it still raised the hair on my arms. We \
-                               stayed up late taking turns, waiting for the oracle \
-                               to say something only the two of us knew.\n\n\
-                               Sued started as a basement prank in 2000s Brazil and \
-                               travelled the country floppy by floppy, LAN house by \
-                               LAN house.\n\n\
-                               This version is a recreation in Rust — the first \
-                               project I ever wrote in the language.",
-                        signature: "danilo guedes · built to learn rust",
+                        // ⚠ Tracks the PT, which is the ORIGINAL — this is his
+                        // memory and the PT is the one with the voice. Same
+                        // paragraph count and roughly the same length on purpose:
+                        // the box wraps at 64 columns, so a translation that drifts
+                        // long silently changes how far the reader has to scroll.
+                        body: "I was about ten when I first saw Sued. The internet \
+                               was still new in Brazil and everything was a novelty. \
+                               A friend called me over to his computer and told me he \
+                               had downloaded a {{sinister}} program that knew deep \
+                               and obscure things. It really did have a horror theme, \
+                               all in red and black, with pictures of this \
+                               {{SUED}}.\n\n\
+                               That was when we started a round of questions, and \
+                               right at the start I remember {{the shiver}} when I saw \
+                               SUED typing something intimate about me and my family. \
+                               My friend kept the joke going, and I remember standing \
+                               there jaw-dropped, unable to work out how {{SUED}} knew \
+                               all of it — it could only be something from {{beyond}}. \
+                               Then, after a while, my friend gave up the secret and \
+                               we fell about laughing.\n\n\
+                               {{SUED}} was probably born as a basement prank in 2000s \
+                               Brazil, and travelled the country floppy by floppy, LAN \
+                               house by LAN house.\n\n\
+                               This version is a recreation in Rust 🦀 as a CLI — the \
+                               first project I ever wrote in the language.",
+                        signature: "Danilo Guedes · Software developer who loves \
+                                    learning and solving problems with technology",
                         bridge: "curious how the oracle really works?",
                         run_prefix: "run:",
-                        hints: &[("[↑↓ PgUp PgDn]", "scroll"), ("[Esc] [?]", "close")],
+                        scroll_hint: ("[↑↓ PgUp PgDn]", "scroll"),
+                        close_hint: ("[Esc] [?]", "close"),
                     },
                 },
                 info: InfoTexts {
@@ -594,6 +749,65 @@ impl Language {
                     "Mi bola de cristal se empañó de aburrimiento, formula tu pregunta de nuevo",
                 ],
                 rebuke: "{question} ??? ¿No entendiste lo que dije? Halágame primero, mortal, y sólo entonces pregunta, ¿por qué los humanos lo complican tanto?",
+                how_it_works: "\
+SueD es una broma. No hay ningún oráculo.
+
+Quien responde eres TÚ. El truco es escribir la respuesta en secreto
+mientras aparentas estar escribiendo la pregunta.
+
+Pruébalo tú mismo:
+
+  1. Abre \"Preguntar\".
+  2. Pulsa  ;  — nada cambia en pantalla. Estás en modo OCULTO.
+  3. Escribe la RESPUESTA que quieres que dé SueD. La pantalla muestra
+     una pregunta falsa escribiéndose sola, un carácter por tecla.
+  4. Pulsa  ;  otra vez para volver a lo normal, termina el halago donde
+     lo dejaste y remata tu pregunta.
+  5. Enter. SueD medita y entonces \"revela\" lo que preparaste.
+
+Pulsa Enter sin nada preparado y se niega a responder — una burla, o un
+reproche si la pregunta fue demasiado corta.
+
+Si la pregunta falsa se está acabando — es decir, estás escribiendo una
+respuesta larga — oirás el estruendo de un rayo, la señal para terminar
+pronto la respuesta oculta. Suena cuando todavía quedan
+{THUNDER_AT_CHARS_REMAINING} caracteres de pregunta falsa.
+
+Algunos consejos que hacen el juego mucho mejor:
+
+  1. Si puedes, construye una historia antes de presentar a SueD: \"he
+     conseguido un software secreto\", o \"encontré este programa sombrío
+     que hace cosas raras\".
+  2. Evita preguntas y respuestas demasiado directas, como \"¿quién
+     fue?\". Cuanto más elaboradas sean, más impresionante queda el
+     truco. SueD también rechaza preguntas de menos de
+     {SHORT_QUESTION_CHARS} caracteres.
+  3. Como en cualquier número, sale mucho mejor si lo ensayas antes: así
+     ya le habrás cogido el punto a conducir la broma.
+  4. Dedica un rato a elegir buenas preguntas sobre tu víctima, y
+     prefiere temas que no conozca todo el mundo: eso es lo que la hace
+     de verdad inquietante.
+  5. Sé el conductor del juego. Para que nadie note que escribes una
+     cosa mientras leen otra, ve diciendo en voz alta el halago que SueD
+     exige antes de la pregunta.
+  6. De vez en cuando pregunta sin nada preparado y deja que SueD se
+     niegue. Así no queda obvio que sólo funciona cuando lo llevas tú.
+  7. Funciona mejor con gente poco metida en tecnología, tanto niños
+     como adultos — pruébalo con tu sobrino, o con tus padres.
+
+Teclas principales:
+
+  ;         activa/desactiva el modo oculto — el truco entero
+  F5        botón de pánico: quema la respuesta preparada y reinicia
+  F1        historial de la sesión
+  Esc       volver / cerrar lo que esté encima
+  Ctrl+C    salir de inmediato
+
+No dejes esto en pantalla. Todo lo demás en la app está escrito para la
+víctima; esta es la única página escrita para ti.
+
+hecho por: Danilo Guedes
+fuente: {repo}",
                 intro: IntroTexts {
                     subtitle: "TU ÚLTIMA ESPERANZA DIVINA",
                     attention: "A T E N C I Ó N",
@@ -617,7 +831,7 @@ impl Language {
                         ("naturaleza", "oráculo omnisciente"),
                         ("humor", "vanidoso, sarcástico, impredecible"),
                         ("origen", "el más allá · desconocido"),
-                        ("runtime", "rust · ratatui · crossterm"),
+                        ("runtime", "rust · ratatui · crossterm · kira"),
                     ],
                     footer: concat!(
                         "sued-rs v",
@@ -627,25 +841,34 @@ impl Language {
                     hints: &[("[Esc]", "volver al menú"), ("[?]", "tras el velo")],
                     story: StoryTexts {
                         title: "TRAS EL VELO",
-                        // ⏳ PLACEHOLDER — same note as the other two.
-                        body: "Tenía unos diez años cuando vi a Sued por primera \
-                               vez, en el PC del salón de mi amigo. Escribió una \
-                               pregunta tonta y la pantalla respondió con el nombre \
-                               de su perro. Nadie le había contado nada a esa \
-                               máquina.\n\n\
-                               Ahí fue cuando entendí el truco — y aun sabiéndolo, \
-                               igual me puso la piel de gallina. Nos quedamos hasta \
-                               tarde turnándonos, esperando que el oráculo dijera \
-                               algo que solo nosotros dos sabíamos.\n\n\
-                               Sued nació como una broma de sótano en el Brasil de \
-                               los años 2000 y recorrió el país de disquete en \
-                               disquete, de ciber en ciber.\n\n\
-                               Esta versión es una recreación en Rust — el primer \
-                               proyecto que escribí en el lenguaje.",
-                        signature: "danilo guedes · hecho para aprender rust",
+                        // ⚠ Same note as the EN — the PT is the original.
+                        body: "Tenía unos diez años cuando vi a Sued por primera vez. \
+                               Internet todavía era algo nuevo en Brasil, todo era una \
+                               novedad. Un amigo me llamó cerca del computador y me \
+                               dijo que había bajado un programa {{siniestro}} que \
+                               sabía de cosas profundas y oscuras. El programa \
+                               realmente tenía un tema de terror, todo en rojo y \
+                               negro, con imágenes del tal {{SUED}}.\n\n\
+                               Fue entonces que empezamos una sesión de preguntas, y \
+                               enseguida recuerdo {{el escalofrío}} cuando vi a SUED \
+                               escribiendo algo íntimo sobre mí y mi familia. Ese \
+                               amigo siguió gastándome la broma, y recuerdo quedarme \
+                               boquiabierto, sin entender cómo {{SUED}} sabía todo \
+                               aquello; solo podía ser algo del {{más allá}}. Al cabo \
+                               de un rato mi amigo reveló el secreto y nos morimos de \
+                               risa.\n\n\
+                               {{SUED}} probablemente nació como una broma de sótano \
+                               en el Brasil de los años 2000 y recorrió el país de \
+                               disquete en disquete, de ciber en ciber.\n\n\
+                               Esta versión es una recreación en Rust 🦀 en forma de \
+                               CLI — el primer proyecto que escribí en el lenguaje.",
+                        signature: "Danilo Guedes · Desarrollador de software al que \
+                                    le encanta aprender y resolver problemas con \
+                                    tecnología",
                         bridge: "¿con curiosidad por cómo funciona el oráculo?",
                         run_prefix: "ejecuta:",
-                        hints: &[("[↑↓ PgUp PgDn]", "desplazar"), ("[Esc] [?]", "cerrar")],
+                        scroll_hint: ("[↑↓ PgUp PgDn]", "desplazar"),
+                        close_hint: ("[Esc] [?]", "cerrar"),
                     },
                 },
                 info: InfoTexts {
