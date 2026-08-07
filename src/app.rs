@@ -402,7 +402,11 @@ impl App {
                                             .to_string(),
                                     ),
                                     StateChange::Denied => {
-                                        Some(pick(translations.denials, rand::random()).to_string())
+                                        Some(if question.chars().count() <= SHORT_QUESTION_CHARS {
+                                            translations.rebuke.replace("{question}", &question)
+                                        } else {
+                                            pick(translations.denials, rand::random()).to_string()
+                                        })
                                     }
                                     _ => None,
                                 };
@@ -706,6 +710,124 @@ mod tests {
         matches!(state.screen(), Screen::Menu)
     }
 
+    // ── G8: the exchange is a conversation, not a wipe ───────────────────────
+    // The old flow answered once and froze until F5. The new one: SueD replies,
+    // the crawl finishes, the input reopens EMPTY — and the answer you just got
+    // stays on screen while you type the next question, so the screen reads as a
+    // back-and-forth. Only F5 (or leaving) forgets the conversation.
+    //
+    // The unlock is *time*-driven — it happens when the typewriter finishes, not
+    // when a key arrives — so these tests rewind the reply clock rather than
+    // sleeping. `finish_the_reveal` is what "SueD stopped talking" looks like to
+    // the app, and no test below is allowed to depend on wall-clock speed.
+
+    /// Keep driving an app that is already mid-conversation. `drive` always
+    /// starts from scratch, which can't express "reply, wait, then type".
+    fn feed(app: &mut App, keys: &[KeyPress]) {
+        for &key in keys {
+            app.handle_key(key);
+        }
+    }
+
+    // char count > 18
+    fn create_rebuke_safe_question_without_hidden_answer(app: &mut App) {
+        feed(app, SAFE_REBUKE_CHARS_QUESTION);
+    }
+
+    /// Rewind the reply clock far enough that the crawl has certainly ended —
+    /// the app must now behave as though SueD has finished speaking.
+    fn finish_the_reveal(app: &mut App) {
+        match &mut app.screen {
+            Screen::Asking(AskingState {
+                reply: Some(reply), ..
+            }) => {
+                reply.asked_at = reply
+                    .asked_at
+                    .checked_sub(Duration::from_secs(60))
+                    .expect("the test clock must be able to rewind 60s");
+            }
+            other => panic!("expected Asking, got {other:?}"),
+        }
+    }
+
+    /// Menu → Asking, then whisper "42" and reveal it.
+    const ASK_AND_REVEAL: [KeyPress; 6] = [
+        KeyPress::Enter,     // Intro → Menu
+        KeyPress::Enter,     // Menu → Asking
+        KeyPress::Char(';'), // Hidden
+        KeyPress::Char('4'),
+        KeyPress::Char('2'), // the secret answer
+        KeyPress::Enter,     // reveal
+    ];
+
+    /// Menu → Asking, type a visible question with nothing hidden → SUED denies
+    /// you. The question must have words: an EMPTY Enter is ignored outright
+    /// (no denial), so the denial path has to actually ask something.
+    /// One keystroke per character of `text`.
+    fn typing(text: &str) -> Vec<KeyPress> {
+        text.chars().map(KeyPress::Char).collect()
+    }
+
+    /// Reach the ask screen and submit `question` with NO hidden answer staged,
+    /// so the engine answers `Denied` and SueD refuses.
+    fn ask_openly(question: &str) -> Vec<KeyPress> {
+        let mut keys = vec![
+            KeyPress::Enter, // Intro → Menu
+            KeyPress::Enter, // Menu → Asking
+        ];
+        keys.extend(typing(question));
+        keys.push(KeyPress::Enter); // → Denied
+        keys
+    }
+
+    /// ⚠ **AMENDED BY G17 (2026-08-06).** This fixture used to type `"oi"`, and
+    /// every test below read that as "a refused question". G17 splits refusals in
+    /// two on LENGTH, and `"oi"` is 2 characters — so under the new rule it earns
+    /// the *rebuke*, not a denial from the pool, and three assertions here would
+    /// have started failing for a reason that had nothing to do with what they
+    /// test.
+    ///
+    /// The question is now comfortably past `SHORT_QUESTION_CHARS`, which keeps
+    /// this fixture meaning exactly what its name says — before G17 **and after**.
+    /// Use `ASK_AND_BE_REBUKED` for the short path.
+    const DENIED_QUESTION: &str = "will the oracle answer me tonight?";
+
+    fn ask_and_be_denied() -> Vec<KeyPress> {
+        ask_openly(DENIED_QUESTION)
+    }
+
+    const SAFE_REBUKE_CHARS_QUESTION: &[KeyPress; 29] = &[
+        KeyPress::Enter, // Intro → Menu
+        KeyPress::Enter, // Menu → Asking
+        KeyPress::Char('H'),
+        KeyPress::Char('e'),
+        KeyPress::Char('y'),
+        KeyPress::Char(' '),
+        KeyPress::Char('S'),
+        KeyPress::Char('u'),
+        KeyPress::Char('e'),
+        KeyPress::Char('d'),
+        KeyPress::Char(' '),
+        KeyPress::Char('w'),
+        KeyPress::Char('h'),
+        KeyPress::Char('a'),
+        KeyPress::Char('t'),
+        KeyPress::Char(' '),
+        KeyPress::Char('d'),
+        KeyPress::Char('o'),
+        KeyPress::Char(' '),
+        KeyPress::Char('y'),
+        KeyPress::Char('o'),
+        KeyPress::Char('y'),
+        KeyPress::Char(' '),
+        KeyPress::Char('k'),
+        KeyPress::Char('n'),
+        KeyPress::Char('o'),
+        KeyPress::Char('w'),
+        KeyPress::Char('?'),
+        KeyPress::Enter, // reveal
+    ];
+
     // ── Intro ────────────────────────────────────────────────────────────────
 
     #[test]
@@ -848,14 +970,11 @@ mod tests {
     // taunt lives app-side (the engine only emits the event).
 
     #[test]
-    fn enter_with_no_hidden_answer_shows_the_denial_phrase() {
-        let state = drive(&[
-            KeyPress::Enter, // Intro → Menu
-            KeyPress::Enter, // Menu → Asking
-            KeyPress::Char('o'),
-            KeyPress::Char('i'), // a question typed in the open
-            KeyPress::Enter,     // ask with an empty answer_buffer → Denied
-        ]);
+    fn enter_with_no_hidden_answer_shows_the_denial_phrase_if_pass_rebuke_char_count() {
+        let mut state = drive(&[]);
+
+        let _expected = create_rebuke_safe_question_without_hidden_answer(&mut state);
+
         let denials = state.config().language().translation().denials;
         match state.screen {
             Screen::Asking(AskingState {
@@ -1597,87 +1716,6 @@ mod tests {
             AppFlow::Quit,
             "the mid-reveal input lock must not hold Ctrl+C"
         );
-    }
-
-    // ── G8: the exchange is a conversation, not a wipe ───────────────────────
-    // The old flow answered once and froze until F5. The new one: SueD replies,
-    // the crawl finishes, the input reopens EMPTY — and the answer you just got
-    // stays on screen while you type the next question, so the screen reads as a
-    // back-and-forth. Only F5 (or leaving) forgets the conversation.
-    //
-    // The unlock is *time*-driven — it happens when the typewriter finishes, not
-    // when a key arrives — so these tests rewind the reply clock rather than
-    // sleeping. `finish_the_reveal` is what "SueD stopped talking" looks like to
-    // the app, and no test below is allowed to depend on wall-clock speed.
-
-    /// Keep driving an app that is already mid-conversation. `drive` always
-    /// starts from scratch, which can't express "reply, wait, then type".
-    fn feed(app: &mut App, keys: &[KeyPress]) {
-        for &key in keys {
-            app.handle_key(key);
-        }
-    }
-
-    /// Rewind the reply clock far enough that the crawl has certainly ended —
-    /// the app must now behave as though SueD has finished speaking.
-    fn finish_the_reveal(app: &mut App) {
-        match &mut app.screen {
-            Screen::Asking(AskingState {
-                reply: Some(reply), ..
-            }) => {
-                reply.asked_at = reply
-                    .asked_at
-                    .checked_sub(Duration::from_secs(60))
-                    .expect("the test clock must be able to rewind 60s");
-            }
-            other => panic!("expected Asking, got {other:?}"),
-        }
-    }
-
-    /// Menu → Asking, then whisper "42" and reveal it.
-    const ASK_AND_REVEAL: [KeyPress; 6] = [
-        KeyPress::Enter,     // Intro → Menu
-        KeyPress::Enter,     // Menu → Asking
-        KeyPress::Char(';'), // Hidden
-        KeyPress::Char('4'),
-        KeyPress::Char('2'), // the secret answer
-        KeyPress::Enter,     // reveal
-    ];
-
-    /// Menu → Asking, type a visible question with nothing hidden → SUED denies
-    /// you. The question must have words: an EMPTY Enter is ignored outright
-    /// (no denial), so the denial path has to actually ask something.
-    /// One keystroke per character of `text`.
-    fn typing(text: &str) -> Vec<KeyPress> {
-        text.chars().map(KeyPress::Char).collect()
-    }
-
-    /// Reach the ask screen and submit `question` with NO hidden answer staged,
-    /// so the engine answers `Denied` and SueD refuses.
-    fn ask_openly(question: &str) -> Vec<KeyPress> {
-        let mut keys = vec![
-            KeyPress::Enter, // Intro → Menu
-            KeyPress::Enter, // Menu → Asking
-        ];
-        keys.extend(typing(question));
-        keys.push(KeyPress::Enter); // → Denied
-        keys
-    }
-
-    /// ⚠ **AMENDED BY G17 (2026-08-06).** This fixture used to type `"oi"`, and
-    /// every test below read that as "a refused question". G17 splits refusals in
-    /// two on LENGTH, and `"oi"` is 2 characters — so under the new rule it earns
-    /// the *rebuke*, not a denial from the pool, and three assertions here would
-    /// have started failing for a reason that had nothing to do with what they
-    /// test.
-    ///
-    /// The question is now comfortably past `SHORT_QUESTION_CHARS`, which keeps
-    /// this fixture meaning exactly what its name says — before G17 **and after**.
-    /// Use `ASK_AND_BE_REBUKED` for the short path.
-    const DENIED_QUESTION: &str = "will the oracle answer me tonight?";
-
-    fn ask_and_be_denied() -> Vec<KeyPress> {
-        ask_openly(DENIED_QUESTION)
     }
 
     #[test]
@@ -3217,17 +3255,18 @@ mod tests {
 
     #[test]
     fn a_denial_speaks_the_configured_language() {
-        let state = ask_in_portuguese(&[
-            KeyPress::Char('o'),
-            KeyPress::Char('i'), // a question typed in the open
-            KeyPress::Enter,     // empty answer → Denied
-        ]);
+        let mut state = ask_in_portuguese(SAFE_REBUKE_CHARS_QUESTION);
+
+        create_rebuke_safe_question_without_hidden_answer(&mut state);
 
         match state.screen {
             Screen::Asking(AskingState {
                 reply: Some(reply), ..
             }) => {
                 let taunt = reply.words();
+
+                println!("{taunt}");
+
                 assert!(
                     Language::PtBr.translation().denials.contains(&taunt),
                     "the oracle must taunt in the configured language, got {taunt:?}"
