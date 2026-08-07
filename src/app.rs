@@ -729,11 +729,6 @@ mod tests {
         }
     }
 
-    // char count > 18
-    fn create_rebuke_safe_question_without_hidden_answer(app: &mut App) {
-        feed(app, SAFE_REBUKE_CHARS_QUESTION);
-    }
-
     /// Rewind the reply clock far enough that the crawl has certainly ended —
     /// the app must now behave as though SueD has finished speaking.
     fn finish_the_reveal(app: &mut App) {
@@ -768,6 +763,14 @@ mod tests {
         text.chars().map(KeyPress::Char).collect()
     }
 
+    // char count > 18
+    fn enter_ask_mode_and_create_rebuke_safe_question_without_hidden_answer(app: &mut App) {
+        app.handle_key(KeyPress::Enter);
+        app.handle_key(KeyPress::Enter);
+        feed(app, &typing("Hey Sued, what do you know about me?"));
+        app.handle_key(KeyPress::Enter);
+    }
+
     /// Reach the ask screen and submit `question` with NO hidden answer staged,
     /// so the engine answers `Denied` and SueD refuses.
     fn ask_openly(question: &str) -> Vec<KeyPress> {
@@ -795,38 +798,6 @@ mod tests {
     fn ask_and_be_denied() -> Vec<KeyPress> {
         ask_openly(DENIED_QUESTION)
     }
-
-    const SAFE_REBUKE_CHARS_QUESTION: &[KeyPress; 29] = &[
-        KeyPress::Enter, // Intro → Menu
-        KeyPress::Enter, // Menu → Asking
-        KeyPress::Char('H'),
-        KeyPress::Char('e'),
-        KeyPress::Char('y'),
-        KeyPress::Char(' '),
-        KeyPress::Char('S'),
-        KeyPress::Char('u'),
-        KeyPress::Char('e'),
-        KeyPress::Char('d'),
-        KeyPress::Char(' '),
-        KeyPress::Char('w'),
-        KeyPress::Char('h'),
-        KeyPress::Char('a'),
-        KeyPress::Char('t'),
-        KeyPress::Char(' '),
-        KeyPress::Char('d'),
-        KeyPress::Char('o'),
-        KeyPress::Char(' '),
-        KeyPress::Char('y'),
-        KeyPress::Char('o'),
-        KeyPress::Char('y'),
-        KeyPress::Char(' '),
-        KeyPress::Char('k'),
-        KeyPress::Char('n'),
-        KeyPress::Char('o'),
-        KeyPress::Char('w'),
-        KeyPress::Char('?'),
-        KeyPress::Enter, // reveal
-    ];
 
     // ── Intro ────────────────────────────────────────────────────────────────
 
@@ -973,7 +944,7 @@ mod tests {
     fn enter_with_no_hidden_answer_shows_the_denial_phrase_if_pass_rebuke_char_count() {
         let mut state = drive(&[]);
 
-        let _expected = create_rebuke_safe_question_without_hidden_answer(&mut state);
+        enter_ask_mode_and_create_rebuke_safe_question_without_hidden_answer(&mut state);
 
         let denials = state.config().language().translation().denials;
         match state.screen {
@@ -3255,9 +3226,9 @@ mod tests {
 
     #[test]
     fn a_denial_speaks_the_configured_language() {
-        let mut state = ask_in_portuguese(SAFE_REBUKE_CHARS_QUESTION);
+        let mut state = ask_in_portuguese(&typing("Eae Sued, o quê você sabe sobre mim?"));
 
-        create_rebuke_safe_question_without_hidden_answer(&mut state);
+        state.handle_key(KeyPress::Enter);
 
         match state.screen {
             Screen::Asking(AskingState {

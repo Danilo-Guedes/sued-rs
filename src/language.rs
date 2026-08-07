@@ -191,7 +191,7 @@ impl Language {
                     "Não. O véu não se abre para perguntas tão rasas, mergulhe mais fundo",
                     "Minha bola de cristal embaçou de tédio, formule sua pergunta novamente",
                 ],
-                rebuke: "{question} ??? Você não entendeu o que eu disse? Me bajule primeiro, mortal, e só então pergunte, por que humanos dificultam tanto?",
+                rebuke: "{question} ??? Você não entendeu o que eu disse? Me bajule primeiro, mortal, e só então pergunte, por quê humanos dificultam tanto?",
                 intro: IntroTexts {
                     subtitle: "SUA ÚLTIMA ESPERANÇA DIVINA",
                     attention: "A T E N Ç Ã O",
