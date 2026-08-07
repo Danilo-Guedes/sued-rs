@@ -128,6 +128,29 @@ pub(super) fn hint_line(hints: &[(&'static str, &'static str)], palette: Palette
 /// A tab in the decorative top-nav strip. This is *orientation only* — it maps a
 /// screen to its label; it does not decide which screen you're on. The set is the
 /// four "destinations" (note: not the same as `MenuItem`, which also has `Exit`).
+///
+/// ## ✅ "One destination-name table or two?" — SETTLED AT G20: **two**
+///
+/// Open since the 2026-07-27 i18n rescope, and G20's rename forced it by
+/// touching both. They look like duplicates and are not: they speak in
+/// **different registers**, and that is content, not accident.
+///
+/// | | `MenuOption::label` | `NavTab::label` |
+/// |---|---|---|
+/// | voice | a destination you choose | a place you are |
+/// | example | `PERGUNTAR AO ORÁCULO` | `Pergunta` |
+/// | | `SOBRE O SUED` | `Sobre` |
+///
+/// The menu is a hub offering *invitations* — full phrases, in the oracle's
+/// voice. The strip is a row of terse chips that has to fit five across.
+/// Collapsing them would force one voice onto both: either the menu shrinks to
+/// `Pergunta` and stops inviting, or the strip carries `PERGUNTAR AO ORÁCULO`
+/// and stops fitting.
+///
+/// ⚠ The real cost is that a rename must be made **twice** — G20 did exactly
+/// that. Accepted knowingly: two tables of four strings, changed once a year,
+/// is cheaper than a shared table plus the per-site adapter that would be
+/// needed to give each site back its register.
 #[derive(Clone, Copy, PartialEq)]
 pub(super) enum NavTab {
     Intro,
@@ -162,10 +185,15 @@ impl NavTab {
                 Language::EnUs => "Question",
                 Language::EsEs => "Pregunta",
             },
+            // ⬅ G20: the tab used to say "Informações" while the screen it opens
+            // says "O RITUAL". That mismatch WAS the vagueness Danilo felt.
+            // "Instructions" / "How to play" were the other candidates and both
+            // lose: they are software words, in an app pretending not to be
+            // software.
             NavTab::Info => match language {
-                Language::PtBr => "Informações",
-                Language::EnUs => "Information",
-                Language::EsEs => "Información",
+                Language::PtBr => "O Ritual",
+                Language::EnUs => "The Ritual",
+                Language::EsEs => "El Ritual",
             },
 
             NavTab::About => match language {

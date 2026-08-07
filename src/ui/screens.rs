@@ -45,6 +45,7 @@ mod tests {
     use super::*;
     use crate::app::{AppFlow, AskingState};
     use crate::config::Configuration;
+    use crate::constants::RECOMMENDED_TERMINAL_SIZE as RECOMMENDED;
     use crate::constants::{AUTHOR_GITHUB, AUTHOR_LINKEDIN, HOW_IT_WORKS_COMMAND};
     use crate::conversation::Overlay;
     use crate::core::engine::KeyPress;
@@ -304,10 +305,15 @@ mod tests {
             (
                 "info",
                 &[KeyPress::Enter, KeyPress::Down, KeyPress::Enter],
+                // ⚠ AMENDED BY G20: the second entry was `⌨   {shortcut_title}`,
+                // and the whole panel it decorated is gone — the key table was
+                // aimed at the operator on a screen written for the mark. The
+                // `⌁` hint is the one line of that panel that survived the cut,
+                // so it inherits the glyph guard.
                 |t| {
                     vec![
                         format!("▚ {} ▞", t.info.title),
-                        format!("⌨   {}", t.info.shortcut_title),
+                        format!("⌁ {}", t.info.terminal_hint.replace("{size}", RECOMMENDED)),
                     ]
                 },
             ),

@@ -223,10 +223,13 @@ impl MenuOption {
                 Language::EsEs => "PREGUNTAR AL ORÁCULO",
             },
 
+            // ⬅ G20 renamed this with `NavTab::Info`. Both had to move: leaving
+            // the menu saying "INFORMAÇÕES" would have relocated the mismatch
+            // rather than fixed it.
             MenuOption::Info => match language {
-                Language::PtBr => "INFORMAÇÕES",
-                Language::EnUs => "INFORMATION",
-                Language::EsEs => "INFORMACIÓN",
+                Language::PtBr => "O RITUAL",
+                Language::EnUs => "THE RITUAL",
+                Language::EsEs => "EL RITUAL",
             },
 
             MenuOption::About => match language {
@@ -1233,22 +1236,6 @@ mod tests {
             other => panic!("expected Asking, got {other:?}"),
         }
     }
-
-    // ── G15 · the question that lingers ──────────────────────────────────────
-    //
-    // ⚠ These pin the ACCESSOR, not the render. `ask.rs` calls it every frame
-    // and leans on both facts below: `None` on frame one (it becomes `""` via
-    // `unwrap_or_default`, which is the pre-G15 behaviour), and *newest*, not
-    // *previous*, once the séance is under way.
-    //
-    // ⚠ NAMING DEBT THESE TESTS DELIBERATELY DOCUMENT: `previous_user_message`
-    // sits beside `previous_reply`, whose prefix is earned — it does `skip(1)`
-    // AND an extra `next()` to step over the live reply. This one does neither,
-    // because G15 wants the question being answered *right now*. Same prefix,
-    // opposite semantics. The rename (`last_user_message` /
-    // `question_being_answered`) is owed; these tests are written against the
-    // current name so the suite still compiles, and the second one exists so a
-    // future reader cannot mistake which of the two behaviours is intended.
 
     #[test]
     fn the_seeded_greeting_is_not_a_question() {
