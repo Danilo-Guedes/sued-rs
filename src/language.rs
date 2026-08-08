@@ -262,7 +262,7 @@ Teste você mesmo:
      falsa se escrevendo sozinha, um caractere por tecla apertada.
   4. Aperte  ;  de novo para voltar ao normal, termine o elogio de onde
      parou e finalize a sua pergunta.
-  5. Enter. O Sued pondera e então \"revela\" o que você preparou.
+  5. Enter. O Sued então \"revela\" o que você preparou.
 
 Aperte Enter sem nada preparado e ele se recusa a responder — uma
 provocação, ou uma bronca se a pergunta foi curta demais.
@@ -275,27 +275,45 @@ terminar sua resposta escondida logo. Isso acontece quando ainda faltam
 Algumas dicas que deixam a brincadeira mais interessante:
 
   1. Se possível, construa uma história antes de apresentar o SUED, algo
-     como \"consegui um software secreto\" ou \"achei este software sombrio
+     como \"consegui um software secreto\" ou \"achei esta nova AI sombria
      que faz coisas estranhas\".
-  2. Evite perguntas e respostas muito diretas, como \"quem foi?\". Quanto
+  2. Atenção com a resposta oculta: um Oráculo que não sabe digitar e
+     escreve \"atencaõ meu amigu\" não passa credibilidade. Impersone o
+     Oráculo e fale com firmeza e clareza.
+  3. Errou? Sem problemas, use o Backspace: ele pode ser usado tanto no
+     modo oculto para corrigir um erro de digitação, quanto no modo
+     normal para apagar o falso elogio.
+  4. Evite perguntas e respostas muito diretas, como \"quem foi?\". Quanto
      mais elaboradas as perguntas e as respostas, mais impressionante o
      truque fica. O SUED também se recusa a responder perguntas com
      menos de {SHORT_QUESTION_CHARS} caracteres.
-  3. Como em qualquer peça ou apresentação, fica muito melhor quando
-     você ensaia antes — assim já terá pegado o jeito de conduzir a
-     pegadinha.
-  4. Separe um tempo para escolher boas perguntas sobre a vítima, e
-     prefira assuntos que não são conhecidos por todos: isso faz a
-     experiência dela ser bem mais aterrorizante.
-  5. Seja um condutor da brincadeira. Para evitar que percebam que você
-     digita uma coisa enquanto eles leem outra, vá falando em voz alta
-     o elogio que o SUED exige antes da pergunta.
-  6. Às vezes se permita fazer perguntas sem resposta escondida, e deixe
+  5. Ensaie e treine! Como em qualquer peça ou apresentação, fica muito
+     melhor quando o elenco ensaiou diversas vezes — em pouco tempo você
+     já terá pegado o jeito de conduzir a pegadinha.
+  6. Separe um tempo para escolher boas perguntas e respostas ocultas
+     sobre a vítima, e prefira assuntos que não são conhecidos por
+     todos. Quando possível, envolva o nome de outras pessoas: cite um
+     parente de longe como \"a tia Claudia\" e a experiência dela fica
+     bem mais aterrorizante.
+  7. Seja um condutor da brincadeira. Para evitar que percebam que você
+     digita uma coisa enquanto eles leem outra, de vez em quando vá
+     falando em voz alta o falso elogio que o input mostra enquanto está
+     no modo oculto; a sua leitura em voz alta vai dar mais credibilidade
+     de que você de fato está digitando o que está sendo mostrado.
+  8. Às vezes se permita fazer perguntas sem resposta escondida, e deixe
      o SUED recusar. Assim não fica óbvio que só funciona quando é você
-     quem conduz.
-  7. O truque funciona melhor com pessoas não muito ligadas em
+     quem conduz, e também o coloca em uma posição de obediência ao
+     SUED, ajudando ainda mais a vender a brincadeira.
+  9. O truque funciona melhor com pessoas não muito ligadas em
      tecnologia, sejam crianças ou adultos — aproveite para testar com
      seu sobrinho, ou com seu pai e sua mãe.
+ 10. Se inclua na história: faça algumas perguntas e respostas ocultas
+     mirando algo pessoal seu e, ao ler, finja estar impressionado.
+     Isso vai ajudar com a atmosfera da brincadeira.
+ 11. Use com sabedoria. Não estenda a brincadeira caso veja que a vítima
+     está muito emocionada, não use assuntos proibidos pela vítima,
+     saiba a hora de parar — a pegadinha é feita para nos fazer rir e
+     não chorar.
 
 Principais comandos:
 
@@ -506,7 +524,7 @@ Try it yourself:
      question writing itself, one character per key you press.
   4. Press  ;  again to go back to normal, finish the flattery where you
      left it, and round off your question.
-  5. Enter. SueD ponders, then \"reveals\" what you staged.
+  5. Enter. SueD then \"reveals\" what you staged.
 
 Press Enter with nothing staged and he refuses instead — a taunt, or a
 rebuke if the question was too short.
@@ -519,22 +537,43 @@ answer soon. It fires while there are still
 A few things that make the game far better:
 
   1. If you can, build a story before introducing SueD: \"I got hold of
-     some secret software\", or \"I found this grim program that does
+     some secret software\", or \"I found this grim new AI that does
      strange things\".
-  2. Avoid blunt questions and answers like \"who was it?\". The more
+  2. Mind the hidden answer: an Oracle that cannot spell and writes
+     \"attenshun my freind\" carries no weight at all. Play the Oracle,
+     and write with firmness and clarity.
+  3. Slipped up? No problem, use Backspace: it works both in hidden mode
+     to fix a typo in the answer, and in normal mode to rub out the fake
+     flattery.
+  4. Avoid blunt questions and answers like \"who was it?\". The more
      elaborate both are, the more impressive the trick. SueD also
      refuses questions shorter than {SHORT_QUESTION_CHARS} characters.
-  3. Like any act, it plays much better rehearsed — a run-through is how
-     you get the feel for steering the whole thing.
-  4. Spend some time picking good questions about your mark, and prefer
-     subjects not everyone in the room knows: that is what makes it
-     genuinely unsettling for them.
-  5. Be the host. To stop anyone noticing you type one thing while they
-     read another, say the flattery SueD demands out loud as you go.
-  6. Now and then, ask with nothing staged and let SueD refuse. It stops
-     being obvious that this only works while you are driving.
-  7. It lands best on people who are not especially technical, children
+  5. Rehearse! Like any play or performance, it goes far better once the
+     cast has run it a few times — it takes very little practice before
+     you have the feel for steering the prank.
+  6. Spend some time picking good questions and hidden answers about
+     your mark, and prefer subjects not everyone in the room knows.
+     Where you can, work in other people's names: drop a distant
+     relative like \"your Aunt Claudia\" and it turns far more
+     terrifying for them.
+  7. Be the host. To stop anyone noticing you type one thing while they
+     read another, every so often read the fake flattery aloud as the
+     input paints it while you are in hidden mode; hearing you say what
+     is on screen makes it far more believable that you really are
+     typing what they can see.
+  8. Now and then, ask with nothing staged and let SueD refuse. It stops
+     being obvious that this only works while you are driving, and it
+     puts you in a position of obedience to SueD, which sells the whole
+     thing even harder.
+  9. It lands best on people who are not especially technical, children
      and adults alike — try it on your niece, or on your parents.
+ 10. Write yourself into the story: aim a few questions and hidden
+     answers at something personal of your own, and act shaken as you
+     read them out. It does a great deal for the atmosphere.
+ 11. Use it wisely. Do not drag the prank out if you see the mark is
+     genuinely upset, stay off subjects they have asked you to leave
+     alone, and know when to stop — this is meant to make us laugh, not
+     cry.
 
 Main keys:
 
@@ -748,7 +787,7 @@ Pruébalo tú mismo:
      una pregunta falsa escribiéndose sola, un carácter por tecla.
   4. Pulsa  ;  otra vez para volver a lo normal, termina el halago donde
      lo dejaste y remata tu pregunta.
-  5. Enter. SueD medita y entonces \"revela\" lo que preparaste.
+  5. Enter. SueD entonces \"revela\" lo que preparaste.
 
 Pulsa Enter sin nada preparado y se niega a responder — una burla, o un
 reproche si la pregunta fue demasiado corta.
@@ -761,24 +800,43 @@ pronto la respuesta oculta. Suena cuando todavía quedan
 Algunos consejos que hacen el juego mucho mejor:
 
   1. Si puedes, construye una historia antes de presentar a SueD: \"he
-     conseguido un software secreto\", o \"encontré este programa sombrío
-     que hace cosas raras\".
-  2. Evita preguntas y respuestas demasiado directas, como \"¿quién
+     conseguido un software secreto\", o \"encontré esta IA sombría que
+     hace cosas raras\".
+  2. Cuidado con la respuesta oculta: un Oráculo que no sabe escribir y
+     pone \"atencion mi amijo\" no da ninguna credibilidad. Interpreta al
+     Oráculo y escribe con firmeza y claridad.
+  3. ¿Te equivocaste? Sin problema, usa Backspace: sirve tanto en modo
+     oculto para corregir una errata, como en modo normal para borrar el
+     falso halago.
+  4. Evita preguntas y respuestas demasiado directas, como \"¿quién
      fue?\". Cuanto más elaboradas sean, más impresionante queda el
      truco. SueD también rechaza preguntas de menos de
      {SHORT_QUESTION_CHARS} caracteres.
-  3. Como en cualquier número, sale mucho mejor si lo ensayas antes: así
-     ya le habrás cogido el punto a conducir la broma.
-  4. Dedica un rato a elegir buenas preguntas sobre tu víctima, y
-     prefiere temas que no conozca todo el mundo: eso es lo que la hace
-     de verdad inquietante.
-  5. Sé el conductor del juego. Para que nadie note que escribes una
-     cosa mientras leen otra, ve diciendo en voz alta el halago que SueD
-     exige antes de la pregunta.
-  6. De vez en cuando pregunta sin nada preparado y deja que SueD se
-     niegue. Así no queda obvio que sólo funciona cuando lo llevas tú.
-  7. Funciona mejor con gente poco metida en tecnología, tanto niños
+  5. ¡Ensaya! Como en cualquier obra o número, sale mucho mejor cuando
+     el elenco lo ha repasado varias veces — en poco tiempo ya le habrás
+     cogido el punto a conducir la broma.
+  6. Dedica un rato a elegir buenas preguntas y respuestas ocultas sobre
+     tu víctima, y prefiere temas que no conozca todo el mundo. Cuando
+     puedas, mete el nombre de otras personas: cita a un pariente lejano
+     como \"tu tía Claudia\" y la experiencia le resultará mucho más
+     aterradora.
+  7. Sé el conductor del juego. Para que nadie note que escribes una
+     cosa mientras leen otra, de vez en cuando ve leyendo en voz alta el
+     falso halago que el input va mostrando mientras estás en modo
+     oculto; oírte decir lo que aparece en pantalla da mucha más
+     credibilidad a que de verdad estás escribiendo lo que ellos ven.
+  8. De vez en cuando pregunta sin nada preparado y deja que SueD se
+     niegue. Así no queda obvio que sólo funciona cuando lo llevas tú, y
+     además te coloca en una posición de obediencia ante SueD, lo que
+     ayuda aún más a vender la broma.
+  9. Funciona mejor con gente poco metida en tecnología, tanto niños
      como adultos — pruébalo con tu sobrino, o con tus padres.
+ 10. Métete tú en la historia: dirige algunas preguntas y respuestas
+     ocultas a algo personal tuyo y, al leerlas, finge estar
+     impresionado. Ayuda mucho con la atmósfera.
+ 11. Úsalo con cabeza. No alargues la broma si ves que la víctima está
+     muy afectada, no toques temas que te haya pedido evitar y sabe
+     cuándo parar — esto es para hacernos reír, no llorar.
 
 Teclas principales:
 
