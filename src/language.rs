@@ -37,13 +37,6 @@ pub struct Translation {
     /// The OPERATOR's manual, printed by `--how-it-works` and never drawn on a
     /// screen — see `cli::how_it_works_text` for why that split is the design
     /// and not a convenience.
-    ///
-    /// ⚠ `{repo}` is real substitution, not `{{markup}}`: this string goes to
-    /// stdout as plain text and never passes through `template.rs`.
-    ///
-    /// ⏳ **PROVISIONAL COPY.** PLAN §G16 schedules the real prose for Phase 6,
-    /// written in one pass with the README and the story popover — three
-    /// outputs, one job, and writing them apart is how they drift.
     pub how_it_works: &'static str,
 
     ///SCREENS TEXTS
