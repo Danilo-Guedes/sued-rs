@@ -1000,7 +1000,7 @@ mod tests {
     }
 
     // ── pick: the roll → entry mapping ───────────────────────────────────────
-    // The contract mirrors `laugh_interval`: multiply the roll across the pool
+    // The contract mirrors `random_audio_interval`: multiply the roll across the pool
     // and floor into an index. `rand::random::<f32>()` yields `0.0..1.0`, but
     // the clamp at exactly 1.0 is pinned anyway — an inclusive roll from a
     // future caller must never index out of bounds (the `%`-vs-`*` crash of

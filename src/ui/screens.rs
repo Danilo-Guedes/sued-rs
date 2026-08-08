@@ -295,6 +295,7 @@ mod tests {
     /// they fail if a render site forgets its decoration.
     #[test]
     fn the_decoration_the_tables_no_longer_carry_still_reaches_the_screen() {
+        #[allow(clippy::type_complexity)]
         let expected: [(&str, &[KeyPress], fn(Translation) -> Vec<String>); 4] = [
             ("menu", &[KeyPress::Enter], |t| {
                 vec![

@@ -6,8 +6,8 @@
 //! in an audio build. kira owns its own realtime audio thread, so nothing here
 //! spawns threads — we just hand it sounds to play.
 
-pub const LAUGH_MIN_SECS: u64 = 40;
-pub const LAUGH_MAX_SECS: u64 = 120;
+pub const RANDOM_AUDIO_MIN_SECONDS: u64 = 40;
+pub const RANDOM_AUDIO_MAX_SECONDS: u64 = 90;
 
 #[cfg(feature = "audio")]
 const SILENCE_DB: f32 = -60.0; // mirrors kira's Decibels::SILENCE
@@ -24,22 +24,92 @@ use kira::{
     sound::static_sound::StaticSoundData,
 };
 
-/// A one-shot sound triggered by a state change. `App` queues one; `main` drains
-/// it each tick and plays it. **Not** feature-gated — the pure app logic decides
-/// *which* sound to play without ever depending on kira, so it stays testable.
+/// A one-shot sound. **Not** feature-gated — the pure logic decides *which*
+/// sound to play without ever depending on kira, so it stays testable.
+///
+/// Two different things fire these, and the split matters:
+///
+/// - **State-triggered** ([`JumpScare`](Self::JumpScare), [`Thunder`](Self::Thunder)):
+///   `App` queues one when the session changes state; `main` drains it each tick.
+///   They land on a specific beat and must never fire at random.
+/// - **Timer-driven** (everything in [`ALL_RANDOM_CUES`](Self::ALL_RANDOM_CUES)):
+///   `main`'s own clock fires these on a [`random_audio_interval`] to keep the
+///   room feeling inhabited. Nothing in `App` knows about them.
+///
+/// [`next_cue`] walks only the second group, so the two can never cross.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AudioCue {
     /// SUED replies — the jump-scare sting (`assets/jump_scare.ogg`).
     JumpScare,
-    /// random demonic laughter (`assets/laugh.ogg`) running in background.
-    Laugh,
-    //thunder sound effect
+    /// The decoy buffer is running out of characters (`assets/thunder.ogg`).
     Thunder,
+    /// Demonic laughter (`assets/laugh.ogg`).
+    Laugh,
+    /// Muttered summoning (`assets/incantation_1.ogg`).
+    Incantation1,
+    /// Muttered summoning, second take (`assets/incantation_2.ogg`).
+    Incantation2,
+    /// A distant shriek (`assets/scream.ogg`).
+    Scream,
+    /// A single toll (`assets/bell.ogg`).
+    Bell,
 }
 
-pub fn laugh_interval(roll: f32) -> Duration {
-    let span = LAUGH_MAX_SECS - LAUGH_MIN_SECS;
-    Duration::from_secs(LAUGH_MIN_SECS + (roll * span as f32) as u64)
+impl AudioCue {
+    /// The timer-driven rotation, in play order. Deliberately *not* the
+    /// declaration order of the enum: the two incantations sit apart so a lap
+    /// never plays them back to back, which is the one pairing that sounds like
+    /// a repeat rather than two different sounds.
+    ///
+    /// Adding a variant here puts it in the rotation; adding one to the enum
+    /// alone leaves it state-triggered. `the_rotation_never_fires_a_state_triggered_cue`
+    /// is what catches a new cue landing in the wrong group.
+    // In the silent build the only caller is `next_cue`, which is itself only
+    // reached from tests — `dead_code` doesn't count test usage, so it fires.
+    #[cfg_attr(not(feature = "audio"), allow(dead_code))]
+    const ALL_RANDOM_CUES: [AudioCue; 5] = [
+        AudioCue::Laugh,
+        AudioCue::Incantation1,
+        AudioCue::Scream,
+        AudioCue::Incantation2,
+        AudioCue::Bell,
+    ];
+}
+
+/// How long to wait before the next timer-driven cue, from a `roll` in `[0, 1)`.
+///
+/// Linear across `RANDOM_AUDIO_MIN_SECONDS..=RANDOM_AUDIO_MAX_SECONDS`: `0.0` is
+/// the floor, `1.0` the ceiling. Pure so it's testable with no sound card.
+pub fn random_audio_interval(roll: f32) -> Duration {
+    let span = RANDOM_AUDIO_MAX_SECONDS - RANDOM_AUDIO_MIN_SECONDS;
+    Duration::from_secs(RANDOM_AUDIO_MIN_SECONDS + (roll * span as f32) as u64)
+}
+
+/// Advances `cursor` one step around [`AudioCue::ALL_RANDOM_CUES`] and returns
+/// the cue it was pointing at.
+///
+/// **Round-robin, not a random draw**, which is a deliberate reversal. Drawing
+/// independently from five cues clumps badly in a session that only fires a
+/// dozen of them: the same sting lands three times running while another never
+/// shows up at all. Walking the list guarantees every cue is heard once per lap.
+/// The *interval* stays random ([`random_audio_interval`]), so the rotation
+/// still never sounds metronomic.
+///
+/// The caller owns the cursor, which keeps this pure and kira-free — same tier
+/// as [`random_audio_interval`], so it compiles and is tested in both the audio
+/// and the silent build. Indexing goes through `%` as well as the advance, so a
+/// cursor seeded out of range (a random start, say) wraps instead of panicking.
+// Ungated so the rotation is specified once and tested in both builds — but in
+// the silent build nothing in `main` reaches it (the stub `play_next_random_cue`
+// is a no-op), so outside `cfg(test)` it is genuinely unreachable there.
+#[cfg_attr(not(feature = "audio"), allow(dead_code))]
+pub fn next_cue(cursor: &mut usize) -> AudioCue {
+    let cues = AudioCue::ALL_RANDOM_CUES;
+
+    let cue = cues[*cursor % cues.len()];
+    *cursor = (*cursor + 1) % cues.len();
+
+    cue
 }
 
 /// Converts the config's `0`–`100` volume **percent** into the **decibels** kira
@@ -62,7 +132,7 @@ pub fn laugh_interval(roll: f32) -> Duration {
 ///   `Configuration` already stops the slider at 100, but that guarantee lives
 ///   in another module and this one refuses to depend on it.
 ///
-/// Pure and kira-free on purpose (like [`laugh_interval`]): it's arithmetic, so
+/// Pure and kira-free on purpose (like [`random_audio_interval`]): it's arithmetic, so
 /// it compiles and is tested in both the audio and the silent build, with no
 /// sound card anywhere. Only the caller wraps the result in `Decibels(..)`.
 #[cfg(feature = "audio")]
@@ -98,32 +168,44 @@ impl Audio {
         Ok(Audio)
     }
 
-    pub fn start_ambience(&mut self) {}
+    pub fn start_background_ambience(&mut self) {}
 
     pub fn play(&mut self, _cue: AudioCue) {}
 
     pub fn set_volume(&mut self, _percent: u8) {}
+
+    pub fn play_next_random_cue(&mut self) {}
 }
 
 #[cfg(feature = "audio")]
 struct Player {
     manager: AudioManager,
     ambience_sound: StaticSoundData,
-    laugh_sound: StaticSoundData,
     jump_scare_sound: StaticSoundData,
     thunder_sound: StaticSoundData,
+    laugh_sound: StaticSoundData,
+    incantation_1: StaticSoundData,
+    incantation_2: StaticSoundData,
+    scream: StaticSoundData,
+    bell: StaticSoundData,
 }
 
 #[cfg(feature = "audio")]
 pub struct Audio {
     player: Option<Player>,
+    /// Cursor into [`AudioCue::ALL_RANDOM_CUES`], owned here but advanced by the
+    /// pure [`next_cue`] so the rotation itself stays testable without a device.
+    next_random_cue_index: usize,
 }
 
 #[cfg(feature = "audio")]
 impl Audio {
     pub fn new(audio_enabled: bool) -> anyhow::Result<Self> {
         if !audio_enabled {
-            return Ok(Audio { player: None });
+            return Ok(Audio {
+                player: None,
+                next_random_cue_index: 0,
+            });
         }
 
         let audio_manager = AudioManager::<DefaultBackend>::new(AudioManagerSettings::default())?;
@@ -138,20 +220,38 @@ impl Audio {
         let thunder_sound =
             StaticSoundData::from_cursor(Cursor::new(include_bytes!("../assets/thunder.ogg")))?;
 
+        let incantation_1 = StaticSoundData::from_cursor(Cursor::new(include_bytes!(
+            "../assets/incantation_1.ogg"
+        )))?;
+
+        let incantation_2 = StaticSoundData::from_cursor(Cursor::new(include_bytes!(
+            "../assets/incantation_2.ogg"
+        )))?;
+
+        let scream =
+            StaticSoundData::from_cursor(Cursor::new(include_bytes!("../assets/scream.ogg")))?;
+
+        let bell = StaticSoundData::from_cursor(Cursor::new(include_bytes!("../assets/bell.ogg")))?;
+
         let player = Player {
             manager: audio_manager,
             ambience_sound,
             laugh_sound,
             jump_scare_sound,
             thunder_sound,
+            incantation_1,
+            incantation_2,
+            scream,
+            bell,
         };
 
         Ok(Audio {
             player: Some(player),
+            next_random_cue_index: 0,
         })
     }
 
-    pub fn start_ambience(&mut self) {
+    pub fn start_background_ambience(&mut self) {
         let Some(player) = &mut self.player else {
             return;
         };
@@ -166,16 +266,40 @@ impl Audio {
         };
 
         match audio_cue {
-            AudioCue::Laugh => {
-                let _ = player.manager.play(player.laugh_sound.clone());
-            }
             AudioCue::JumpScare => {
                 let _ = player.manager.play(player.jump_scare_sound.clone());
             }
             AudioCue::Thunder => {
                 let _ = player.manager.play(player.thunder_sound.clone());
             }
+            AudioCue::Laugh => {
+                let _ = player.manager.play(player.laugh_sound.clone());
+            }
+
+            AudioCue::Incantation1 => {
+                let _ = player.manager.play(player.incantation_1.clone());
+            }
+
+            AudioCue::Incantation2 => {
+                let _ = player.manager.play(player.incantation_2.clone());
+            }
+
+            AudioCue::Scream => {
+                let _ = player.manager.play(player.scream.clone());
+            }
+
+            AudioCue::Bell => {
+                let _ = player.manager.play(player.bell.clone());
+            }
         }
+    }
+
+    /// Fires the next cue in the rotation. Named `random_cue` rather than
+    /// `ambience` on purpose — [`start_background_ambience`](Self::start_background_ambience)
+    /// is the looping dread bed; these are one-shot stings layered over it.
+    pub fn play_next_random_cue(&mut self) {
+        let cue = next_cue(&mut self.next_random_cue_index);
+        self.play(cue);
     }
 
     pub fn set_volume(&mut self, percent: u8) {
@@ -196,37 +320,149 @@ mod cadence_tests {
     use std::time::Duration;
 
     #[test]
-    fn laugh_interval_sits_at_the_floor_for_roll_zero() {
-        assert_eq!(laugh_interval(0.0), Duration::from_secs(40));
+    fn the_interval_sits_at_the_floor_for_roll_zero() {
+        assert_eq!(
+            random_audio_interval(0.0),
+            Duration::from_secs(RANDOM_AUDIO_MIN_SECONDS)
+        );
     }
 
     #[test]
-    fn laugh_interval_reaches_the_ceiling_for_roll_one() {
-        assert_eq!(laugh_interval(1.0), Duration::from_secs(120));
+    fn the_interval_reaches_the_ceiling_for_roll_one() {
+        assert_eq!(
+            random_audio_interval(1.0),
+            Duration::from_secs(RANDOM_AUDIO_MAX_SECONDS)
+        );
     }
 
     #[test]
-    fn laugh_interval_lands_midway_for_a_half_roll() {
-        assert_eq!(laugh_interval(0.5), Duration::from_secs(80));
+    fn the_interval_lands_midway_for_a_half_roll() {
+        assert_eq!(
+            random_audio_interval(0.5),
+            Duration::from_secs(
+                RANDOM_AUDIO_MIN_SECONDS
+                    + (RANDOM_AUDIO_MAX_SECONDS - RANDOM_AUDIO_MIN_SECONDS) / 2
+            )
+        );
     }
 
     #[test]
-    fn laugh_interval_stays_within_bounds_across_the_rng_range() {
+    fn the_interval_stays_within_bounds_across_the_rng_range() {
         // `rand::random::<f32>()` yields [0.0, 1.0). Sweep it: every result must
-        // land in [40, 120]s — never quieter than the floor, never longer than the ceiling.
+        // land inside the floor..=ceiling window. The bounds are read from the
+        // constants rather than written as literals so that retuning the range
+        // (40–120 → 40–90, and whatever comes next) can never quietly leave this
+        // asserting a window WIDER than the real one, which passes while checking
+        // nothing.
         for i in 0..=100 {
             let roll = i as f32 / 100.0;
-            let secs = laugh_interval(roll).as_secs();
+            let secs = random_audio_interval(roll).as_secs();
             assert!(
-                (40..=120).contains(&secs),
-                "roll {roll} produced {secs}s, outside 40..=120"
+                (RANDOM_AUDIO_MIN_SECONDS..=RANDOM_AUDIO_MAX_SECONDS).contains(&secs),
+                "roll {roll} produced {secs}s, outside {RANDOM_AUDIO_MIN_SECONDS}..={RANDOM_AUDIO_MAX_SECONDS}"
             );
         }
     }
 }
 
+// ── next_cue: the timer-driven rotation ───────────────────────────────────────
+// Ungated like the cadence, and for the same reason: the cursor walk is arithmetic
+// over a const array, so it's tested in BOTH builds with no sound card. This is
+// the whole point of `next_cue` taking `&mut usize` instead of living on `Audio`
+// — from the outside, `play_next_random_cue` swallows its choice into kira and no
+// test can see which cue came out.
+#[cfg(test)]
+mod rotation_tests {
+    use super::*;
+
+    /// Walks `n` steps from a fresh cursor.
+    fn walk(n: usize) -> Vec<AudioCue> {
+        let mut cursor = 0;
+        (0..n).map(|_| next_cue(&mut cursor)).collect()
+    }
+
+    #[test]
+    fn a_full_lap_plays_every_cue_in_the_rotation_exactly_once() {
+        // The property that motivated round-robin in the first place. A random
+        // draw over five cues clumps: play-testing showed the same sting three
+        // times running while others never appeared. One lap, one of each.
+        let lap = walk(AudioCue::ALL_RANDOM_CUES.len());
+
+        for cue in AudioCue::ALL_RANDOM_CUES {
+            let plays = lap.iter().filter(|&&played| played == cue).count();
+            assert_eq!(
+                plays, 1,
+                "{cue:?} played {plays}× in one lap {lap:?}, want 1"
+            );
+        }
+    }
+
+    #[test]
+    fn a_lap_walks_the_rotation_in_its_declared_order() {
+        // Stronger than "one of each", and NOT redundant with it: advancing the
+        // cursor by 2 instead of 1 still visits all five and still wraps after
+        // five steps (gcd(2, 5) == 1), so the coverage test above passes while
+        // the running order silently becomes Laugh, Scream, Bell, Incantation1,
+        // Incantation2 — the two incantations back to back, which is precisely
+        // what `ALL_RANDOM_CUES` is ordered to avoid. Only pinning the sequence
+        // catches that.
+        assert_eq!(
+            walk(AudioCue::ALL_RANDOM_CUES.len()),
+            AudioCue::ALL_RANDOM_CUES.to_vec(),
+            "the rotation drifted from the order declared in ALL_RANDOM_CUES"
+        );
+    }
+
+    #[test]
+    fn the_lap_wraps_instead_of_running_off_the_end() {
+        // The step after the last cue is the first cue again — and the second lap
+        // must be identical to the first, not merely non-panicking. An `idx + 1`
+        // that wrapped to 1 instead of 0 would still be in range and still play
+        // sounds forever, silently starving the first cue after lap one.
+        let two_laps = walk(AudioCue::ALL_RANDOM_CUES.len() * 2);
+        let (first, second) = two_laps.split_at(AudioCue::ALL_RANDOM_CUES.len());
+
+        assert_eq!(first, second, "the second lap diverged from the first");
+    }
+
+    #[test]
+    fn the_rotation_never_fires_a_state_triggered_cue() {
+        // The invariant that keeps the two trigger sources disjoint. `JumpScare`
+        // has to land exactly when SUED answers and `Thunder` when the decoy
+        // buffer runs dry; either one going off on the ambience timer wrecks the
+        // beat the whole prank is built on. Swept over several laps so a cue that
+        // only surfaces late still gets caught.
+        for cue in walk(AudioCue::ALL_RANDOM_CUES.len() * 3) {
+            assert!(
+                !matches!(cue, AudioCue::JumpScare | AudioCue::Thunder),
+                "{cue:?} is state-triggered but turned up in the timer rotation"
+            );
+        }
+    }
+
+    #[test]
+    fn a_cursor_seeded_past_the_end_wraps_instead_of_panicking() {
+        // `next_cue` takes whatever `usize` the caller hands it, and the obvious
+        // next feature — starting each session at a random offset so the order
+        // isn't identical every run — is exactly what would hand it one past the
+        // end. Indexing goes through `%` so that's a wrap, not an out-of-bounds
+        // panic mid-session.
+        let mut cursor = 999;
+        let cue = next_cue(&mut cursor);
+
+        assert!(
+            AudioCue::ALL_RANDOM_CUES.contains(&cue),
+            "an out-of-range cursor produced {cue:?}, which is not in the rotation"
+        );
+        assert!(
+            cursor < AudioCue::ALL_RANDOM_CUES.len(),
+            "the cursor stayed out of range at {cursor}"
+        );
+    }
+}
+
 // ── volume_db: the percent → decibels seam ─────────────────────────────────────
-// Ungated on purpose, exactly like `laugh_interval`: it's arithmetic, it touches
+// Ungated on purpose, exactly like `random_audio_interval`: it's arithmetic, it touches
 // no kira type, so it compiles and is tested in BOTH the audio and silent builds
 // and needs no sound card. The kira edge wraps the result in `Decibels(..)`.
 //
@@ -375,9 +611,10 @@ mod tests {
     fn a_silent_audio_stays_quiet_instead_of_panicking() {
         let mut audio = Audio::new(false).unwrap();
 
-        audio.start_ambience();
+        audio.start_background_ambience();
         audio.play(AudioCue::JumpScare);
         audio.play(AudioCue::Laugh);
+        audio.play_next_random_cue();
         // `set_volume` reaches for `main_track()` on the manager — the one call
         // here that would touch a device that was never opened. `--no-sound` has
         // to swallow it like the rest.
