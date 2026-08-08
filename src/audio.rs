@@ -32,7 +32,7 @@ use kira::{
 /// - **State-triggered** ([`JumpScare`](Self::JumpScare), [`Thunder`](Self::Thunder)):
 ///   `App` queues one when the session changes state; `main` drains it each tick.
 ///   They land on a specific beat and must never fire at random.
-/// - **Timer-driven** (everything in [`ALL_RANDOM_CUES`](Self::ALL_RANDOM_CUES)):
+/// - **Timer-driven** (everything in [`ALL_RANDOM_CUES_QUEUE`](Self::ALL_RANDOM_CUES_QUEUE)):
 ///   `main`'s own clock fires these on a [`random_audio_interval`] to keep the
 ///   room feeling inhabited. Nothing in `App` knows about them.
 ///
@@ -56,10 +56,22 @@ pub enum AudioCue {
 }
 
 impl AudioCue {
-    /// The timer-driven rotation, in play order. Deliberately *not* the
-    /// declaration order of the enum: the two incantations sit apart so a lap
-    /// never plays them back to back, which is the one pairing that sounds like
-    /// a repeat rather than two different sounds.
+    /// The timer-driven rotation, in play order — a **queue**, walked one step
+    /// per firing by [`next_cue`], not a pool drawn from at random.
+    ///
+    /// Neither the order nor the length is incidental:
+    ///
+    /// - **`Laugh` appears twice, and that is the point.** `incantation_1`/`_2`
+    ///   are one recording split into two takes, so listing every cue once would
+    ///   spend 2 of 5 stings on the incantation and let it become the voice of
+    ///   the room (the imbalance `plan/media/PROVENANCE.md` flags). A second
+    ///   `Laugh` answers it two-for-two — SueD himself, not the thing outside.
+    ///   ⚠ Deleting the duplicate as a typo re-opens exactly that imbalance;
+    ///   `a_lap_plays_the_laugh_as_often_as_the_incantation` is what stops it.
+    /// - **The two incantation takes sit apart**, so a lap never plays them back
+    ///   to back — the one pairing that reads as a stutter rather than as two
+    ///   different sounds.
+    /// - `Scream` and `Bell` stay single on purpose: rarer punctuation.
     ///
     /// Adding a variant here puts it in the rotation; adding one to the enum
     /// alone leaves it state-triggered. `the_rotation_never_fires_a_state_triggered_cue`
@@ -67,10 +79,11 @@ impl AudioCue {
     // In the silent build the only caller is `next_cue`, which is itself only
     // reached from tests — `dead_code` doesn't count test usage, so it fires.
     #[cfg_attr(not(feature = "audio"), allow(dead_code))]
-    const ALL_RANDOM_CUES: [AudioCue; 5] = [
+    const ALL_RANDOM_CUES_QUEUE: [AudioCue; 6] = [
         AudioCue::Laugh,
         AudioCue::Incantation1,
         AudioCue::Scream,
+        AudioCue::Laugh,
         AudioCue::Incantation2,
         AudioCue::Bell,
     ];
@@ -85,15 +98,16 @@ pub fn random_audio_interval(roll: f32) -> Duration {
     Duration::from_secs(RANDOM_AUDIO_MIN_SECONDS + (roll * span as f32) as u64)
 }
 
-/// Advances `cursor` one step around [`AudioCue::ALL_RANDOM_CUES`] and returns
+/// Advances `cursor` one step around [`AudioCue::ALL_RANDOM_CUES_QUEUE`] and returns
 /// the cue it was pointing at.
 ///
 /// **Round-robin, not a random draw**, which is a deliberate reversal. Drawing
-/// independently from five cues clumps badly in a session that only fires a
-/// dozen of them: the same sting lands three times running while another never
-/// shows up at all. Walking the list guarantees every cue is heard once per lap.
-/// The *interval* stays random ([`random_audio_interval`]), so the rotation
-/// still never sounds metronomic.
+/// independently from a handful of cues clumps badly in a session that only
+/// fires a dozen of them: the same sting lands three times running while another
+/// never shows up at all. Walking the queue guarantees every cue is heard every
+/// lap, in the balance [`AudioCue::ALL_RANDOM_CUES_QUEUE`] declares. The
+/// *interval* stays random ([`random_audio_interval`]), so the rotation still
+/// never sounds metronomic.
 ///
 /// The caller owns the cursor, which keeps this pure and kira-free — same tier
 /// as [`random_audio_interval`], so it compiles and is tested in both the audio
@@ -104,7 +118,7 @@ pub fn random_audio_interval(roll: f32) -> Duration {
 // is a no-op), so outside `cfg(test)` it is genuinely unreachable there.
 #[cfg_attr(not(feature = "audio"), allow(dead_code))]
 pub fn next_cue(cursor: &mut usize) -> AudioCue {
-    let cues = AudioCue::ALL_RANDOM_CUES;
+    let cues = AudioCue::ALL_RANDOM_CUES_QUEUE;
 
     let cue = cues[*cursor % cues.len()];
     *cursor = (*cursor + 1) % cues.len();
@@ -193,7 +207,7 @@ struct Player {
 #[cfg(feature = "audio")]
 pub struct Audio {
     player: Option<Player>,
-    /// Cursor into [`AudioCue::ALL_RANDOM_CUES`], owned here but advanced by the
+    /// Cursor into [`AudioCue::ALL_RANDOM_CUES_QUEUE`], owned here but advanced by the
     /// pure [`next_cue`] so the rotation itself stays testable without a device.
     next_random_cue_index: usize,
 }
@@ -382,17 +396,56 @@ mod rotation_tests {
     }
 
     #[test]
-    fn a_full_lap_plays_every_cue_in_the_rotation_exactly_once() {
-        // The property that motivated round-robin in the first place. A random
-        // draw over five cues clumps: play-testing showed the same sting three
-        // times running while others never appeared. One lap, one of each.
-        let lap = walk(AudioCue::ALL_RANDOM_CUES.len());
+    fn a_lap_plays_the_laugh_as_often_as_the_incantation() {
+        // The weighting is a decision, not an accident of how many files exist.
+        //
+        // `incantation_1`/`_2` are ONE recording split in two, so a lap that
+        // listed each cue once would spend 2 of 5 stings on the incantation and
+        // make it the voice of the room — the imbalance PROVENANCE.md flags. The
+        // fix taken here is the second `Laugh` slot rather than a category-then-
+        // variant pick: SueD's own laugh answers the incantation two-for-two,
+        // and `Scream`/`Bell` stay the rarer punctuation on purpose.
+        //
+        // Counting by CATEGORY is the whole point — summing the two incantation
+        // variants is what makes "they are the same sound" visible to the test.
+        let lap = walk(AudioCue::ALL_RANDOM_CUES_QUEUE.len());
+        let plays = |cue| lap.iter().filter(|&&played| played == cue).count();
 
-        for cue in AudioCue::ALL_RANDOM_CUES {
-            let plays = lap.iter().filter(|&&played| played == cue).count();
-            assert_eq!(
-                plays, 1,
-                "{cue:?} played {plays}× in one lap {lap:?}, want 1"
+        let laugh = plays(AudioCue::Laugh);
+        let incantation = plays(AudioCue::Incantation1) + plays(AudioCue::Incantation2);
+        let scream = plays(AudioCue::Scream);
+        let bell = plays(AudioCue::Bell);
+
+        assert_eq!(
+            (laugh, incantation, scream, bell),
+            (2, 2, 1, 1),
+            "the rotation's balance drifted — lap was {lap:?}"
+        );
+    }
+
+    #[test]
+    fn both_incantation_takes_are_heard_and_never_back_to_back() {
+        // Two things at once, because they're the same decision: splitting one
+        // recording into two takes only buys variety if BOTH actually play, and
+        // it only sounds like two sounds if they're never adjacent. A lap that
+        // fired `_1` then `_2` in sequence would read as one long stutter — the
+        // reason the queue interleaves them rather than listing them together.
+        let two_laps = walk(AudioCue::ALL_RANDOM_CUES_QUEUE.len() * 2);
+
+        for take in [AudioCue::Incantation1, AudioCue::Incantation2] {
+            assert!(
+                two_laps.contains(&take),
+                "{take:?} never played across two laps {two_laps:?}"
+            );
+        }
+
+        for pair in two_laps.windows(2) {
+            let both_incantations = pair
+                .iter()
+                .all(|cue| matches!(cue, AudioCue::Incantation1 | AudioCue::Incantation2));
+            assert!(
+                !both_incantations,
+                "two incantation takes played back to back in {two_laps:?}"
             );
         }
     }
@@ -404,12 +457,12 @@ mod rotation_tests {
         // five steps (gcd(2, 5) == 1), so the coverage test above passes while
         // the running order silently becomes Laugh, Scream, Bell, Incantation1,
         // Incantation2 — the two incantations back to back, which is precisely
-        // what `ALL_RANDOM_CUES` is ordered to avoid. Only pinning the sequence
+        // what `ALL_RANDOM_CUES_QUEUE` is ordered to avoid. Only pinning the sequence
         // catches that.
         assert_eq!(
-            walk(AudioCue::ALL_RANDOM_CUES.len()),
-            AudioCue::ALL_RANDOM_CUES.to_vec(),
-            "the rotation drifted from the order declared in ALL_RANDOM_CUES"
+            walk(AudioCue::ALL_RANDOM_CUES_QUEUE.len()),
+            AudioCue::ALL_RANDOM_CUES_QUEUE.to_vec(),
+            "the rotation drifted from the order declared in ALL_RANDOM_CUES_QUEUE"
         );
     }
 
@@ -419,8 +472,8 @@ mod rotation_tests {
         // must be identical to the first, not merely non-panicking. An `idx + 1`
         // that wrapped to 1 instead of 0 would still be in range and still play
         // sounds forever, silently starving the first cue after lap one.
-        let two_laps = walk(AudioCue::ALL_RANDOM_CUES.len() * 2);
-        let (first, second) = two_laps.split_at(AudioCue::ALL_RANDOM_CUES.len());
+        let two_laps = walk(AudioCue::ALL_RANDOM_CUES_QUEUE.len() * 2);
+        let (first, second) = two_laps.split_at(AudioCue::ALL_RANDOM_CUES_QUEUE.len());
 
         assert_eq!(first, second, "the second lap diverged from the first");
     }
@@ -432,7 +485,7 @@ mod rotation_tests {
         // buffer runs dry; either one going off on the ambience timer wrecks the
         // beat the whole prank is built on. Swept over several laps so a cue that
         // only surfaces late still gets caught.
-        for cue in walk(AudioCue::ALL_RANDOM_CUES.len() * 3) {
+        for cue in walk(AudioCue::ALL_RANDOM_CUES_QUEUE.len() * 3) {
             assert!(
                 !matches!(cue, AudioCue::JumpScare | AudioCue::Thunder),
                 "{cue:?} is state-triggered but turned up in the timer rotation"
@@ -451,11 +504,11 @@ mod rotation_tests {
         let cue = next_cue(&mut cursor);
 
         assert!(
-            AudioCue::ALL_RANDOM_CUES.contains(&cue),
+            AudioCue::ALL_RANDOM_CUES_QUEUE.contains(&cue),
             "an out-of-range cursor produced {cue:?}, which is not in the rotation"
         );
         assert!(
-            cursor < AudioCue::ALL_RANDOM_CUES.len(),
+            cursor < AudioCue::ALL_RANDOM_CUES_QUEUE.len(),
             "the cursor stayed out of range at {cursor}"
         );
     }

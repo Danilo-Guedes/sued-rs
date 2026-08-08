@@ -12,7 +12,7 @@ pub enum Message {
 /// or two screens long, "a big jump" is all this key has to be, so a constant
 /// buys the behaviour without plumbing render geometry back into key handling.
 /// Tune it by eye once the popover draws.
-pub const HISTORY_PAGE_ROWS: u16 = 10;
+pub const HISTORY_PAGE_ROWS: u16 = 9;
 
 #[derive(Debug, Default, Copy, Clone)]
 pub struct HistoryView {
