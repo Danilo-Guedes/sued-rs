@@ -112,7 +112,7 @@ pub struct StoryView {
     from_top: u16,
 }
 
-pub const STORY_PAGE_ROWS: u16 = 10;
+pub const STORY_PAGE_ROWS: u16 = 9;
 
 impl StoryView {
     pub fn rows_from_top(&self) -> u16 {
