@@ -2,6 +2,12 @@
 name = "sued-rs"
 version = "0.1.0"
 edition = "2024"
+# Two independent things land on 1.88, which is why this is the number:
+#   - `app.rs`'s quit-confirm guard uses a LET-CHAIN, stable in edition 2024 at 1.88
+#   - the ratatui 0.30 family (and `time`) each declare `rust-version = "1.88.0"`
+# Edition 2024 alone would only demand 1.85. Verified against every crate in
+# Cargo.lock, not just the direct dependencies. Keep in step with the README.
+rust-version = "1.88"
 description = "A horror-themed terminal recreation of SueD, the 2000s Brazilian prank oracle."
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/Danilo-Guedes/sued-rs"
