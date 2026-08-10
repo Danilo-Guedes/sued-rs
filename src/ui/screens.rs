@@ -10,12 +10,44 @@ mod info;
 mod intro;
 mod menu;
 mod story;
+mod too_small;
 
 use ratatui::Frame;
 
 use crate::app::{App, Screen};
+use crate::constants::{MIN_TERMINAL_HEIGHT, MIN_TERMINAL_WIDTH};
 
 pub fn render(frame: &mut Frame, app: &App) {
+    // ⬅ G3's floor guard, and the one gate every screen sits behind.
+    //
+    // Below this the app does not degrade, it BREAKS — the decoy clips, which is
+    // the trick itself failing silently in front of the mark. A notice is the
+    // honest response; a squeezed layout would keep the illusion running while
+    // quietly eating the end of every line.
+    //
+    // ⚠ **Render-only, by design — no key handling changes anywhere.** The tick
+    // loop redraws every ~50 ms, so the app is still live underneath and comes
+    // straight back the moment the window is resized. Swallowing keys here would
+    // add a second piece of state to keep in step with this one for no gain.
+    //
+    // 📌 `--how-it-works` is unaffected: it prints and exits before
+    // `TerminalGuard`, so it never reaches a `Frame` at all.
+    let area = frame.area();
+    if area.width < MIN_TERMINAL_WIDTH || area.height < MIN_TERMINAL_HEIGHT {
+        too_small::render(frame, app.config());
+        return;
+    }
+
+    draw_screen(frame, app);
+}
+
+/// The screen dispatch, split out from the guard above so tests can reach a
+/// screen at a size the guard would otherwise intercept.
+///
+/// ⚠ That is not a testing convenience — it is the only way to keep covering
+/// `story.rs`'s scroll arithmetic, which by construction only runs when the
+/// story does NOT fit. See `the_story_actually_scrolls_when_it_does_not_fit`.
+fn draw_screen(frame: &mut Frame, app: &App) {
     match app.screen() {
         // ⚠ These two take the whole `App` (G21) where they used to take only
         // the slices they drew from. `confirm_quit` lives on `App`, so a screen
@@ -50,7 +82,10 @@ mod tests {
     use crate::app::{AppFlow, AskingState};
     use crate::config::Configuration;
     use crate::constants::RECOMMENDED_TERMINAL_SIZE as RECOMMENDED;
-    use crate::constants::{AUTHOR_GITHUB, AUTHOR_LINKEDIN, HOW_IT_WORKS_COMMAND};
+    use crate::constants::{
+        AUTHOR_GITHUB, AUTHOR_LINKEDIN, HOW_IT_WORKS_COMMAND, INPUT_CHROME_COLS,
+        LONGEST_DECOY_CHARS,
+    };
     use crate::conversation::Overlay;
     use crate::core::engine::KeyPress;
     use crate::language::{Language, Translation};
@@ -61,10 +96,25 @@ mod tests {
     use ratatui::backend::TestBackend;
     use std::time::Duration;
 
-    /// The measured floor (§J.7) and a comfortable size. The small one matters:
-    /// layout arithmetic that only ever ran on a maximised terminal is precisely
-    /// where a subtraction underflows.
-    const SIZES: [(u16, u16); 3] = [(132, 41), (92, 40), (80, 24)];
+    /// The sizes a screen is ever actually drawn at.
+    ///
+    /// ⚠ **AMENDED BY G3.** This used to be `[(132,41), (92,40), (80,24)]`, and
+    /// two of those are now below `MIN_TERMINAL_WIDTH`×`MIN_TERMINAL_HEIGHT` —
+    /// the guard draws the resize notice there, so testing a screen at 80×24 was
+    /// testing a frame no user can reach. The tight case is now **the floor
+    /// itself**, which is where layout arithmetic is genuinely most likely to
+    /// underflow among reachable sizes.
+    ///
+    /// 🆕 **200×60 is new, and it is the lesson from G21.** The old trio only
+    /// probed downward. Fixed-width content breaks when the terminal *shrinks*;
+    /// **percentage-width content breaks when it grows** — which is exactly how
+    /// the intro's rule and warning text surfaced beside the quit dialog past
+    /// ~124 columns while every test stayed green.
+    const SIZES: [(u16, u16); 3] = [
+        (200, 60),
+        (132, 41),
+        (MIN_TERMINAL_WIDTH, MIN_TERMINAL_HEIGHT),
+    ];
 
     /// Draw `app` at every size. Panics propagate — that is the whole point.
     fn draw(app: &App) {
@@ -234,14 +284,22 @@ mod tests {
     /// no error at all, so `draw()` above stays perfectly green through exactly
     /// that failure. Reading the buffer back at the small size is the only way
     /// to see it.
-    fn screen_text_at(app: &App, width: u16, height: u16) -> String {
+    /// Draw a screen WITHOUT G3's min-size guard, and read the buffer back.
+    ///
+    /// ⚠ Only for cases that must exercise a code path the guard makes
+    /// unreachable — today that is `story.rs`'s scrolling, which only runs when
+    /// the prose overflows its box. Everything else must go through
+    /// `screen_text_at`, or it stops testing what users can actually see.
+    fn unguarded_text_at(app: &App, width: u16, height: u16) -> String {
         let backend = TestBackend::new(width, height);
         let mut terminal = Terminal::new(backend).expect("TestBackend must build a terminal");
         terminal
-            .draw(|frame| render(frame, app))
+            .draw(|frame| draw_screen(frame, app))
             .expect("draw must succeed");
+        buffer_to_text(terminal.backend().buffer())
+    }
 
-        let buffer = terminal.backend().buffer();
+    fn buffer_to_text(buffer: &ratatui::buffer::Buffer) -> String {
         let row_width = buffer.area.width as usize;
         buffer
             .content()
@@ -249,6 +307,16 @@ mod tests {
             .map(|row| row.iter().map(|cell| cell.symbol()).collect::<String>())
             .collect::<Vec<_>>()
             .join("\n")
+    }
+
+    fn screen_text_at(app: &App, width: u16, height: u16) -> String {
+        let backend = TestBackend::new(width, height);
+        let mut terminal = Terminal::new(backend).expect("TestBackend must build a terminal");
+        terminal
+            .draw(|frame| render(frame, app))
+            .expect("draw must succeed");
+
+        buffer_to_text(terminal.backend().buffer())
     }
 
     /// The live reply's words, straight off the app state — so the assertion
@@ -520,6 +588,140 @@ mod tests {
         }
     }
 
+    // ── G3 · the min-size guard ──────────────────────────────────────────────
+
+    #[test]
+    fn below_the_floor_the_app_is_replaced_by_the_notice() {
+        // ⚠ BOTH HALVES MATTER. Asserting only that the notice appears would
+        // pass on a render that draws it ON TOP of a broken screen — which is
+        // the failure this guard exists to prevent, since a half-drawn ask
+        // screen is the trick clipping in front of the mark.
+        for (width, height) in [(80, 24), (120, 39), (121, 38)] {
+            let app = app_after(&[]); // intro
+            let texts = app.config().language().translation().too_small;
+            let screen = screen_text_at(&app, width, height);
+
+            assert!(
+                screen.contains(texts.title),
+                "at {width}x{height} (below the floor) the notice must be drawn"
+            );
+            assert!(
+                !screen.contains(RECOMMENDED),
+                "at {width}x{height} the intro must NOT also be drawn underneath"
+            );
+        }
+    }
+
+    #[test]
+    fn at_the_floor_itself_the_app_draws_normally() {
+        // The other side of the boundary, and the reason the two constants are
+        // an inclusive floor rather than a "comfortable" threshold: refusing to
+        // run at a size where every screen renders correctly would be a bug of
+        // its own.
+        let app = app_after(&[]);
+        let texts = app.config().language().translation().too_small;
+        let screen = screen_text_at(&app, MIN_TERMINAL_WIDTH, MIN_TERMINAL_HEIGHT);
+
+        assert!(
+            !screen.contains(texts.title),
+            "at exactly {MIN_TERMINAL_WIDTH}x{MIN_TERMINAL_HEIGHT} the guard must stand down"
+        );
+    }
+
+    #[test]
+    fn the_notice_keeps_both_numbers_on_a_tiny_terminal() {
+        // ⚠ THE NOTICE IS THE ONE THING THAT MUST DEGRADE ALL THE WAY DOWN.
+        // Every other screen is allowed to assume it has room, because the guard
+        // guarantees it. This one is what the guard shows INSTEAD, so if it also
+        // needs room there is nothing left to tell the user what went wrong.
+        //
+        // The two sizes are the payload — a resize prompt that names neither the
+        // target nor where you stand is the version nobody can act on — so they
+        // are what gets asserted, not the flavour text.
+        for (width, height) in [(40, 8), (30, 6), (24, 5)] {
+            let app = app_after(&[]);
+            let screen = screen_text_at(&app, width, height);
+
+            assert!(
+                screen.contains(&format!("{MIN_TERMINAL_WIDTH}×{MIN_TERMINAL_HEIGHT}")),
+                "the required size must survive at {width}x{height}"
+            );
+            assert!(
+                screen.contains(&format!("{width}×{height}")),
+                "the CURRENT size must survive at {width}x{height}"
+            );
+        }
+    }
+
+    #[test]
+    fn the_notice_speaks_every_language() {
+        for steps in 0..3 {
+            let app = app_after(&menu_in_language(steps));
+            let language = app.config().language();
+            let texts = language.translation().too_small;
+
+            let screen = screen_text_at(&app, 80, 24);
+            assert!(
+                screen.contains(texts.title) && screen.contains(texts.hint),
+                "{language:?}: the notice must be translated, not left in one language"
+            );
+        }
+    }
+
+    #[test]
+    fn the_minimum_width_still_fits_the_longest_decoy() {
+        // ⚠⚠ THE GUARD ON THE GUARD, and it exists because this exact number was
+        // got wrong once already. §J.7 derived the width floor from
+        // `MIN_DECOY_CHARS = 85` — but that is a TEST ASSERTION, a *lower* bound
+        // on how long a decoy must be, not a description of the pool. The real
+        // decoys run to 113 characters, so the published floor was 29 columns
+        // short of the truth for months.
+        //
+        // Deriving it from the decoys themselves means editing them can never
+        // silently outgrow the floor: add a longer decoy and this fails by name.
+        let longest = [Language::PtBr, Language::EnUs, Language::EsEs]
+            .iter()
+            .flat_map(|language| language.translation().decoys.iter())
+            .map(|decoy| decoy.chars().count())
+            .max()
+            .expect("the decoy pool is never empty") as u16;
+
+        assert!(
+            LONGEST_DECOY_CHARS >= longest,
+            "LONGEST_DECOY_CHARS ({LONGEST_DECOY_CHARS}) no longer matches the real \
+             pool ({longest} chars) — a decoy grew, so MIN_TERMINAL_WIDTH \
+             ({MIN_TERMINAL_WIDTH}) is now too small and the decoy will clip, which \
+             is the trick failing in front of the mark"
+        );
+        assert!(
+            MIN_TERMINAL_WIDTH >= longest + INPUT_CHROME_COLS,
+            "MIN_TERMINAL_WIDTH ({MIN_TERMINAL_WIDTH}) must fit the longest decoy \
+             ({longest} chars) plus {INPUT_CHROME_COLS} columns of chrome"
+        );
+    }
+
+    #[test]
+    fn the_recommended_size_is_not_below_the_floor() {
+        // Two numbers describing the same app from different files: one is what
+        // we TELL people to use, the other is what we REFUSE to run below. A
+        // recommendation beneath the floor would be the app advertising a size
+        // at which it shows the resize notice — which is precisely the class of
+        // drift that made `RECOMMENDED_TERMINAL_SIZE` a constant in the first
+        // place, after it spent months recommending 80×24.
+        let (w, h) = RECOMMENDED
+            .split_once('×')
+            .expect("RECOMMENDED_TERMINAL_SIZE is formatted `W×H`");
+        let (w, h): (u16, u16) = (
+            w.parse().expect("width is a number"),
+            h.parse().expect("height is a number"),
+        );
+
+        assert!(
+            w >= MIN_TERMINAL_WIDTH && h >= MIN_TERMINAL_HEIGHT,
+            "recommended {w}×{h} is below the floor {MIN_TERMINAL_WIDTH}×{MIN_TERMINAL_HEIGHT}"
+        );
+    }
+
     // ── G21 · the quit-confirm, on Intro and on Menu ─────────────────────────
 
     /// Set the language, then land back on the Menu with the cursor resting on
@@ -734,7 +936,15 @@ mod tests {
         // is exercised at all.
         let app_before = about_with_the_story_open(0);
         let story = app_before.config().language().translation().about.story;
-        let before = screen_text_at(&app_before, 80, 24);
+        // ⚠ UNGUARDED, AND AMENDED BY G3 — read the note on `unguarded_text_at`.
+        // 80×24 is below the min-size floor, so `render` would draw the resize
+        // notice here and this test would silently stop exercising `story.rs`
+        // entirely. Measured 2026-08-10: with today's copy the story does **not
+        // overflow at ANY legal size**, so the guard makes this arithmetic
+        // unreachable in the shipped app. It is kept because the prose is
+        // Danilo's and can grow, and because a scroll that silently rotted would
+        // be worse than one that is merely idle.
+        let before = unguarded_text_at(&app_before, 80, 24);
 
         // ⚠⚠ THE PRECONDITION THAT NAMES ITS OWN CAUSE, and it is owed because
         // `body` is about to be REWRITTEN by hand. This whole test silently
@@ -776,7 +986,7 @@ mod tests {
         app.handle_key(KeyPress::PageDown);
 
         assert!(
-            !screen_text_at(&app, 80, 24).contains(&opening),
+            !unguarded_text_at(&app, 80, 24).contains(&opening),
             "PgDn must move the prose — the offset is clamped in the render, and \
              a clamp computed from the wrong height pins it at 0 forever while \
              every state test stays green"
@@ -798,7 +1008,7 @@ mod tests {
         }
 
         assert!(
-            screen_text_at(&app, 80, 24).contains(last_word),
+            unguarded_text_at(&app, 80, 24).contains(last_word),
             "scrolling past the end must stop at the last line ({last_word:?}), \
              not run off into blank rows"
         );
@@ -852,7 +1062,9 @@ mod tests {
         let story = app.config().language().translation().about.story;
         let (_, scroll) = story.scroll_hint;
 
-        let cramped = screen_text_at(&app, 132, 30);
+        // ⚠ UNGUARDED (G3): 30 rows is below the floor. This half tests the
+        // MECHANISM — that the hint appears when the prose really does overflow.
+        let cramped = unguarded_text_at(&app, 132, 30);
         assert!(
             cramped.contains(scroll),
             "at 132×30 the story cannot fit, so the scroll keys must be offered"
@@ -862,6 +1074,10 @@ mod tests {
         // failing because the copy grew, it means the story no longer fits at
         // ANY size — raise the height here rather than deleting the assertion,
         // or the always-scrollable case stops being covered.
+        // Guarded, deliberately — 132×48 is a size users can actually be at, so
+        // this half tests REALITY: with today's copy the hint is never offered
+        // above the floor, which is the correct behaviour and the bug Danilo
+        // originally reported.
         let roomy = screen_text_at(&app, 132, 48);
         assert!(
             !roomy.contains(scroll),

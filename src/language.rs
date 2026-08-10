@@ -52,6 +52,9 @@ pub struct Translation {
     /// Menu → Sair → quit` puts both on screen inside one journey, and `confirm`
     /// mourns a lost séance where `quit` has nothing left to lose.
     pub quit: ConfirmTexts,
+    /// G3's min-size notice — the only thing in the app that draws below the
+    /// floor, so it is also the only thing that has to survive a tiny terminal.
+    pub too_small: TooSmallTexts,
     pub config: ConfigTexts,
     pub menu: MenuTexts,
     pub common: CommonTexts,
@@ -148,6 +151,25 @@ pub struct HistoryTexts {
     pub title: &'static str,
     pub you: &'static str,
     pub hints: &'static [(&'static str, &'static str)],
+}
+
+/// The "your terminal is too small" notice.
+///
+/// ⚠ **No numbers live in here**, deliberately — `needs` and `has` are labels
+/// that get a size appended at render time. The floor is a fact about the app,
+/// not a piece of language, and three hand-typed copies of it are three chances
+/// to drift out of step with `MIN_TERMINAL_WIDTH`. Same argument that put
+/// `RECOMMENDED_TERMINAL_SIZE` in `constants.rs`.
+#[derive(Debug, Copy, Clone)]
+pub struct TooSmallTexts {
+    pub title: &'static str,
+    /// Label for the size the app requires.
+    pub needs: &'static str,
+    /// Label for the size the terminal actually is. ⚠ Showing this is the point:
+    /// "make your terminal bigger" without a target and without saying where you
+    /// currently stand is the version everybody finds useless.
+    pub has: &'static str,
+    pub hint: &'static str,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -469,6 +491,12 @@ fonte: {repo}",
                         ("[Ctrl+C]", "sair"),
                     ],
                 },
+                too_small: TooSmallTexts {
+                    title: "O RITUAL NÃO CABE AQUI",
+                    needs: "o oráculo exige",
+                    has: "esta janela oferece",
+                    hint: "aumente o terminal para prosseguir",
+                },
                 config: ConfigTexts {
                     configuration: "CONFIGURAÇÃO",
                     subtitle: "ajuste o ritual ao seu gosto — o oráculo observa",
@@ -747,6 +775,12 @@ source: {repo}",
                         ("[Ctrl+C]", "quit"),
                     ],
                 },
+                too_small: TooSmallTexts {
+                    title: "THE RITUAL DOES NOT FIT HERE",
+                    needs: "the oracle demands",
+                    has: "this window offers",
+                    hint: "enlarge the terminal to proceed",
+                },
                 config: ConfigTexts {
                     configuration: "CONFIGURATION",
                     subtitle: "tune the ritual to your taste — the oracle watches",
@@ -1021,6 +1055,12 @@ fuente: {repo}",
                         ("[Esc]", "cancelar"),
                         ("[Ctrl+C]", "salir"),
                     ],
+                },
+                too_small: TooSmallTexts {
+                    title: "EL RITUAL NO CABE AQUÍ",
+                    needs: "el oráculo exige",
+                    has: "esta ventana ofrece",
+                    hint: "amplía el terminal para continuar",
                 },
                 config: ConfigTexts {
                     configuration: "CONFIGURACIÓN",

@@ -37,6 +37,54 @@ pub const HOW_IT_WORKS_COMMAND: &str = "sued-rs --how-it-works";
 ///
 /// This is the *comfortable* size — measured as the one where everything
 /// renders correctly, and the size the mockups were drawn at. The hard floor is
-/// lower (~92×40); G3 may yet compact the design or band the layout, and when it
-/// does, this is the one line that changes.
+/// lower (`MIN_TERMINAL_WIDTH`×`MIN_TERMINAL_HEIGHT` below); G3 may yet compact
+/// the design or band the layout, and when it does, this is the one line that
+/// changes.
 pub const RECOMMENDED_TERMINAL_SIZE: &str = "132×41";
+
+/// Below this, `ui::screens::render` draws the "resize me" notice instead of the
+/// app (G3's min-size guard).
+///
+/// ⚠ **This is a FLOOR, not a preference.** It means "below here the app is
+/// broken", not "below here it is cramped" — so it is the *measured* minimum and
+/// deliberately NOT `RECOMMENDED_TERMINAL_SIZE`. Guarding at the comfortable
+/// size would refuse to run at sizes where every screen renders perfectly well.
+///
+/// **Where the width comes from: the decoy, and nothing else.** §J.7-bis swept
+/// every screen a column at a time and found the binding constraint is the
+/// staged decoy — the trick itself — which must never clip. The widest decoy in
+/// any language is 113 chars, and `INPUT_CHROME_COLS` of frame sits around it.
+/// ⚠ Do not re-derive this from `MIN_DECOY_CHARS`: **that constant is a test
+/// assertion — a LOWER bound on decoy length, not a description of the pool** —
+/// and reading it as the pool's width is exactly how §J.7 came to understate
+/// this floor by 29 columns. `the_minimum_width_still_fits_the_longest_decoy`
+/// recomputes it from the real decoys, so editing them cannot silently outgrow
+/// this number.
+///
+/// 📌 It is high **because the input box has one row and drops its overflow**.
+/// Give that box horizontal scrolling and this collapses to the nav strip's ~94.
+pub const MIN_TERMINAL_WIDTH: u16 = LONGEST_DECOY_CHARS + INPUT_CHROME_COLS;
+
+/// The longest decoy in any language, in characters.
+///
+/// ⚠ A hand-copied fact about data that lives elsewhere, which is exactly the
+/// shape that rots — so `the_minimum_width_still_fits_the_longest_decoy`
+/// recomputes it from all three decoy pools and fails by name if a decoy is
+/// edited past it. **Spelled out as its own constant rather than folded into
+/// the 121 so that the floor's provenance is in the code, not in a comment.**
+pub const LONGEST_DECOY_CHARS: u16 = 113;
+
+/// Columns the input box spends on frame rather than on the decoy: the screen's
+/// two outer border columns, the input block's own two, and the `" ▶ "` prompt.
+///
+/// ⚠ Measured, not counted off the source — §J.7-bis rendered decoys of known
+/// length and read back the width at which the last character survived. Counting
+/// padding literals is what produced the estimates §J.7 had to replace.
+pub const INPUT_CHROME_COLS: u16 = 8;
+
+/// Below this the demon's ASCII art clips — it is 11 rows against its `Fill(3)`
+/// share of `H − 9`, so `(H − 9) × 3/8 ≥ 11` ⇒ `H ≥ 39.33`.
+///
+/// 📌 That arithmetic was written in §J.7 *before* anything was measured, and
+/// the sweep landed on exactly 39. The model can be trusted for the demon.
+pub const MIN_TERMINAL_HEIGHT: u16 = 39;
