@@ -92,6 +92,38 @@ pub(crate) fn open_the_story() -> Vec<KeyPress> {
     keys
 }
 
+/// Raise G21's quit-confirm from the Intro splash — `Esc` on the very first
+/// screen, which used to walk straight out of the program.
+pub(crate) fn raise_quit_from_intro() -> Vec<KeyPress> {
+    vec![KeyPress::Esc]
+}
+
+/// Raise G21's quit-confirm from the menu's `Sair` entry.
+///
+/// `Up` from the first item **wraps** to `Sair` — one step instead of four.
+/// Encoded here so no call site counts menu rows, the same reason
+/// [`reach_about`] exists.
+pub(crate) fn raise_quit_from_menu() -> Vec<KeyPress> {
+    vec![
+        KeyPress::Enter, // Intro → Menu
+        KeyPress::Up,    // wrap to Sair
+        KeyPress::Enter, // → the quit-confirm
+    ]
+}
+
+/// The two — and only two — routes that raise the quit-confirm, labelled for
+/// assertion messages.
+///
+/// ⚠ Both sites must be driven by every behavioural test in the G21 block.
+/// Testing one and assuming the other is how a shared helper ends up wired at a
+/// single call site: the suite stays green while half the feature is missing.
+pub(crate) fn both_quit_confirm_sites() -> [(&'static str, Vec<KeyPress>); 2] {
+    [
+        ("intro", raise_quit_from_intro()),
+        ("menu", raise_quit_from_menu()),
+    ]
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

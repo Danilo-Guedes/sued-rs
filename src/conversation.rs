@@ -1,3 +1,5 @@
+use crate::confirm::ConfirmChoice;
+
 #[derive(Debug)]
 pub enum Message {
     Sued(String),
@@ -52,20 +54,4 @@ impl HistoryView {
 pub enum Overlay {
     Transcript(HistoryView), // this variant OWNS a HistoryView
     ConfirmLeave(ConfirmChoice),
-}
-
-#[derive(Debug, Default, Clone, Copy, PartialEq)]
-pub enum ConfirmChoice {
-    Leave,
-    #[default]
-    Stay,
-}
-
-impl ConfirmChoice {
-    pub fn toggle(&mut self) {
-        match self {
-            ConfirmChoice::Leave => *self = ConfirmChoice::Stay,
-            ConfirmChoice::Stay => *self = ConfirmChoice::Leave,
-        }
-    }
 }

@@ -14,7 +14,7 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{Clear, Paragraph, Wrap};
 
 use super::common::{colorfull_bordered_block, create_centered_rect, draw_chip};
-use crate::conversation::ConfirmChoice;
+use crate::confirm::ConfirmChoice;
 use crate::language::Translation;
 use crate::ui::theme::Palette;
 

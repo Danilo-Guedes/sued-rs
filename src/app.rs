@@ -11,7 +11,8 @@ use std::time::{Duration, Instant};
 use crate::{
     audio::AudioCue,
     config::{ConfigOption, Configuration, Direction},
-    conversation::{ConfirmChoice, HistoryView, Message, Overlay},
+    confirm::ConfirmChoice,
+    conversation::{HistoryView, Message, Overlay},
     core::engine::{Engine, KeyPress, StateChange},
     language::{Language, Translation, pick},
     ui::effects::{is_thinking, reveal_elapsed, reveal_is_complete, thinking_duration},
@@ -39,6 +40,7 @@ pub struct App {
     pending_save: Option<Configuration>,
     pub config_object: Configuration,
     pub started_at: Instant,
+    confirm_quit: Option<ConfirmChoice>,
 }
 
 #[derive(Debug)]
@@ -294,10 +296,18 @@ impl App {
             pending_cue: None,
             config_object: parsed_json_config,
             pending_save: None,
+            confirm_quit: None,
         }
     }
     pub fn handle_key(&mut self, key: KeyPress) -> AppFlow {
         let translations = self.config().language().translation();
+
+        // CONFIRM QUIT GUARD
+        if matches!(self.screen, Screen::Intro | Screen::Menu)
+            && let Some(choice) = self.confirm_quit
+        {
+            return self.handle_quit_confirm(key, choice);
+        }
 
         match &mut self.screen {
             Screen::Intro => match key {
@@ -305,7 +315,10 @@ impl App {
                     self.screen = Screen::Menu;
                     AppFlow::Stay
                 }
-                KeyPress::Esc => AppFlow::Quit,
+                KeyPress::Esc => {
+                    self.confirm_quit = Some(ConfirmChoice::default());
+                    AppFlow::Stay
+                }
                 KeyPress::CtrlC => AppFlow::Quit,
                 _ => AppFlow::Stay,
             },
@@ -327,7 +340,10 @@ impl App {
                         self.screen = Screen::Config;
                         AppFlow::Stay
                     }
-                    MenuOption::Exit => AppFlow::Quit,
+                    MenuOption::Exit => {
+                        self.confirm_quit = Some(ConfirmChoice::default());
+                        AppFlow::Stay
+                    }
                 },
                 KeyPress::Esc => {
                     self.screen = Screen::Intro;
@@ -663,6 +679,34 @@ impl App {
         &self.screen
     }
 
+    pub fn confirm_quit(&self) -> Option<ConfirmChoice> {
+        self.confirm_quit
+    }
+
+    pub fn handle_quit_confirm(&mut self, key_press: KeyPress, choice: ConfirmChoice) -> AppFlow {
+        match key_press {
+            KeyPress::Enter => match choice {
+                ConfirmChoice::Leave => AppFlow::Quit,
+                ConfirmChoice::Stay => {
+                    self.confirm_quit = None;
+                    AppFlow::Stay
+                }
+            },
+            KeyPress::Esc => {
+                self.confirm_quit = None;
+                AppFlow::Stay
+            }
+            KeyPress::Left | KeyPress::Right => {
+                if let Some(c) = &mut self.confirm_quit {
+                    c.toggle();
+                }
+                AppFlow::Stay
+            }
+            KeyPress::CtrlC => AppFlow::Quit,
+            _ => AppFlow::Stay,
+        }
+    }
+
     /// Test-only: pretend the live question was asked `by` earlier.
     ///
     /// The reply's interesting states are 3–6 seconds of wall-clock apart, so a
@@ -775,7 +819,8 @@ mod tests {
     use super::*;
     use crate::test_fixtures::{
         DENIED_QUESTION, DENIED_QUESTION_PT, REBUKED_QUESTION, STORY_KEY, ask_and_be_denied,
-        ask_and_be_rebuked, ask_openly, open_the_story, reach_about, typing,
+        ask_and_be_rebuked, ask_openly, both_quit_confirm_sites, open_the_story,
+        raise_quit_from_intro, raise_quit_from_menu, reach_about, typing,
     };
     use crate::{conversation::HISTORY_PAGE_ROWS, core::engine::KeyPress};
     use std::time::Duration;
@@ -882,11 +927,11 @@ mod tests {
         assert_eq!(selected(&state), MenuOption::Ask);
     }
 
-    #[test]
-    fn intro_esc_quits() {
-        let (_state, flow) = drive_flow(&[KeyPress::Esc]);
-        assert_eq!(flow, AppFlow::Quit);
-    }
+    // ⚠ `intro_esc_quits` WAS HERE — DELETED BY G21, not weakened. Amending it to
+    // `[Esc, →, Enter]` made it keystroke-for-keystroke identical to what
+    // `committing_the_leave_choice_quits` already drives for the intro site, and
+    // three copies of one sequence is three things to update. Its job — "Esc on
+    // the intro is the way out of the program" — is named there explicitly.
 
     // ── Menu navigation (wraps) ──────────────────────────────────────────────
 
@@ -947,12 +992,9 @@ mod tests {
         assert!(matches!(state.screen(), Screen::About(_)));
     }
 
-    #[test]
-    fn menu_enter_on_sair_quits() {
-        // Up from the first item wraps to Sair; Enter there quits.
-        let (_state, flow) = drive_flow(&[KeyPress::Enter, KeyPress::Up, KeyPress::Enter]);
-        assert_eq!(flow, AppFlow::Quit);
-    }
+    // ⚠ `menu_enter_on_sair_quits` WAS HERE — DELETED BY G21, same reason as
+    // `intro_esc_quits` above: once amended it became an exact duplicate of the
+    // menu half of `committing_the_leave_choice_quits`.
 
     #[test]
     fn menu_esc_should_return_to_intro() {
@@ -3967,6 +4009,280 @@ mod tests {
                     "on Ask, `?` is just a character the mark can see"
                 );
             }
+            other => panic!("expected Asking, got {other:?}"),
+        }
+    }
+
+    // ── G21 · leaving the program asks first ─────────────────────────────────
+    //
+    // Two sites raise it and **only** two: `Esc` on the Intro splash and `Sair`
+    // on the menu. Every other `Esc` in the app walks BACKWARD one screen and is
+    // untouched by this feature.
+    //
+    // ⛔ `Ctrl+C` is deliberately out of scope, forever. It is the operator's
+    // panic button, pressed live in front of a mark, and a dialog turns one
+    // invisible keystroke into two with the app still on screen asking "do you
+    // really want to quit?" while the mark watches. It also keeps
+    // `[Ctrl+C] sair` honest in all 12 hint-strip entries. Pinned below rather
+    // than left as a comment, because "we chose not to" and "we forgot" look
+    // identical in a diff.
+    //
+    // ⚠⚠ THIS BLOCK OPENS AS COMPILE ERRORS. It names `App::confirm_quit()` and
+    // the `confirm_quit` field, neither of which exists yet. That is the red bar:
+    // adding them is the first move.
+    //
+    // ⚠ THE ONE THING THE SUITE CANNOT SEE, and the reason the gate exists.
+    // `screens.rs` dispatches render per screen, so only `intro::render` and
+    // `menu::render` will ever DRAW this dialog. If key interception were wider
+    // than that — an ungated `if let Some(choice) = &mut self.confirm_quit` at
+    // the top of `handle_key` — then a `Some` reaching any other screen would eat
+    // every keystroke while showing nothing on screen. A frozen app with no
+    // dialog, escapable only by Ctrl+C.
+    // `a_stray_quit_confirm_cannot_swallow_keys_on_other_screens` is the only
+    // test that fails on that rewrite; the other nine pass through it happily.
+
+    /// What the quit-confirm is showing, or `None` when it is not up.
+    fn quit_choice(app: &App) -> Option<ConfirmChoice> {
+        app.confirm_quit()
+    }
+
+    fn on_intro(app: &App) -> bool {
+        matches!(app.screen(), Screen::Intro)
+    }
+
+    #[test]
+    fn esc_on_the_intro_asks_before_it_quits() {
+        // Site 1 of 2. `Esc` here used to return `AppFlow::Quit` outright.
+        let (app, flow) = drive_flow(&raise_quit_from_intro());
+
+        assert_eq!(flow, AppFlow::Stay, "Esc must no longer quit on its own");
+        assert_eq!(
+            quit_choice(&app),
+            Some(ConfirmChoice::Stay),
+            "the dialog is up, defaulting to the non-destructive choice"
+        );
+        assert!(
+            on_intro(&app),
+            "and it is drawn OVER the intro, not instead"
+        );
+    }
+
+    #[test]
+    fn choosing_sair_asks_before_it_quits() {
+        // Site 2 of 2.
+        let (app, flow) = drive_flow(&raise_quit_from_menu());
+
+        assert_eq!(flow, AppFlow::Stay, "Sair must no longer quit on its own");
+        assert_eq!(quit_choice(&app), Some(ConfirmChoice::Stay));
+        assert!(on_menu(&app), "the menu stays under the dialog");
+    }
+
+    #[test]
+    fn a_reflexive_enter_cannot_quit_the_app() {
+        // The `#[default]` rule G19 set, one level up: the highlighted option is
+        // the harmless one, so the muscle-memory Enter that OPENED the dialog
+        // cannot also commit to leaving.
+        for (site, route) in both_quit_confirm_sites() {
+            let mut app = drive(&route);
+
+            let flow = app.handle_key(KeyPress::Enter);
+
+            assert_eq!(flow, AppFlow::Stay, "a reflexive Enter quit from {site}");
+            assert_eq!(
+                quit_choice(&app),
+                None,
+                "and it should have dismissed the dialog on {site}"
+            );
+        }
+    }
+
+    #[test]
+    fn left_and_right_both_toggle_the_quit_choice() {
+        // ⚠⚠ THE HAZARD THIS TEST EXISTS FOR. `ConfirmChoice` is `Copy`, so the
+        // gated match hands the handler a COPY of the choice. Calling
+        // `choice.toggle()` on that copy mutates a temporary that is dropped at
+        // the end of the arm — the dialog would simply never change. Same shape
+        // as G19's `Option::take()` bug: the fix is to write the new value back
+        // (or bind `&mut`), and this is what says so out loud.
+        //
+        // ⚠ Both directions, deliberately. G19's toggle shipped with a
+        // `Stay => Stay` arm that made it a one-way trapdoor, and a test that
+        // only pressed one key passed straight through the bug.
+        let mut app = drive(&raise_quit_from_intro());
+
+        app.handle_key(KeyPress::Right);
+        assert_eq!(
+            quit_choice(&app),
+            Some(ConfirmChoice::Leave),
+            "Right → Leave"
+        );
+
+        app.handle_key(KeyPress::Right);
+        assert_eq!(quit_choice(&app), Some(ConfirmChoice::Stay), "Right → back");
+
+        app.handle_key(KeyPress::Left);
+        assert_eq!(
+            quit_choice(&app),
+            Some(ConfirmChoice::Leave),
+            "Left → Leave"
+        );
+
+        app.handle_key(KeyPress::Left);
+        assert_eq!(quit_choice(&app), Some(ConfirmChoice::Stay), "Left → back");
+    }
+
+    #[test]
+    fn committing_the_leave_choice_quits() {
+        // Both raisers must actually be able to leave — a dialog you cannot say
+        // yes to is worse than no dialog.
+        //
+        // ⬅ THIS TEST ABSORBED TWO OLDER ONES, and inherits their names so the
+        // intent is not lost with them: `intro_esc_quits` ("Esc on the intro is
+        // the way out") and `menu_enter_on_sair_quits` ("Sair leaves the
+        // program"). Both said their site QUITS, which is still true — G21 only
+        // made it cost `→` + `Enter`. Restating them one by one produced two
+        // tests driving the exact keystrokes the loop below already drives, so
+        // they were deleted rather than kept as duplicates. If this test ever
+        // narrows to one site, they have to come back.
+        for (site, route) in both_quit_confirm_sites() {
+            let mut app = drive(&route);
+
+            feed(&mut app, &[KeyPress::Right]); // Stay → Leave
+            assert_eq!(
+                quit_choice(&app),
+                Some(ConfirmChoice::Leave),
+                "precondition on {site}: Leave is highlighted"
+            );
+
+            assert_eq!(
+                app.handle_key(KeyPress::Enter),
+                AppFlow::Quit,
+                "committing Leave from {site} must quit"
+            );
+        }
+    }
+
+    #[test]
+    fn esc_inside_the_quit_confirm_cancels_it() {
+        // ⚠ LOAD-BEARING, not housekeeping. The whole reason this feature is
+        // allowed to sit on `Esc` is that `Esc` inside the dialog CANCELS. If it
+        // fell through to the screen underneath, or quit, then hammering Esc
+        // still walks out of the program — the dialog would just flash past on
+        // the way. See the sibling test below for that journey end to end.
+        for (site, route) in both_quit_confirm_sites() {
+            let mut app = drive(&route);
+
+            let flow = app.handle_key(KeyPress::Esc);
+
+            assert_eq!(flow, AppFlow::Stay, "Esc quit the app from {site}");
+            assert_eq!(
+                quit_choice(&app),
+                None,
+                "Esc must dismiss the dialog on {site}"
+            );
+        }
+    }
+
+    #[test]
+    fn hammering_esc_can_no_longer_walk_out_of_the_program() {
+        // ⬅ THE HOLE THIS FEATURE EXISTS TO CLOSE, stated as behaviour rather
+        // than as state. `Esc` is the key people press without looking, and the
+        // staircase used to run `Menu → Intro → dead` — two taps.
+        //
+        // ⚠ The Menu→Intro rewind is KEPT (his call): backing out to the splash
+        // is a legitimate move. What must not survive is reaching `Quit` by
+        // repetition alone.
+        let mut app = drive(&[KeyPress::Enter]); // Intro → Menu
+        assert!(on_menu(&app), "precondition: we start on the menu");
+
+        for press in 1..=6 {
+            assert_eq!(
+                app.handle_key(KeyPress::Esc),
+                AppFlow::Stay,
+                "Esc #{press} walked out of the program"
+            );
+        }
+    }
+
+    #[test]
+    fn ctrl_c_still_quits_from_behind_the_quit_confirm() {
+        // ⛔ The out-of-scope decision, pinned. An escape hatch that asks a
+        // question is not an escape hatch — same rule the transcript, the G19
+        // confirm and the story popover all obey.
+        //
+        // ⚠ The precondition is half the test: without it this passes for the
+        // wrong reason, since Ctrl+C quits from a bare Intro or Menu too and the
+        // assertion would never once have seen the dialog.
+        for (site, route) in both_quit_confirm_sites() {
+            let mut app = drive(&route);
+            assert!(
+                quit_choice(&app).is_some(),
+                "precondition on {site}: the dialog is up"
+            );
+
+            assert_eq!(
+                app.handle_key(KeyPress::CtrlC),
+                AppFlow::Quit,
+                "Ctrl+C must reach through the dialog on {site}"
+            );
+        }
+    }
+
+    #[test]
+    fn the_quit_confirm_owns_the_keys_of_the_screen_under_it() {
+        // A modal that lets the screen behind it keep moving is not modal.
+        //
+        // 📌 Menu only, and that is not laziness: Intro answers exactly three
+        // keys (Enter, Esc, Ctrl+C) and the dialog has its own meaning for all
+        // three, so there is no key left over that could leak. The menu cursor is
+        // the only observable thing under either dialog.
+        let mut app = drive(&raise_quit_from_menu());
+
+        feed(&mut app, &[KeyPress::Down, KeyPress::Up, KeyPress::Down]);
+
+        assert_eq!(
+            selected(&app),
+            MenuOption::Exit,
+            "the menu cursor moved behind the dialog"
+        );
+        assert_eq!(
+            quit_choice(&app),
+            Some(ConfirmChoice::Stay),
+            "and Up/Down must not be mistaken for the ←→ toggle either"
+        );
+
+        // Cancelling puts you back exactly where you were — on `Sair`, not on
+        // whatever the swallowed keys would have selected.
+        app.handle_key(KeyPress::Esc);
+        assert_eq!(selected(&app), MenuOption::Exit);
+    }
+
+    #[test]
+    fn a_stray_quit_confirm_cannot_swallow_keys_on_other_screens() {
+        // ⬅⬅ THE TEST THAT PINS THE DESIGN, and the only one that does.
+        //
+        // `confirm_quit` lives on `App`, so it is in scope on all six screens —
+        // but only Intro and Menu ever DRAW it. The gate in `handle_key` is what
+        // keeps interception exactly as wide as drawing. Reach for an ungated
+        // `if let Some(choice) = &mut self.confirm_quit` at the top of
+        // `handle_key` and every other test in this block still passes, while a
+        // `Some` arriving on Ask silently eats every keystroke and shows nothing.
+        //
+        // ⚠ Yes, this reaches past the public API to set the field directly —
+        // deliberately. The state is unreachable through keys TODAY, which is
+        // precisely why nothing else can catch the regression: this test asserts
+        // the gate is structural, not that today's call sites happen to be tidy.
+        let mut app = drive(&[KeyPress::Enter, KeyPress::Enter]); // → Asking
+        app.confirm_quit = Some(ConfirmChoice::Leave);
+
+        feed(&mut app, &typing("oi"));
+
+        match &app.screen {
+            Screen::Asking(AskingState { engine, .. }) => assert_eq!(
+                engine.visible_buffer(),
+                "oi",
+                "a stray quit-confirm swallowed the mark's typing on Ask"
+            ),
             other => panic!("expected Asking, got {other:?}"),
         }
     }
