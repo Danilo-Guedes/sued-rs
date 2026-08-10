@@ -6,15 +6,19 @@ use ratatui::style::Stylize;
 use ratatui::text::Line;
 use ratatui::widgets::{Block, Borders, Padding, Paragraph, Wrap};
 
-use crate::app::MenuIndex;
-use crate::config::Configuration;
+use crate::app::{App, MenuIndex};
 use crate::language::{Language, Translation};
 use crate::ui::screens::common::{
     aside, colorfull_bordered_block, create_screen_block, hint_line, shouldered_heading,
 };
+use crate::ui::screens::confirm;
 use crate::ui::theme::Palette;
 
-pub(super) fn render(frame: &mut Frame, menu: &MenuIndex, config: Configuration) {
+pub(super) fn render(frame: &mut Frame, app: &App) {
+    let config = app.config();
+
+    let menu = app.menu();
+
     let palette = config.theme().palette();
 
     let language = config.language();
@@ -34,7 +38,33 @@ pub(super) fn render(frame: &mut Frame, menu: &MenuIndex, config: Configuration)
 
     render_menu_column(frame, menu_area, menu, palette, translation, language);
     render_disclaimer_column(frame, aviso_area, palette, translation);
-    render_status_bar(frame, status_layout, menu.index(), palette, translation);
+    render_status_bar(
+        frame,
+        status_layout,
+        menu.index(),
+        palette,
+        translation,
+        app.confirm_quit().is_some(),
+    );
+
+    // Drawn LAST, over the whole centre band — both columns, since the dialog
+    // is answering a question about the menu itself rather than about one half
+    // of it. The status strip below stays visible: it is now the dialog's hint
+    // line (swapped inside `render_status_bar`).
+    //
+    // 📌 No peek hazard here, unlike `ask.rs`: the aviso column's only border is
+    // `Borders::LEFT`, a single vertical rule this box simply interrupts, which
+    // is what "on top" is supposed to look like.
+    if let Some(choice) = app.confirm_quit() {
+        confirm::render(
+            frame,
+            center_layout,
+            choice,
+            palette,
+            translation.quit,
+            confirm::Cover::JustTheBox,
+        );
+    }
 }
 
 /// Left column — heading, the selectable list, a divider and a hint.
@@ -154,6 +184,7 @@ fn render_status_bar(
     selected_menu: usize,
     palette: Palette,
     translation: Translation,
+    confirming_quit: bool,
 ) {
     let block =
         colorfull_bordered_block(Some(Borders::TOP), palette).padding(Padding::horizontal(2));
@@ -163,7 +194,19 @@ fn render_status_bar(
     let [hints_area, page_area] =
         Layout::horizontal([Constraint::Fill(1), Constraint::Length(6)]).areas(inner);
 
-    let hints = hint_line(translation.menu.hints, palette);
+    // While the quit-confirm is up it owns the keys, so it owns the strip.
+    //
+    // 📌 The right-hand slot keeps showing `n/5`. It is a *position* counter,
+    // not a page label, and it is `Length(6)` — too narrow for "Confirmar"
+    // anyway. `ask.rs` swaps its equivalent because that slot really is a label.
+    let hints = hint_line(
+        if confirming_quit {
+            translation.quit.hints
+        } else {
+            translation.menu.hints
+        },
+        palette,
+    );
     frame.render_widget(Paragraph::new(hints), hints_area);
     frame.render_widget(
         Paragraph::new(format!("{}/{}", selected_menu + 1, MenuIndex::ALL.len(),).dim())

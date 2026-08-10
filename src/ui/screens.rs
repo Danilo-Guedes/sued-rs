@@ -17,8 +17,12 @@ use crate::app::{App, Screen};
 
 pub fn render(frame: &mut Frame, app: &App) {
     match app.screen() {
-        Screen::Intro => intro::render(frame, app.config()),
-        Screen::Menu => menu::render(frame, app.menu(), app.config()),
+        // ⚠ These two take the whole `App` (G21) where they used to take only
+        // the slices they drew from. `confirm_quit` lives on `App`, so a screen
+        // that must draw it has to be able to see it — the same split `ask` and
+        // `config` already sit on, rather than a third convention.
+        Screen::Intro => intro::render(frame, app),
+        Screen::Menu => menu::render(frame, app),
         Screen::Asking(asking_state) => ask::render(frame, app, asking_state),
         Screen::Info => info::render(frame, app.config()),
         Screen::About(about_state) => about::render(frame, app.config(), about_state),
@@ -49,7 +53,7 @@ mod tests {
     use crate::constants::{AUTHOR_GITHUB, AUTHOR_LINKEDIN, HOW_IT_WORKS_COMMAND};
     use crate::conversation::Overlay;
     use crate::core::engine::KeyPress;
-    use crate::language::Translation;
+    use crate::language::{Language, Translation};
     use crate::test_fixtures::{
         REBUKED_QUESTION, STORY_KEY, ask_and_be_denied, ask_and_be_rebuked,
     };
@@ -513,6 +517,122 @@ mod tests {
                      thing clipping eats"
                 );
             }
+        }
+    }
+
+    // ── G21 · the quit-confirm, on Intro and on Menu ─────────────────────────
+
+    /// Set the language, then land back on the Menu with the cursor resting on
+    /// `Configurações`. The two G21 sites diverge from here.
+    fn menu_in_language(language_steps: usize) -> Vec<KeyPress> {
+        let mut keys = vec![
+            KeyPress::Enter, // Intro → Menu
+            KeyPress::Down,
+            KeyPress::Down,
+            KeyPress::Down,
+            KeyPress::Enter, // → Config
+            KeyPress::Down,
+            KeyPress::Down,
+            KeyPress::Down, // → language
+        ];
+        keys.extend(std::iter::repeat_n(KeyPress::Right, language_steps));
+        keys.push(KeyPress::Esc); // → Menu
+        keys
+    }
+
+    #[test]
+    fn the_quit_dialog_draws_whole_at_every_size_and_language() {
+        // Same gap, same reason as the séance confirm above: ratatui CLIPS, so a
+        // dialog too tall for its band loses its bottom rows in silence and
+        // `draw()` stays green while the buttons vanish.
+        //
+        // ⚠ BOTH SITES, not one. They hand `confirm::render` different bands —
+        // the intro's is two content rows between a nav strip and a status strip,
+        // the menu's is its whole centre — so "it fits" is a different claim on
+        // each, and the 80×24 floor is where the intro's band is thinnest (its
+        // three `Fill`s collapse to zero and only the `Length(18)` survives).
+        for language_steps in 0..3 {
+            for (site, tail) in [
+                ("menu", vec![KeyPress::Down, KeyPress::Enter]), // → Sair, raise
+                ("intro", vec![KeyPress::Esc, KeyPress::Esc]),   // → Intro, raise
+            ] {
+                let mut keys = menu_in_language(language_steps);
+                keys.extend(tail);
+
+                let app = app_after(&keys);
+                let quit = app.config().language().translation().quit;
+
+                // The precondition, asserted rather than assumed — without it a
+                // broken raiser leaves every assertion below reading the plain
+                // screen and passing for the wrong reason.
+                assert!(
+                    app.confirm_quit().is_some(),
+                    "the quit dialog must be OPEN on the {site} site"
+                );
+
+                // Derived, not hardcoded: each language ends its lore on a
+                // different word, and a literal would silently stop checking two.
+                let last_word = quit
+                    .lore_text
+                    .split_whitespace()
+                    .next_back()
+                    .expect("the lore is never empty");
+
+                for (width, height) in SIZES {
+                    let screen = screen_text_at(&app, width, height);
+
+                    assert!(
+                        screen.contains(last_word),
+                        "the lore's last word ({last_word:?}) must survive on \
+                         {site} at {width}x{height} — losing it means the box \
+                         reserved fewer rows than the prose wrapped to"
+                    );
+                    assert!(
+                        screen.contains(quit.leave) && screen.contains(quit.stay),
+                        "both choices must be on screen on {site} at \
+                         {width}x{height} — the button row is the dialog's LAST \
+                         row, so it is the first thing clipping eats"
+                    );
+                    // ⚠ `[← →]` appears in NEITHER screen's own hints (intro
+                    // offers Enter/Esc, the menu offers ↑↓/Enter/Esc), so this
+                    // asserts the strip actually swapped rather than that some
+                    // strip is present. Without it the dialog can be up while the
+                    // strip still advertises the keys of the screen underneath —
+                    // the same lie G16's conditional scroll hint was fixing.
+                    assert!(
+                        screen.contains("[← →]"),
+                        "the {site} status strip must swap to the dialog's hints \
+                         at {width}x{height}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn the_quit_dialog_says_something_different_from_the_seance_one() {
+        // Both dialogs are reachable inside ONE journey (Ask → Esc → confirm →
+        // leave → Menu → Sair → quit), and G21 gave them the same struct so the
+        // render could be shared. That makes "someone passed `translation.confirm`
+        // to the quit caller" a mistake that compiles, draws, and looks right
+        // until you read it — the exact reason `confirm::render` takes
+        // `ConfirmTexts` instead of the whole `Translation`.
+        for language in [Language::PtBr, Language::EnUs, Language::EsEs] {
+            let translation = language.translation();
+
+            assert_ne!(
+                translation.quit.lore_text, translation.confirm.lore_text,
+                "{language:?}: the quit dialog must not mourn the séance — it \
+                 has nothing to lose"
+            );
+            assert_ne!(
+                translation.quit.title, translation.confirm.title,
+                "{language:?}: two titles on one Esc journey must not match"
+            );
+            assert_ne!(
+                translation.quit.abandon_question, translation.confirm.abandon_question,
+                "{language:?}: the question is what the reader actually answers"
+            );
         }
     }
 

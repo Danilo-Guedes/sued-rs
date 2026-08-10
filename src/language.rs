@@ -46,6 +46,12 @@ pub struct Translation {
     pub ask: AskTexts,
     pub history: HistoryTexts,
     pub confirm: ConfirmTexts,
+    /// G21's quit-confirm. Deliberately the **same struct** as `confirm` with
+    /// **different data** — the two dialogs share a render, so they must share a
+    /// shape, but they must not share words: `Ask → Esc → confirm → leave →
+    /// Menu → Sair → quit` puts both on screen inside one journey, and `confirm`
+    /// mourns a lost séance where `quit` has nothing left to lose.
+    pub quit: ConfirmTexts,
     pub config: ConfigTexts,
     pub menu: MenuTexts,
     pub common: CommonTexts,
@@ -446,6 +452,23 @@ fonte: {repo}",
                         ("[Ctrl+C]", "sair"),
                     ],
                 },
+                // 📌 The one PT string in the app Danilo did not write himself —
+                // Claude drafted it and he accepted it as-is (2026-08-10). Noted
+                // because every other PT text here is his voice first-hand, and a
+                // future edit should know this one was not.
+                quit: ConfirmTexts {
+                    title: "O RITUAL VAI TERMINAR",
+                    lore_text: "O oráculo recolhe-se à escuridão de onde veio. Nada mais será perguntado, nada mais será respondido — até que alguém ouse invocá-lo outra vez",
+                    abandon_question: "Deseja mesmo encerrar o ritual?",
+                    leave: "PARTIR",
+                    stay: "FICAR",
+                    hints: &[
+                        ("[← →]", "escolher"),
+                        ("[Enter]", "confirmar"),
+                        ("[Esc]", "cancelar"),
+                        ("[Ctrl+C]", "sair"),
+                    ],
+                },
                 config: ConfigTexts {
                     configuration: "CONFIGURAÇÃO",
                     subtitle: "ajuste o ritual ao seu gosto — o oráculo observa",
@@ -709,6 +732,21 @@ source: {repo}",
                         ("[Ctrl+C]", "quit"),
                     ],
                 },
+                quit: ConfirmTexts {
+                    title: "THE RITUAL IS ABOUT TO END",
+                    lore_text: "The oracle withdraws into the dark it came from. \
+                                Nothing more will be asked, nothing more will be \
+                                answered — until someone dares to summon it again",
+                    abandon_question: "Do you truly wish to end the ritual?",
+                    leave: "DEPART",
+                    stay: "STAY",
+                    hints: &[
+                        ("[← →]", "choose"),
+                        ("[Enter]", "confirm"),
+                        ("[Esc]", "cancel"),
+                        ("[Ctrl+C]", "quit"),
+                    ],
+                },
                 config: ConfigTexts {
                     configuration: "CONFIGURATION",
                     subtitle: "tune the ritual to your taste — the oracle watches",
@@ -962,6 +1000,21 @@ fuente: {repo}",
                     abandon_question: "¿Deseas de verdad abandonar la sesión?",
                     leave: "QUE ASÍ SEA",
                     stay: "PERMANECER",
+                    hints: &[
+                        ("[← →]", "elegir"),
+                        ("[Enter]", "confirmar"),
+                        ("[Esc]", "cancelar"),
+                        ("[Ctrl+C]", "salir"),
+                    ],
+                },
+                quit: ConfirmTexts {
+                    title: "EL RITUAL VA A TERMINAR",
+                    lore_text: "El oráculo se retira a la oscuridad de donde vino. \
+                                Nada más será preguntado, nada más será respondido \
+                                — hasta que alguien ose invocarlo otra vez",
+                    abandon_question: "¿Deseas de verdad terminar el ritual?",
+                    leave: "PARTIR",
+                    stay: "QUEDARSE",
                     hints: &[
                         ("[← →]", "elegir"),
                         ("[Enter]", "confirmar"),

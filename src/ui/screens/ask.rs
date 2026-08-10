@@ -301,9 +301,14 @@ pub(super) fn render(frame: &mut Frame, app: &App, asking_state: &AskingState) {
         confirm::render(
             frame,
             sued_art_top_layout.union(sued_logs_layout),
-            choice,
+            *choice,
             palette,
-            translation,
+            // ⚠ `.confirm`, NOT `.quit` — this is the séance dialog. G21 gave
+            // the two the same shape, so swapping them compiles and draws.
+            translation.confirm,
+            // The log lines that share these rows stay visible on purpose — the
+            // séance keeps running while you decide whether to end it.
+            confirm::Cover::JustTheBox,
         );
     }
 }
