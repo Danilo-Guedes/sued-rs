@@ -1,86 +1,121 @@
 # sued-rs
 
-A horror-themed terminal (TUI) recreation of **SueD** — the 2000s Brazilian prank
-"oracle" (*Sua Última Esperança Divina* / "Deus ao contrário"), rebuilt in Rust.
+A horror-themed terminal recreation of **SueD** — the 2000s Brazilian prank
+oracle (*Sua Última Esperança Divina*, and "Deus" spelled backwards) — rebuilt
+in Rust with [ratatui](https://ratatui.rs).
 
-> 🩸 **Status: playable.** The full prank runs end-to-end — a navigable 5-screen
-> spooky TUI (intro · menu · question · info · about) over a unit-tested, I/O-free
-> prank engine. Audio, terror effects and config are the milestones still landing.
+Light a candle. Turn off the lights. Ask it something you actually want to know.
+
+---
 
 ## What it is
 
-SueD is a piece of stage magic dressed up as software. The victim believes the
-program magically answers any question they ask. In reality, the **operator
-secretly types the answers** while pretending to type the question — a hidden-mode
-toggle on the `;` key swaps real keystrokes into a hidden buffer and shows *decoy*
-text on screen. The candles-in-the-dark, demonic presentation is all theater to
-sell the illusion.
+SueD is a piece of stage magic wearing the costume of a program. Your victim
+types a question into a black terminal, a demon watches them from the dark, and
+the oracle answers — specifically, personally, and far too accurately.
 
-**Cultural note.** SueD is a Brazilian-internet classic from the 2000s. The
-underlying trick — a fake fortune-teller where the operator secretly supplies the
-answers — is far older than the software and is essentially pre-digital stage magic.
-`sued-rs` is a faithful, modern, cross-platform homage. It does **not** use any AI
-and does **not** connect to the network; the "oracle" is the person at the keyboard.
+**You are the oracle.** SueD gives you a way to answer in secret, while the
+screen shows your victim exactly what they expect to see. Everything else —
+the flickering demon, the incantations, the thunder, the laughter in the next
+room — is theatre, and the theatre is the point.
 
-## What works now
+It does **not** use AI, and it does **not** touch the network. The oracle is the
+person at the keyboard.
 
-- **The prank, end-to-end** — the hidden-mode (`;`) toggle, the decoy that "types
-  itself," and the reveal.
-- **The full spooky TUI** — five keyboard-navigable screens with a merged full-bleed
-  red frame, demon ASCII art and the SUED banner (arrows · Enter · Esc · Ctrl+C).
-- **A pure, tested core** — the trick logic lives in an I/O-free engine; 33 tests green.
+## 🕯 The part you have to find
 
-Still landing: looping dread audio + a jump-scare sting, terror effects (a char-by-char
-reveal, flicker, screen-shake), and config/CLI (themes, languages, `--no-sound`).
+**The method is not written down here, and that is deliberate** — this page is
+public, and your victim can read it too.
 
-## Build & run
+But it is not a secret from *you*. The program carries its own operator's manual:
+the full trick, the timing, and how to perform it convincingly. It will not
+appear on any screen the victim can see, so poke around the command line until
+you find it. It is not hidden well. It is only hidden from the right person.
 
-```sh
-cargo run            # build and run (audio ON by default)
-cargo test           # run the unit tests
-cargo run -- --no-sound       # run silent
-```
+## Requirements
 
-Audio is a Cargo feature, on by default. Turn it off at build time if you don't
-want the ALSA dev headers as a dependency:
+**A terminal at least 94×40.** Below that SueD shows a resize notice instead of
+running — the illusion depends on nothing being clipped, and a truncated oracle
+is not a frightening one. **132×41 is comfortable** and is the size the whole
+thing was designed at.
+
+Rust **1.88** or newer (2024 edition — the crate uses let-chains).
+
+## Install
 
 ```sh
-cargo run --no-default-features   # builds with no audio at all
+cargo install sued-rs
 ```
 
-On Linux an audio build needs `sudo apt install libasound2-dev`.
+On Linux, an audio build needs ALSA's development headers:
+
+```sh
+sudo apt install libasound2-dev
+```
+
+Prefer silence, or don't want the headers at all? See
+[Building without audio](#building-without-audio).
+
+## Running
+
+```sh
+sued-rs                       # summon it
+sued-rs --no-sound            # summon it quietly
+sued-rs --config <PATH>       # use a specific config file
+sued-rs --help                # the flags, including one worth finding
+```
+
+Navigate with the arrow keys, `Enter` to choose, `Esc` to go back, `Ctrl+C` to
+leave in a hurry.
+
+## Configuration
+
+Settings live in `~/.config/sued-rs/sued.config.json`. The file is optional and
+so is every key in it — anything missing falls back to a default. You can change
+all of it from the **Configuration** screen inside the app, and the changes apply
+immediately.
+
+| Setting | Options |
+|---|---|
+| **Theme** | `Sangue` (blood red, default) · `Ambar` (amber) · `Fosforo` (phosphor green) |
+| **Language** | English (default) · Português (BR) · Español |
+| **Animations** | on / off — turns off flicker, shake and the typewriter reveal |
+| **Volume** | 0–100 |
+
+## Building without audio
+
+Audio is a Cargo feature, on by default. Turning it off removes the dependency
+entirely, so no ALSA headers are needed to build:
+
+```sh
+cargo install sued-rs --no-default-features
+```
+
+`--no-sound` differs: it builds the audio support and stays quiet at runtime.
+The feature flag is for machines that cannot build it at all.
 
 ## License
 
-Dual-licensed under either **MIT** or **Apache-2.0**, at your option.
+Dual-licensed under either of
 
-This covers the **code**. The bundled audio is third-party and carries its own
-terms, listed below.
+- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE))
+- MIT license ([LICENSE-MIT](LICENSE-MIT))
 
-## Audio credits
+at your option.
 
-Four sound files ship with this crate, embedded into the binary at compile time.
-Each carries its own licence. All were transcoded to Ogg Vorbis for the build;
-any other change is noted per file.
+**The bundled audio is not covered by those licences.** Eight sound files ship
+inside the binary, each under its own terms — four of them CC-BY, where credit
+is a condition of redistribution rather than a courtesy. The authoritative,
+per-file list lives in [NOTICE](NOTICE) and travels with every copy of the
+crate.
 
-**`assets/ambience.ogg`** — the looping dread bed
-"Dark horror ambience" by **LukaCafuka** — [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/)
-<https://freesound.org/people/LukaCafuka/sounds/758478/>
+## A note on the original
 
-**`assets/laugh.ogg`** — the intermittent laughter
-"Evil Laugh 1" by **prometheus_crr** — [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/)
-<https://freesound.org/people/prometheus_crr/sounds/593305/>
+SueD was a Brazilian internet classic of the 2000s, passed hand to hand on
+diskettes and MSN. The trick underneath it is much older than the software, and
+much older than computers — a piece of parlour magic that predates electricity,
+briefly wearing a floppy disk as a disguise.
 
-**`assets/jump_scare.ogg`** — the reply sting
-"Piano Scare" by **ERT3001** — [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/)
-<https://freesound.org/people/ERT3001/sounds/723292/>
-
-**`assets/thunder.ogg`** — the decoy-exhaustion warning
-"rock_breaking" (from *Yo Frankie!*) by the **Blender Foundation**
-[CC-BY 3.0](https://creativecommons.org/licenses/by/3.0/) —
-<https://opengameart.org/content/rockbreaking>
-*Modified: transcoded from FLAC to Ogg Vorbis.*
-
-CC0 files require no attribution; it is given here as a courtesy. The CC-BY file
-**does** require it, which is why its entry names the author, the licence and the
-modification.
+`sued-rs` is an homage, not a port: no original code or assets were used, and
+nothing here was reverse-engineered. It is the same joke, told again, in a
+language that did not exist when the joke was new.

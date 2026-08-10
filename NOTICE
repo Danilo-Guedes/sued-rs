@@ -11,9 +11,10 @@ its own, listed below.
 ## Audio credits
 
 Every sound in assets/ is baked into the binary at compile time, so it
-travels with any copy of this crate. Each file carries its own licence —
-two of them are CC-BY, where credit is a legal condition of redistribution
-and not a courtesy. Do not collapse these into one blanket line.
+travels with any copy of this crate. Each file carries its own licence.
+Four of the eight are CC-BY, drawn from three separate works, where credit
+is a legal condition of redistribution and not a courtesy. Do not collapse
+these into one blanket line.
 
 All files were transcoded to Ogg Vorbis for the build. Any further change
 is recorded per file.
