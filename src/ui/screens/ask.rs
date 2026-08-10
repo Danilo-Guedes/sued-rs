@@ -11,6 +11,7 @@ use ratatui::widgets::{Block, Borders, Padding, Paragraph, Wrap};
 use super::common::{colorfull_bordered_block, create_centered_rect, hint_line, render_nav_strip};
 use super::{confirm, history};
 use crate::app::{App, AskingState};
+use crate::constants::INPUT_TEXT_ROWS;
 use crate::conversation::Overlay;
 use crate::ui::effects::{
     CURSOR_CHAR, cursor_on, flash_intensity, flicker_intensity, pulse_intensity,
@@ -58,8 +59,30 @@ pub(super) fn render(frame: &mut Frame, app: &App, asking_state: &AskingState) {
         Constraint::Fill(3),   // sued_art
         Constraint::Fill(2),   // sued_says
         Constraint::Fill(3),   // sued_logs
-        Constraint::Length(3), // input box
-        Constraint::Length(2), // status bar
+        // ⬅ G3: TWO content rows, not one — border + 2 + border.
+        //
+        // ⚠⚠ THIS IS WHAT SET THE APP'S WIDTH FLOOR, and the reason is a trap
+        // worth knowing. The paragraph below already carries `.wrap()`, so it
+        // *looked* handled — but wrapping into a single row means the second
+        // line has nowhere to go, and **ratatui drops it silently**. The longest
+        // decoy is 113 characters, so at anything under ~121 columns the end of
+        // the decoy simply vanished: the trick failing, in front of the mark,
+        // with no error anywhere. §J.7-bis measured it.
+        //
+        // A second row costs ONE row of height floor (fixed rows 9 → 10, so
+        // `(H−10)×3/8 ≥ 11` ⇒ H ≥ 40) and buys ~27 columns, because the decoy
+        // stops being the binding constraint and the nav strip takes over.
+        //
+        // 📌 **Always two, never grown on demand** (Danilo's call). Growing at
+        // the wrap point would shift the demon and everything above it up a row
+        // *mid-typing* — a screen twitch during a live performance, at the exact
+        // moment the operator is staging the answer.
+        //
+        // 📌 And wrapping beats truncating for the same audience reason: a
+        // clipped decoy shows the mark a fragment of the elaborate question SueD
+        // supposedly received, where a wrapped one shows the whole thing.
+        Constraint::Length(INPUT_TEXT_ROWS + 2), // input box: text rows + border
+        Constraint::Length(2),                   // status bar
     ])
     .areas(layout);
 

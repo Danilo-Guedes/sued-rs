@@ -83,7 +83,7 @@ mod tests {
     use crate::config::Configuration;
     use crate::constants::RECOMMENDED_TERMINAL_SIZE as RECOMMENDED;
     use crate::constants::{
-        AUTHOR_GITHUB, AUTHOR_LINKEDIN, HOW_IT_WORKS_COMMAND, INPUT_CHROME_COLS,
+        AUTHOR_GITHUB, AUTHOR_LINKEDIN, HOW_IT_WORKS_COMMAND, INPUT_CHROME_COLS, INPUT_TEXT_ROWS,
         LONGEST_DECOY_CHARS,
     };
     use crate::conversation::Overlay;
@@ -679,6 +679,12 @@ mod tests {
         //
         // Deriving it from the decoys themselves means editing them can never
         // silently outgrow the floor: add a longer decoy and this fails by name.
+        //
+        // ⚠ The decoy no longer SETS the floor — the nav strip does, since the
+        // input box got its second row. That makes this test more important, not
+        // less: nothing else would now notice the decoy quietly growing past
+        // what the input can hold, because the number it would break is no
+        // longer the number anyone looks at.
         let longest = [Language::PtBr, Language::EnUs, Language::EsEs]
             .iter()
             .flat_map(|language| language.translation().decoys.iter())
@@ -693,10 +699,17 @@ mod tests {
              ({MIN_TERMINAL_WIDTH}) is now too small and the decoy will clip, which \
              is the trick failing in front of the mark"
         );
+        // The decoy gets `INPUT_TEXT_ROWS` rows of the input box's inner width.
+        // ⚠ Word wrapping never packs perfectly, so this is a NECESSARY
+        // condition, not a sufficient one — it catches a decoy that could not fit
+        // even with perfect packing, which is the runaway case worth naming.
+        let usable = (MIN_TERMINAL_WIDTH - INPUT_CHROME_COLS) * INPUT_TEXT_ROWS;
         assert!(
-            MIN_TERMINAL_WIDTH >= longest + INPUT_CHROME_COLS,
-            "MIN_TERMINAL_WIDTH ({MIN_TERMINAL_WIDTH}) must fit the longest decoy \
-             ({longest} chars) plus {INPUT_CHROME_COLS} columns of chrome"
+            usable >= LONGEST_DECOY_CHARS,
+            "at the floor the input box holds {usable} characters over \
+             {INPUT_TEXT_ROWS} rows, which cannot fit the longest decoy \
+             ({LONGEST_DECOY_CHARS}) — the decoy would clip, which is the trick \
+             failing in front of the mark"
         );
     }
 

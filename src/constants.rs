@@ -50,29 +50,38 @@ pub const RECOMMENDED_TERMINAL_SIZE: &str = "132×41";
 /// deliberately NOT `RECOMMENDED_TERMINAL_SIZE`. Guarding at the comfortable
 /// size would refuse to run at sizes where every screen renders perfectly well.
 ///
-/// **Where the width comes from: the decoy, and nothing else.** §J.7-bis swept
-/// every screen a column at a time and found the binding constraint is the
-/// staged decoy — the trick itself — which must never clip. The widest decoy in
-/// any language is 113 chars, and `INPUT_CHROME_COLS` of frame sits around it.
-/// ⚠ Do not re-derive this from `MIN_DECOY_CHARS`: **that constant is a test
-/// assertion — a LOWER bound on decoy length, not a description of the pool** —
-/// and reading it as the pool's width is exactly how §J.7 came to understate
-/// this floor by 29 columns. `the_minimum_width_still_fits_the_longest_decoy`
-/// recomputes it from the real decoys, so editing them cannot silently outgrow
-/// this number.
+/// **Where the width comes from: the NAV STRIP** — five destination labels plus
+/// the `session #999 · ● online` block. Measured at 94 (EN, the longest set),
+/// 93 (ES), 90 (PT); the widest wins because the floor is one number for all
+/// three languages.
 ///
-/// 📌 It is high **because the input box has one row and drops its overflow**.
-/// Give that box horizontal scrolling and this collapses to the nav strip's ~94.
-pub const MIN_TERMINAL_WIDTH: u16 = LONGEST_DECOY_CHARS + INPUT_CHROME_COLS;
+/// ⚠ **AMENDED — this was 121 for exactly one commit.** The decoy used to be the
+/// binding constraint, because the input box had a single text row and dropped
+/// whatever would not fit on it. Giving that box a second row (`INPUT_TEXT_ROWS`)
+/// took the decoy out of the running entirely: it now needs ~65 columns, so the
+/// nav strip inherits the floor and the app runs 27 columns narrower.
+/// `the_minimum_width_still_fits_the_longest_decoy` keeps watch on the loser.
+pub const MIN_TERMINAL_WIDTH: u16 = 94;
 
 /// The longest decoy in any language, in characters.
 ///
 /// ⚠ A hand-copied fact about data that lives elsewhere, which is exactly the
 /// shape that rots — so `the_minimum_width_still_fits_the_longest_decoy`
 /// recomputes it from all three decoy pools and fails by name if a decoy is
-/// edited past it. **Spelled out as its own constant rather than folded into
-/// the 121 so that the floor's provenance is in the code, not in a comment.**
+/// edited past it. ⚠ **Do NOT re-derive this from `MIN_DECOY_CHARS`: that is a
+/// test assertion, a LOWER bound on decoy length, not a description of the
+/// pool** — reading it as the pool's width is how §J.7 understated the floor by
+/// 29 columns for months.
+#[cfg(test)]
 pub const LONGEST_DECOY_CHARS: u16 = 113;
+
+/// Text rows the input box gives the decoy.
+///
+/// ⚠ **Two, and never grown on demand** (Danilo's call) — see the layout comment
+/// in `ask.rs`. Growing at the wrap point would shift the demon and everything
+/// above it up a row *mid-typing*, i.e. the screen twitches at the exact moment
+/// the operator is staging the answer in front of the mark.
+pub const INPUT_TEXT_ROWS: u16 = 2;
 
 /// Columns the input box spends on frame rather than on the decoy: the screen's
 /// two outer border columns, the input block's own two, and the `" ▶ "` prompt.
@@ -80,11 +89,18 @@ pub const LONGEST_DECOY_CHARS: u16 = 113;
 /// ⚠ Measured, not counted off the source — §J.7-bis rendered decoys of known
 /// length and read back the width at which the last character survived. Counting
 /// padding literals is what produced the estimates §J.7 had to replace.
+#[cfg(test)]
 pub const INPUT_CHROME_COLS: u16 = 8;
 
 /// Below this the demon's ASCII art clips — it is 11 rows against its `Fill(3)`
-/// share of `H − 9`, so `(H − 9) × 3/8 ≥ 11` ⇒ `H ≥ 39.33`.
+/// share of what the fixed rows leave, so `(H − 10) × 3/8 ≥ 11` ⇒ `H ≥ 39.33`.
+///
+/// ⚠ **AMENDED 39 → 40 by the second input row.** Fixed rows went 9 → 10
+/// (nav 4, input 4, status 2), which is the entire price of `INPUT_TEXT_ROWS`:
+/// one row of height, bought with 27 columns of width. Cheap, because width was
+/// the binding problem and height was not.
 ///
 /// 📌 That arithmetic was written in §J.7 *before* anything was measured, and
-/// the sweep landed on exactly 39. The model can be trusted for the demon.
-pub const MIN_TERMINAL_HEIGHT: u16 = 39;
+/// the sweep landed on exactly the row it predicted — both times, before and
+/// after the layout changed. The model can be trusted for the demon.
+pub const MIN_TERMINAL_HEIGHT: u16 = 40;
