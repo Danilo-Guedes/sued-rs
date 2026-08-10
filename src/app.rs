@@ -1,7 +1,7 @@
 //! Top-level application state machine (M2).
 //!
 //! [`App`] is the **app shell** — a struct pairing the current [`Screen`] with the
-//! menu cursor ([`Menu`]), so the selection survives moving between screens. The pure
+//! menu cursor ([`MenuIndex`]), so the selection survives moving between screens. The pure
 //! prank lives in [`crate::core::engine`] and stays untouched — on the question
 //! screen, `Screen::Asking` simply *owns* one `Engine` and forwards keys to it.
 //!
