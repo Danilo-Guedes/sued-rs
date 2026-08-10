@@ -1,0 +1,64 @@
+sued-rs
+Copyright (c) 2026 Danilo Guedes
+
+This product is licensed under either of Apache License, Version 2.0
+(LICENSE-APACHE) or MIT license (LICENSE-MIT), at your option.
+
+The bundled audio assets are NOT covered by those licences. Each carries
+its own, listed below.
+
+
+## Audio credits
+
+Every sound in assets/ is baked into the binary at compile time, so it
+travels with any copy of this crate. Each file carries its own licence —
+two of them are CC-BY, where credit is a legal condition of redistribution
+and not a courtesy. Do not collapse these into one blanket line.
+
+All files were transcoded to Ogg Vorbis for the build. Any further change
+is recorded per file.
+
+  assets/ambience.ogg
+    "Dark horror ambience" by LukaCafuka — CC0 1.0
+    https://freesound.org/people/LukaCafuka/sounds/758478/
+    Modified: body re-cut as a seamless loop with a crossfade at the
+    seam, and transcoded from WAV to Ogg Vorbis.
+
+  assets/laugh.ogg
+    "Evil Laugh 1" by prometheus_crr — CC0 1.0
+    https://freesound.org/people/prometheus_crr/sounds/593305/
+
+  assets/jump_scare.ogg
+    "Piano Scare" by ERT3001 — CC0 1.0
+    https://freesound.org/people/ERT3001/sounds/723292/
+
+  assets/scream.ogg
+    "Woman Screaming" by DanJFilms — CC0 1.0
+    https://freesound.org/people/DanJFilms/sounds/845164/
+
+  assets/thunder.ogg
+    "rock_breaking" (from Yo Frankie!) by Blender Foundation
+    CC-BY 3.0 — https://creativecommons.org/licenses/by/3.0/
+    Source: https://opengameart.org/content/rockbreaking
+    Modified: transcoded from FLAC to Ogg Vorbis.
+
+  assets/incantation_1.ogg, assets/incantation_2.ogg
+    "Creepy Latin Speech 3 Prayer or Summoning Deep Voice"
+    by DeqstersLab — CC-BY 4.0
+    https://creativecommons.org/licenses/by/4.0/
+    Source: https://freesound.org/people/DeqstersLab/sounds/807452/
+    Modified: split into two excerpts, converted to mono, faded,
+    loudness-normalised, and transcoded from MP3 to Ogg Vorbis.
+
+  assets/bell.ogg
+    "120122_church_bells_Minoritenkirche.wav" by reinsamba
+    CC-BY 4.0 — https://creativecommons.org/licenses/by/4.0/
+    Source: https://freesound.org/people/reinsamba/sounds/143964/
+    Modified: excerpted, converted to mono, high-pass filtered, faded,
+    loudness-normalised, and transcoded to Ogg Vorbis.
+
+
+CC-BY requires four things for each work: the author, the title, the
+licence with a link, and a statement that changes were made. The transcode
+alone is a change, so every "Modified:" line above is a requirement rather
+than a note.
