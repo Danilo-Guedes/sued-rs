@@ -6,6 +6,14 @@ in Rust with [ratatui](https://ratatui.rs).
 
 Light a candle. Turn off the lights. Ask it something you actually want to know.
 
+![The invocation screen](https://raw.githubusercontent.com/Danilo-Guedes/sued-rs/main/docs/screenshots/intro_sangue.png)
+
+![The oracle waiting for a question](https://raw.githubusercontent.com/Danilo-Guedes/sued-rs/main/docs/screenshots/ask_sangue.png)
+
+<sub>Three themes ship with it — this is the same screen in **Âmbar**:</sub>
+
+![The same screen in the Ambar theme](https://raw.githubusercontent.com/Danilo-Guedes/sued-rs/main/docs/screenshots/ask_ambar.png)
+
 ---
 
 ## What it is
@@ -61,6 +69,24 @@ If you already tried and it stopped on `alsa-sys` with _"The system library
 `alsa` … was not found"_ — that is this, and nothing in that error says so.
 Install the headers above and run it again, or skip sound entirely with
 [Building without audio](#building-without-audio).
+
+### Known issue on Windows
+
+Windows may refuse to run the compiled binary:
+
+```
+An Application Control policy has blocked this file. (os error 4551)
+```
+
+That is **Smart App Control**, not a permissions problem — running as
+administrator will not help, and it has no per-file exclusion list. It blocks
+executables it does not yet trust, and a freshly compiled one is always
+unsigned. It is intermittent: the same binary is often allowed on a later
+attempt.
+
+If it persists, either run it under **WSL** (which runs the Linux build, where
+Smart App Control does not apply — follow the Linux instructions above), or turn
+Smart App Control off under Windows Security → App & browser control.
 
 ## Running
 

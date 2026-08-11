@@ -14,6 +14,10 @@ repository = "https://github.com/Danilo-Guedes/sued-rs"
 readme = "README.md"
 keywords = ["ratatui", "prank", "tui", "game", "horror"]
 categories = ["command-line-utilities", "games"]
+# The README's screenshots are served from GitHub by absolute URL, so the files
+# themselves are dead weight inside the crate — someone who ran `cargo install`
+# will never open them. Keep them out of the tarball.
+exclude = ["docs/"]
 
 [dependencies]
 anyhow = "1.0.103"
