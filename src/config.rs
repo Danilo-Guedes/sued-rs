@@ -7,7 +7,7 @@
 //! ```json
 //! {
 //!   "theme": "sangue",
-//!   "audio_volume": 80,
+//!   "audio_volume": 60,
 //!   "animations": true,
 //!   "language": "enus"
 //! }
@@ -152,7 +152,7 @@ impl Default for Configuration {
     fn default() -> Self {
         Configuration {
             theme: Theme::Sangue,
-            audio_volume: 80,
+            audio_volume: 60,
             animations: true,
             language: Language::default(),
         }
@@ -168,7 +168,7 @@ mod tests {
         let config = Configuration::default();
 
         assert_eq!(config.theme, Theme::Sangue);
-        assert_eq!(config.audio_volume, 80);
+        assert_eq!(config.audio_volume, 60);
         assert_eq!(config.language, Language::default());
         assert!(config.animations);
     }
@@ -192,7 +192,7 @@ mod tests {
             Theme::Ambar,
             "the named field must be honoured"
         );
-        assert_eq!(config.audio_volume, 80, "an unnamed field must fall back");
+        assert_eq!(config.audio_volume, 60, "an unnamed field must fall back");
         assert!(config.animations, "an unnamed field must fall back");
     }
 
@@ -239,7 +239,7 @@ mod tests {
     #[test]
     fn an_unknown_key_is_rejected() {
         // Serde IGNORES unknown fields unless told otherwise, so this typo
-        // parses happily and `audio_volume` stays 80 — the user's edit
+        // parses happily and `audio_volume` stays at its default — the user's edit
         // vanishes with no message. Same silent failure we refused elsewhere.
         let result = Configuration::from_json(r#"{ "audio_volumee": 40 }"#);
 

@@ -1392,7 +1392,7 @@ mod tests {
     // (tema/animações/idioma) step through their options with WRAP; the one
     // continuous row (volume) steps ±10 and CLAMPS at 0/100. Persistence is
     // covered by its own tests below.
-    use crate::{language::Language, ui::theme::Theme};
+    use crate::{audio::MAX_ALLOWED_VOLUME, language::Language, ui::theme::Theme};
 
     /// Drive a fresh app onto the Config screen (cursor on the first row, `tema`),
     /// then apply `then`. Menu order is Ask·Info·About·Config·Exit, so Config is
@@ -1411,11 +1411,11 @@ mod tests {
 
     #[test]
     fn config_screen_opens_on_todays_defaults() {
-        // Slice A has no loading yet, so a fresh app carries Configuration::default().
+        // A fresh app carries `Configuration::default()`.
         let app = on_config(&[]);
         assert!(matches!(app.screen(), Screen::Config));
         assert_eq!(app.config().theme(), Theme::Sangue);
-        assert_eq!(app.config().audio_volume(), 80);
+        assert_eq!(app.config().audio_volume(), 60);
         assert!(app.config().animations());
         assert_eq!(app.config().language(), Language::default());
     }
@@ -1458,35 +1458,36 @@ mod tests {
 
     #[test]
     fn volume_steps_down_by_ten() {
-        // Down twice from `tema` lands on `volume` (default 80).
+        // Down twice from `tema` lands on `volume` (default 60).
         let app = on_config(&[KeyPress::Down, KeyPress::Down, KeyPress::Left]);
-        assert_eq!(app.config().audio_volume(), 70);
+        assert_eq!(app.config().audio_volume(), 50);
     }
 
     #[test]
     fn volume_steps_up_by_ten() {
         let app = on_config(&[KeyPress::Down, KeyPress::Down, KeyPress::Right]);
-        assert_eq!(app.config().audio_volume(), 90);
+        assert_eq!(app.config().audio_volume(), 70);
     }
 
     #[test]
     fn volume_clamps_at_the_ceiling() {
-        // 80 → 90 → 100 → stays 100. Volume clamps; it must NOT wrap round to 0.
-        let app = on_config(&[
-            KeyPress::Down,
-            KeyPress::Down,
-            KeyPress::Right,
-            KeyPress::Right,
-            KeyPress::Right,
-        ]);
-        assert_eq!(app.config().audio_volume(), 100);
+        // ⚠ MORE Rights than any default could need, deliberately. Counting the
+        // presses exactly ties this test to whatever the default volume happens
+        // to be, and it goes red the day someone changes it — which is a test
+        // rotting, not a bug being caught. Over-press instead: the surplus ones
+        // must sit at the ceiling rather than wrap round to 0.
+        let mut keys = vec![KeyPress::Down, KeyPress::Down];
+        keys.extend(vec![KeyPress::Right; 12]);
+        let app = on_config(&keys);
+        assert_eq!(app.config().audio_volume(), MAX_ALLOWED_VOLUME);
     }
 
     #[test]
     fn volume_clamps_at_the_floor() {
-        // 80 needs eight Lefts to reach 0; a ninth must stay at 0, not wrap to 100.
+        // Same over-press reasoning as the ceiling above: the surplus Lefts must
+        // stay at 0, not wrap round to the top.
         let mut keys = vec![KeyPress::Down, KeyPress::Down];
-        keys.extend(vec![KeyPress::Left; 9]);
+        keys.extend(vec![KeyPress::Left; 12]);
         let app = on_config(&keys);
         assert_eq!(app.config().audio_volume(), 0);
     }
@@ -1525,7 +1526,7 @@ mod tests {
             KeyPress::Up,
         ]);
         assert_eq!(app.config().theme(), Theme::Sangue);
-        assert_eq!(app.config().audio_volume(), 80);
+        assert_eq!(app.config().audio_volume(), 60);
         assert!(app.config().animations());
         assert_eq!(app.config().language(), Language::EnUs);
     }
