@@ -14,6 +14,7 @@ use crate::language::Translation;
     name = "sued-rs",
     about = "SueD, o oráculo — a horror-themed prank oracle for your terminal."
 )]
+#[command(version)]
 pub struct Args {
     /// Run with no audio at all (overrides the `audio` build feature).
     #[arg(long)]

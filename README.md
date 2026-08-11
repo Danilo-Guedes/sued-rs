@@ -1,7 +1,7 @@
 # sued-rs
 
 A horror-themed terminal recreation of **SueD** — the 2000s Brazilian prank
-oracle (*Sua Última Esperança Divina*, and "Deus" spelled backwards) — rebuilt
+oracle (_Sua Última Esperança Divina_, and "Deus" spelled backwards) — rebuilt
 in Rust with [ratatui](https://ratatui.rs).
 
 Light a candle. Turn off the lights. Ask it something you actually want to know.
@@ -27,7 +27,7 @@ person at the keyboard.
 **The method is not written down here, and that is deliberate** — this page is
 public, and your victim can read it too.
 
-But it is not a secret from *you*. The program carries its own operator's manual:
+But it is not a secret from _you_. The program carries its own operator's manual:
 the full trick, the timing, and how to perform it convincingly. It will not
 appear on any screen the victim can see, so poke around the command line until
 you find it. It is not hidden well. It is only hidden from the right person.
@@ -43,17 +43,23 @@ Rust **1.88** or newer (2024 edition — the crate uses let-chains).
 
 ## Install
 
+**Linux: install ALSA's development headers first.** Sound is on by default, and
+the build fails without them:
+
+```sh
+sudo apt install libasound2-dev    # Debian, Ubuntu
+sudo dnf install alsa-lib-devel    # Fedora
+```
+
+macOS and Windows need nothing extra. Then, on any platform:
+
 ```sh
 cargo install sued-rs
 ```
 
-On Linux, an audio build needs ALSA's development headers:
-
-```sh
-sudo apt install libasound2-dev
-```
-
-Prefer silence, or don't want the headers at all? See
+If you already tried and it stopped on `alsa-sys` with _"The system library
+`alsa` … was not found"_ — that is this, and nothing in that error says so.
+Install the headers above and run it again, or skip sound entirely with
 [Building without audio](#building-without-audio).
 
 ## Running
@@ -75,12 +81,12 @@ so is every key in it — anything missing falls back to a default. You can chan
 all of it from the **Configuration** screen inside the app, and the changes apply
 immediately.
 
-| Setting | Options |
-|---|---|
-| **Theme** | `Sangue` (blood red, default) · `Ambar` (amber) · `Fosforo` (phosphor green) |
-| **Language** | English (default) · Português (BR) · Español |
-| **Animations** | on / off — turns off flicker, shake and the typewriter reveal |
-| **Volume** | 0–100 |
+| Setting        | Options                                                                      |
+| -------------- | ---------------------------------------------------------------------------- |
+| **Theme**      | `Sangue` (blood red, default) · `Ambar` (amber) · `Fosforo` (phosphor green) |
+| **Language**   | English (default) · Português (BR) · Español                                 |
+| **Animations** | on / off — turns off flicker, shake and the typewriter reveal                |
+| **Volume**     | 0–100                                                                        |
 
 ## Building without audio
 
