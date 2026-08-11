@@ -170,6 +170,30 @@ pub fn volume_db(percent: u8) -> f32 {
     20.0 * ratio.log10()
 }
 
+/// Whether the séance has a voice, and — when it does not — whether that was
+/// asked for. Exists so `main` can tell the operator about the one case they did
+/// not choose, and stay quiet about the two they did.
+///
+/// ⚠ Ungated on purpose: `main` reads this in both feature configurations, and
+/// the whole point of the silent stub is to keep `main` free of `#[cfg]`.
+/// ⚠ Scoped `allow`, not a `pub` wash: the silent build constructs only
+/// [`AudioState::Silent`], so the other two read as dead code there. Same
+/// treatment `next_cue` already gets, and for the same reason — the variants are
+/// live in the audio build and the enum must stay one type across both.
+#[cfg_attr(not(feature = "audio"), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AudioState {
+    /// A device opened and the assets decoded. Sound is on.
+    Playing,
+    /// Silent because it was asked for — `--no-sound`, or a build without the
+    /// `audio` feature. The operator already knows; say nothing.
+    Silent,
+    /// Sound was wanted and no device was available. The trick still works, so
+    /// this is a notice rather than an error — but it is one the operator did
+    /// not choose, so it must be said out loud.
+    NoDeviceFound,
+}
+
 // ── Silent build: no `audio` feature (or `--no-sound`) ──────────────────────
 // Same surface as the real thing, every method a no-op. This is what keeps the
 // crate building with no ALSA headers and `main` free of `#[cfg]`.
@@ -178,8 +202,11 @@ pub struct Audio;
 
 #[cfg(not(feature = "audio"))]
 impl Audio {
-    pub fn new(_enabled: bool) -> anyhow::Result<Self> {
-        Ok(Audio)
+    pub fn new(_enabled: bool) -> anyhow::Result<(Self, AudioState)> {
+        // Silent by construction: this build has no audio at all, which is a
+        // choice made at compile time. Never `NoDeviceFound` — there is no
+        // device to look for.
+        Ok((Audio, AudioState::Silent))
     }
 
     pub fn start_background_ambience(&mut self) {}
@@ -214,15 +241,39 @@ pub struct Audio {
 
 #[cfg(feature = "audio")]
 impl Audio {
-    pub fn new(audio_enabled: bool) -> anyhow::Result<Self> {
+    pub fn new(audio_enabled: bool) -> anyhow::Result<(Self, AudioState)> {
         if !audio_enabled {
-            return Ok(Audio {
-                player: None,
-                next_random_cue_index: 0,
-            });
+            return Ok((
+                Audio {
+                    player: None,
+                    next_random_cue_index: 0,
+                },
+                AudioState::Silent,
+            ));
         }
 
-        let audio_manager = AudioManager::<DefaultBackend>::new(AudioManagerSettings::default())?;
+        // ⚠⚠ THIS IS THE ONLY FAILURE THAT FALLS BACK, AND THE LINE MATTERS.
+        // Opening a device is a fact about the *user's machine* — headless boxes,
+        // SSH sessions, containers and broken audio stacks all land here, and a
+        // prank whose trick works in silence has no business refusing to start
+        // over it.
+        //
+        // The `?`s below are the opposite case: they decode assets baked in with
+        // `include_bytes!`, so a failure there means *this crate* shipped a
+        // corrupt `.ogg`. Those stay fatal. `Audio::new(true)` is never unit
+        // tested (it needs a real device), which makes that startup error the
+        // only thing standing between a bad re-encode and a silent release.
+        let Ok(audio_manager) =
+            AudioManager::<DefaultBackend>::new(AudioManagerSettings::default())
+        else {
+            return Ok((
+                Audio {
+                    player: None,
+                    next_random_cue_index: 0,
+                },
+                AudioState::NoDeviceFound,
+            ));
+        };
 
         let ambience_sound =
             StaticSoundData::from_cursor(Cursor::new(include_bytes!("../assets/ambience.ogg")))?;
@@ -259,10 +310,13 @@ impl Audio {
             bell,
         };
 
-        Ok(Audio {
-            player: Some(player),
-            next_random_cue_index: 0,
-        })
+        Ok((
+            Audio {
+                player: Some(player),
+                next_random_cue_index: 0,
+            },
+            AudioState::Playing,
+        ))
     }
 
     pub fn start_background_ambience(&mut self) {
@@ -644,15 +698,23 @@ mod volume_tests {
 }
 
 // Only meaningful in an audio build: the stub `Audio` is unconditionally silent
-// and has no `player` to inspect. There is deliberately no `new(true)` test —
-// that one needs a real sound card, which CI doesn't have.
+// and has no `player` to inspect.
+//
+// ⚠ There is deliberately no `new(true)` test, and the reason changed rather than
+// went away. It used to be that `new(true)` needed a real sound card to return
+// `Ok` at all. Now it returns `Ok` either way — `Playing` with a device,
+// `NoDeviceFound` without — so a test would still pass on both machines while
+// asserting opposite things. Environment-dependent, therefore worthless. The
+// fallback is verified by RUNNING it against a blanked ALSA config, the same way
+// the rest of the audio path is.
 #[cfg(all(test, feature = "audio"))]
 mod tests {
     use super::*;
 
     #[test]
     fn a_disabled_audio_holds_no_player() {
-        let audio = Audio::new(false).expect("a silent Audio must build on a box with no sound");
+        let (audio, _) =
+            Audio::new(false).expect("a silent Audio must build on a box with no sound");
 
         assert!(
             audio.player.is_none(),
@@ -661,8 +723,24 @@ mod tests {
     }
 
     #[test]
+    fn asking_for_silence_is_never_reported_as_a_missing_device() {
+        // ⚠ THE ONE THAT PINS THE NOTICE, and nothing else would catch it.
+        // `main` prints "no audio device available" on `NoDeviceFound` alone. Both
+        // silent paths end with `player: None`, so they are indistinguishable by
+        // state — collapse them and every single `--no-sound` run starts nagging
+        // the operator about hardware they deliberately switched off.
+        let (_, state) = Audio::new(false).expect("silence must always be available");
+
+        assert_eq!(
+            state,
+            AudioState::Silent,
+            "silence that was ASKED FOR must never be reported as a fault"
+        );
+    }
+
+    #[test]
     fn a_silent_audio_stays_quiet_instead_of_panicking() {
-        let mut audio = Audio::new(false).unwrap();
+        let (mut audio, _) = Audio::new(false).unwrap();
 
         audio.start_background_ambience();
         audio.play(AudioCue::JumpScare);

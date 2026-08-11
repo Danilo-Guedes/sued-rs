@@ -32,7 +32,7 @@ use ratatui::Terminal;
 use ratatui::backend::CrosstermBackend;
 
 use crate::app::{App, AppFlow};
-use crate::audio::{Audio, AudioCue, random_audio_interval};
+use crate::audio::{Audio, AudioCue, AudioState, random_audio_interval};
 use crate::cli::Args;
 use crate::config::Configuration;
 use crate::core::engine::KeyPress;
@@ -92,14 +92,30 @@ fn main() -> Result<()> {
         return Ok(());
     }
 
+    // Sound is on only when compiled with `--features audio` AND not `--no-sound`.
+    // The no-op `Audio` ignores the flag; the real one goes silent when it's false.
+    //
+    // ⚠ Built BEFORE the terminal guard, deliberately. Anything this prints has to
+    // land on an ordinary terminal — raised after the guard, a notice is written
+    // onto the alternate screen and then thrown away with it, so the operator sees
+    // the app flicker open and shut having said nothing.
+    let (mut audio, audio_state) = Audio::new(!args.no_sound)?;
+
+    // The one silence nobody asked for. It is not an error — the trick is visual
+    // and works perfectly without a sound card — but it must not be discovered by
+    // wondering why the house is quiet mid-performance.
+    //
+    // 📌 Printed here rather than drawn anywhere: every screen belongs to the mark,
+    // and this is addressed to the operator. Same reasoning as `--how-it-works`.
+    if audio_state == AudioState::NoDeviceFound {
+        eprintln!("sued-rs: no audio device available — running silently.");
+        eprintln!("         (pass --no-sound to skip this notice)");
+    }
+
     let _guard = TerminalGuard::new()?; // declared first → dropped LAST (cleans up after the terminal)
     let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
 
     let mut app_state = App::new(parsed_config);
-
-    // Sound is on only when compiled with `--features audio` AND not `--no-sound`.
-    // The no-op `Audio` ignores the flag; the real one goes silent when it's false.
-    let mut audio = Audio::new(!args.no_sound)?;
 
     run(&mut terminal, &mut app_state, &mut audio, &config_path)
 }
