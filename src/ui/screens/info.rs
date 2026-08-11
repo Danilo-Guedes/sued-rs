@@ -103,8 +103,14 @@ fn render_ritual_panel(frame: &mut Frame, area: Rect, palette: Palette, translat
     frame.render_widget(block, area);
 
     // Steps take their natural height so the divider + example sit *right under*
-    // step 4; the `Fill(1)` sinks the leftover space to the bottom, which is
-    // what pins the terminal hint to the floor of the screen.
+    // step 4; the single `Fill(1)` sinks all the leftover space to the bottom,
+    // which is what pins the terminal hint to the floor of the screen.
+    //
+    // ⚠ The top gap is a FIXED `Length`, not a matching `Fill`. Two `Fill`s would
+    // centre the block — and this block does not grow, so its top gap would then
+    // breathe with the terminal: ~10 blank rows at 132×41 and worse on anything
+    // taller, which reads as the page having sagged rather than as air. Same rule
+    // `RITUAL_WIDTH` follows horizontally, now applied on the other axis.
     let [
         _top_spacer,
         heading_area,
@@ -114,12 +120,12 @@ fn render_ritual_panel(frame: &mut Frame, area: Rect, palette: Palette, translat
         _bottom_spacer,
         terminal_hint_area,
     ] = Layout::vertical([
-        Constraint::Fill(1),    // ⬅ matching spacers centre the block vertically
+        Constraint::Length(2),  // ⬅ a breath under the nav strip, and no more
         Constraint::Length(2),  // heading + blank line
         Constraint::Length(10), // 4 numbered steps + 3 blank lines between them
         Constraint::Length(1),  // red divider
         Constraint::Length(2),  // example, directly below the last step
-        Constraint::Fill(1),    // ⬅ …and the leftover splits evenly between them
+        Constraint::Fill(1),    // ⬅ all the leftover sinks here
         Constraint::Length(1),  // the size hint, bottom-pinned
     ])
     .areas(inner);
