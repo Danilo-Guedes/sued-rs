@@ -107,7 +107,7 @@ pub(super) fn render(frame: &mut Frame, app: &App) {
             .intro
             .welcome
             .lines()
-            .map(|row| styled_line(row, Style::default().dim(), palette.accent)),
+            .map(|row| styled_line(row, Style::default().white(), palette.accent)),
     );
     warning_rows.extend(translation.intro.disclaimer.lines().map(Line::from));
     warning_rows.extend([
