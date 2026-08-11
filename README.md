@@ -135,5 +135,5 @@ is a conversation worth having.
 
 **And it is not occultism.** The demon, the incantations and the séance are
 stage dressing, borrowed from a prank program of the 2000s that already looked
-like this. `sued-rs` takes no position on anyone's beliefs and is not meant to
-mock them.
+like this. `sued-rs` takes no position on anyone's religion or beliefs, and is
+not meant to mock them.

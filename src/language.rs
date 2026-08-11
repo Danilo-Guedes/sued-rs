@@ -269,11 +269,6 @@ impl Language {
                     "Minha bola de cristal embaçou de tédio, formule sua pergunta novamente",
                 ],
                 rebuke: "{question} ??? Você não entendeu o que eu disse? Me bajule primeiro, mortal, e só então pergunte, por quê humanos dificultam tanto?",
-                // ⏳ PROVISIONAL: the two closing disclaimer paragraphs ("Duas
-                // coisas, ditas com clareza") are a draft, not Danilo's own
-                // prose — every other Portuguese word in this manual is his.
-                // He ratifies or rewrites them; EN/ES then track whatever PT
-                // lands on. Clear this marker the moment he does.
                 how_it_works: "\
 SueD é uma pegadinha. Não existe oráculo nenhum.
 
@@ -361,8 +356,8 @@ nem recursos com ele, e nada aqui foi obtido por engenharia reversa —
 
 Também não é ocultismo. O demônio, os encantamentos e a sessão são
 cenário, emprestados de um programa de pegadinha dos anos 2000 que já
-tinha essa cara. Não toma partido sobre a crença de ninguém, nem
-pretende zombar dela.
+tinha essa cara. Não toma partido sobre a religião ou crença de ninguém,
+nem pretende zombar dela.
 
 feito por: Danilo Guedes
 fonte: {repo}",
@@ -652,8 +647,8 @@ reverse-engineered — it is the same joke told again, not a port.
 
 It is also not occultism. The demon, the incantations and the séance
 are stage dressing, borrowed from a prank program of the 2000s that
-already looked like this. It takes no position on anyone's beliefs and
-is not meant to mock them.
+already looked like this. It takes no position on anyone's religion or
+beliefs, and is not meant to mock them.
 
 made by: Danilo Guedes
 source: {repo}",
@@ -948,8 +943,8 @@ el mismo chiste contado otra vez, no un port.
 
 Tampoco es ocultismo. El demonio, los conjuros y la sesión son puesta
 en escena, tomada de un programa de bromas de los 2000 que ya se veía
-así. No toma posición sobre las creencias de nadie ni pretende burlarse
-de ellas.
+así. No toma posición sobre la religión o las creencias de nadie,
+ni pretende burlarse de ellas.
 
 hecho por: Danilo Guedes
 fuente: {repo}",
