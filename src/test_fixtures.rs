@@ -1,7 +1,7 @@
 //! Keystroke fixtures shared by the `app` and `ui::screens` test modules.
 //!
-//! ⚠⚠ **WHY THIS MODULE EXISTS — a real bug, not tidiness.** G17 split refusals
-//! in two on the LENGTH of the question: `<= SHORT_QUESTION_CHARS` earns the
+//! ⚠⚠ **WHY THIS MODULE EXISTS — a real bug, not tidiness.** Refusals split in
+//! two on the LENGTH of the question: `<= SHORT_QUESTION_CHARS` earns the
 //! rebuke, anything longer earns a pooled denial. Every test that had hand-rolled
 //! its own short question silently changed meaning the day that landed —
 //! `the_ask_screen_draws_a_denial` and `the_taunt_is_visible_once_sued_refuses`
@@ -92,13 +92,13 @@ pub(crate) fn open_the_story() -> Vec<KeyPress> {
     keys
 }
 
-/// Raise G21's quit-confirm from the Intro splash — `Esc` on the very first
+/// Raise the quit-confirm from the Intro splash — `Esc` on the very first
 /// screen, which used to walk straight out of the program.
 pub(crate) fn raise_quit_from_intro() -> Vec<KeyPress> {
     vec![KeyPress::Esc]
 }
 
-/// Raise G21's quit-confirm from the menu's `Sair` entry.
+/// Raise the quit-confirm from the menu's `Sair` entry.
 ///
 /// `Up` from the first item **wraps** to `Sair` — one step instead of four.
 /// Encoded here so no call site counts menu rows, the same reason
@@ -114,7 +114,7 @@ pub(crate) fn raise_quit_from_menu() -> Vec<KeyPress> {
 /// The two — and only two — routes that raise the quit-confirm, labelled for
 /// assertion messages.
 ///
-/// ⚠ Both sites must be driven by every behavioural test in the G21 block.
+/// ⚠ Both sites must be driven by every behavioural quit-confirm test.
 /// Testing one and assuming the other is how a shared helper ends up wired at a
 /// single call site: the suite stays green while half the feature is missing.
 pub(crate) fn both_quit_confirm_sites() -> [(&'static str, Vec<KeyPress>); 2] {
@@ -131,7 +131,7 @@ mod tests {
 
     #[test]
     fn the_fixtures_actually_straddle_the_threshold() {
-        // ⚠ THE GUARD THAT WOULD HAVE CAUGHT G17's SILENT DRIFT. Today
+        // ⚠ THE GUARD THAT WOULD HAVE CAUGHT THAT SILENT DRIFT. Today
         // `DENIED_QUESTION` clears the bound by luck of how it was worded — retune
         // `SHORT_QUESTION_CHARS` upward and every "denial" fixture in the suite
         // starts producing rebukes instead. The tests that assert on the pool

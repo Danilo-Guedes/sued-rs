@@ -18,7 +18,7 @@ pub struct Translation {
     pub decoys: &'static [&'static str],
     /// Taunts for a question asked without a staged answer.
     pub denials: &'static [&'static str],
-    /// The refusal reserved for a question too SHORT to be a question (G17) —
+    /// The refusal reserved for a question too SHORT to be a question —
     /// picked instead of a random `denial`, so it is a sibling of that pool and
     /// lives beside it rather than in `AskTexts`.
     ///
@@ -46,13 +46,13 @@ pub struct Translation {
     pub ask: AskTexts,
     pub history: HistoryTexts,
     pub confirm: ConfirmTexts,
-    /// G21's quit-confirm. Deliberately the **same struct** as `confirm` with
+    /// The quit-confirm. Deliberately the **same struct** as `confirm` with
     /// **different data** — the two dialogs share a render, so they must share a
     /// shape, but they must not share words: `Ask → Esc → confirm → leave →
     /// Menu → Sair → quit` puts both on screen inside one journey, and `confirm`
     /// mourns a lost séance where `quit` has nothing left to lose.
     pub quit: ConfirmTexts,
-    /// G3's min-size notice — the only thing in the app that draws below the
+    /// The min-size notice — the only thing in the app that draws below the
     /// floor, so it is also the only thing that has to survive a tiny terminal.
     pub too_small: TooSmallTexts,
     pub config: ConfigTexts,
@@ -87,7 +87,7 @@ pub struct AboutTexts {
 /// the app in `--how-it-works`, because anything drawn on screen can be read
 /// over the operator's shoulder mid-prank. This struct is the *story* only —
 /// who wrote it, why, and where the source is. Do not let the two drift back
-/// together (PLAN §G16).
+/// together.
 ///
 /// 📌 `body` **does** take `{{accent}}` markup, like `AboutTexts::lore`.
 /// ⚠ An earlier draft of this comment claimed it did not, on the theory that
@@ -125,7 +125,7 @@ pub struct InfoTexts {
     pub title: &'static str,
     pub instructions: &'static [&'static str],
     pub example: &'static str,
-    /// ⚠ `shortcut_title` + `shortcuts` were CUT by G20, and not for staleness.
+    /// ⚠ There is deliberately no shortcut table here, and not for staleness.
     /// This screen instructs the *mark*; a key table listing `[F5]` — the
     /// operator's panic button, which burns the staged answer — was printing the
     /// one thing the victim must never learn. The operator's table lives in
@@ -269,6 +269,11 @@ impl Language {
                     "Minha bola de cristal embaçou de tédio, formule sua pergunta novamente",
                 ],
                 rebuke: "{question} ??? Você não entendeu o que eu disse? Me bajule primeiro, mortal, e só então pergunte, por quê humanos dificultam tanto?",
+                // ⏳ PROVISIONAL: the two closing disclaimer paragraphs ("Duas
+                // coisas, ditas com clareza") are a draft, not Danilo's own
+                // prose — every other Portuguese word in this manual is his.
+                // He ratifies or rewrites them; EN/ES then track whatever PT
+                // lands on. Clear this marker the moment he does.
                 how_it_works: "\
 SueD é uma pegadinha. Não existe oráculo nenhum.
 
@@ -346,6 +351,18 @@ Principais comandos:
 
 Não deixe isto na tela. Todo o resto do app é escrito para a vítima;
 esta é a única página escrita para você.
+
+Duas coisas, ditas com clareza:
+
+Isto é uma homenagem não oficial. O sued-rs não é afiliado, endossado
+nem ligado ao SueD original nem a quem o fez. Não compartilha código
+nem recursos com ele, e nada aqui foi obtido por engenharia reversa —
+é a mesma piada contada de novo, não um port.
+
+Também não é ocultismo. O demônio, os encantamentos e a sessão são
+cenário, emprestados de um programa de pegadinha dos anos 2000 que já
+tinha essa cara. Não toma partido sobre a crença de ninguém, nem
+pretende zombar dela.
 
 feito por: Danilo Guedes
 fonte: {repo}",
@@ -474,10 +491,6 @@ fonte: {repo}",
                         ("[Ctrl+C]", "sair"),
                     ],
                 },
-                // 📌 The one PT string in the app Danilo did not write himself —
-                // Claude drafted it and he accepted it as-is (2026-08-10). Noted
-                // because every other PT text here is his voice first-hand, and a
-                // future edit should know this one was not.
                 quit: ConfirmTexts {
                     title: "O RITUAL VAI TERMINAR",
                     lore_text: "O oráculo recolhe-se à escuridão de onde veio. Nada mais será perguntado, nada mais será respondido — até que alguém ouse invocá-lo outra vez",
@@ -629,6 +642,18 @@ Main keys:
 
 Do not leave this on screen. Everything else in the app is written for
 the mark; this is the only page written for you.
+
+Two things, said plainly:
+
+This is an unofficial tribute. sued-rs is not affiliated with, endorsed
+by, or connected to the original SueD or the people who made it. It
+shares no code and no assets with it, and nothing here was
+reverse-engineered — it is the same joke told again, not a port.
+
+It is also not occultism. The demon, the incantations and the séance
+are stage dressing, borrowed from a prank program of the 2000s that
+already looked like this. It takes no position on anyone's beliefs and
+is not meant to mock them.
 
 made by: Danilo Guedes
 source: {repo}",
@@ -914,6 +939,18 @@ Teclas principales:
 No dejes esto en pantalla. Todo lo demás en la app está escrito para la
 víctima; esta es la única página escrita para ti.
 
+Dos cosas, dichas claramente:
+
+Esto es un homenaje no oficial. sued-rs no está afiliado, avalado ni
+vinculado al SueD original ni a quienes lo hicieron. No comparte código
+ni recursos con él, y nada aquí fue objeto de ingeniería inversa — es
+el mismo chiste contado otra vez, no un port.
+
+Tampoco es ocultismo. El demonio, los conjuros y la sesión son puesta
+en escena, tomada de un programa de bromas de los 2000 que ya se veía
+así. No toma posición sobre las creencias de nadie ni pretende burlarse
+de ellas.
+
 hecho por: Danilo Guedes
 fuente: {repo}",
                 intro: IntroTexts {
@@ -1147,8 +1184,8 @@ mod tests {
     // The contract mirrors `random_audio_interval`: multiply the roll across the pool
     // and floor into an index. `rand::random::<f32>()` yields `0.0..1.0`, but
     // the clamp at exactly 1.0 is pinned anyway — an inclusive roll from a
-    // future caller must never index out of bounds (the `%`-vs-`*` crash of
-    // M5 was this same off-by-the-edge family).
+    // future caller must never index out of bounds (the `%`-vs-`*` crash is
+    // this same off-by-the-edge family).
 
     const POOL: [&str; 4] = ["primeiro", "segundo", "terceiro", "quarto"];
 
@@ -1302,7 +1339,7 @@ mod tests {
     // and the padding is `LABEL_WIDTH - label.chars().count()` — a raw `usize`
     // subtraction. A label longer than the constant underflows: panic in debug,
     // an attempt to allocate ~1.8×10¹⁹ spaces in release. Raising the constant
-    // (12 → 14, 2026-07-26) moved that cliff without removing it.
+    // only moves that cliff without removing it.
     //
     // Deriving the width from the labels themselves removes it: if the width IS
     // the longest label, the subtraction cannot go negative. These pin the

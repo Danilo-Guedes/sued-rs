@@ -1,4 +1,4 @@
-//! Top-level application state machine (M2).
+//! Top-level application state machine.
 //!
 //! [`App`] is the **app shell** — a struct pairing the current [`Screen`] with the
 //! menu cursor ([`MenuIndex`]), so the selection survives moving between screens. The pure
@@ -20,11 +20,11 @@ use crate::{
 
 pub const THUNDER_AT_CHARS_REMAINING: usize = 20;
 
-/// G17 — a question of this many characters **or fewer** earns the rebuke
-/// instead of a random denial. Inclusive: 18 is short, 19 is not.
+/// A question of this many characters **or fewer** earns the rebuke instead of
+/// a random denial. Inclusive: 18 is short, 19 is not.
 ///
-/// ⚠ His call, 2026-08-06, and the tradeoff is deliberate rather than an
-/// oversight: 18 catches every greeting he named (`hello there` = 11,
+/// ⚠ The tradeoff is deliberate rather than an oversight: 18 catches every
+/// greeting worth catching (`hello there` = 11,
 /// `what is this?` = 13, `how you doing?` = 14) **and also catches genuinely
 /// short real questions** — `does she love me?` is 17, `vou passar?` is 11.
 /// That is in character (the ritual demands you flatter and elaborate), so a
@@ -225,9 +225,9 @@ impl MenuOption {
                 Language::EsEs => "PREGUNTAR AL ORÁCULO",
             },
 
-            // ⬅ G20 renamed this with `NavTab::Info`. Both had to move: leaving
-            // the menu saying "INFORMAÇÕES" would have relocated the mismatch
-            // rather than fixed it.
+            // ⬅ This must stay in step with `NavTab::Info`. A menu saying
+            // "INFORMAÇÕES" over a screen titled "O RITUAL" relocates the
+            // mismatch rather than fixing it.
             MenuOption::Info => match language {
                 Language::PtBr => "O RITUAL",
                 Language::EnUs => "THE RITUAL",
@@ -391,7 +391,7 @@ impl App {
                     None => {}
                 }
 
-                // The conversation guard (G8). Three time-paths converge on the
+                // The conversation guard. Three time-paths converge on the
                 // ordinary key handling below: SueD never spoke → fall straight
                 // through; SueD mid-reply → swallow the key (only F5/Esc still
                 // act); SueD finished → this key begins the next exchange, so
@@ -758,9 +758,9 @@ impl App {
     ///
     /// `main`'s tick loop watches this and fires the reply sting on the FALLING
     /// edge — the instant the ponder ends. That transition happens with no
-    /// keypress at all, which is why the old `pending_cue` seam could not express
-    /// it: that one was drained inside the keypress block, so it fired the sting
-    /// at Enter, seconds before SueD actually spoke. It was removed with G13.
+    /// keypress at all, which is why a `pending_cue`-style seam cannot express
+    /// it: drained inside the keypress block, it would fire the sting at Enter,
+    /// seconds before SueD actually spoke.
     ///
     /// ⚠ This is deliberately LEVEL-triggered — it answers "is SueD pondering
     /// *right now*", and stays true for the whole pause. The "play the sting
@@ -848,7 +848,7 @@ mod tests {
         matches!(state.screen(), Screen::Menu)
     }
 
-    // ── G8: the exchange is a conversation, not a wipe ───────────────────────
+    // ── the exchange is a conversation, not a wipe ───────────────────────────
     // The old flow answered once and froze until F5. The new one: SueD replies,
     // the crawl finishes, the input reopens EMPTY — and the answer you just got
     // stays on screen while you type the next question, so the screen reads as a
@@ -927,11 +927,11 @@ mod tests {
         assert_eq!(selected(&state), MenuOption::Ask);
     }
 
-    // ⚠ `intro_esc_quits` WAS HERE — DELETED BY G21, not weakened. Amending it to
-    // `[Esc, →, Enter]` made it keystroke-for-keystroke identical to what
-    // `committing_the_leave_choice_quits` already drives for the intro site, and
-    // three copies of one sequence is three things to update. Its job — "Esc on
-    // the intro is the way out of the program" — is named there explicitly.
+    // ⚠ There is deliberately no separate "Esc on the intro quits" test: it
+    // would be keystroke-for-keystroke identical to what
+    // `committing_the_leave_choice_quits` already drives for the intro site,
+    // and three copies of one sequence is three things to update. That job is
+    // named there explicitly.
 
     // ── Menu navigation (wraps) ──────────────────────────────────────────────
 
@@ -992,9 +992,8 @@ mod tests {
         assert!(matches!(state.screen(), Screen::About(_)));
     }
 
-    // ⚠ `menu_enter_on_sair_quits` WAS HERE — DELETED BY G21, same reason as
-    // `intro_esc_quits` above: once amended it became an exact duplicate of the
-    // menu half of `committing_the_leave_choice_quits`.
+    // ⚠ Likewise no separate "Enter on Sair quits" test — it would duplicate
+    // the menu half of `committing_the_leave_choice_quits` exactly.
 
     #[test]
     fn menu_esc_should_return_to_intro() {
@@ -1232,22 +1231,19 @@ mod tests {
         ];
 
         // Precondition: SUED really replied — and the reply CONSUMED the
-        // question (G8 amendment): the ENGINE's buffer is already empty while
-        // SueD taunts.
+        // question: the ENGINE's buffer is already empty while SueD taunts.
         //
-        // ⚠ AMENDED 2026-08-04 (G15) — READ THE WORD "ENGINE". This test's claim
-        // survived G15 untouched, but the sentence that used to describe it
-        // ("the input already reads empty") did not, because it was two facts
-        // wearing one coat:
+        // ⚠ READ THE WORD "ENGINE". "The input already reads empty" would be
+        // two facts wearing one coat:
         //
-        //   what the ENGINE holds  → cleared at `Enter`. Still true. Asserted here.
+        //   what the ENGINE holds  → cleared at `Enter`. True. Asserted here.
         //   what the SCREEN draws  → the mark's question, until SueD stops
-        //                            speaking. Inverted by G15. NOT asserted here.
+        //                            speaking. NOT asserted here.
         //
         // The clearing is load-bearing for the trick (`visible_buffer` must not
         // keep growing behind a reply), so this assertion protects the gimmick
         // and must not be weakened into "the screen looks empty" — it never
-        // checked that, and since G15 that would be false. The screen side is
+        // checked that, and that would be false. The screen side is
         // pinned by `the_question_stays_on_screen_while_sued_is_still_speaking`
         // in `ui/screens.rs`, which has to be a DRAW test for exactly this
         // reason: no state assertion can see a change that only picks which
@@ -1301,10 +1297,11 @@ mod tests {
         // so "newest" and "previous" are different strings and a test can tell
         // them apart — with one exchange this passes either way and pins nothing.
         //
-        // G15 draws the question SueD is answering *right now*. Step over it the
-        // way `previous_reply` steps over the live reply and the input line shows
-        // the mark the wrong question — subtly, plausibly, and only on the second
-        // exchange onward, which is exactly the kind of bug that survives a demo.
+        // The input line draws the question SueD is answering *right now*. Step
+        // over it the way `previous_reply` steps over the live reply and the
+        // input line shows the mark the wrong question — subtly, plausibly, and
+        // only on the second exchange onward, which is exactly the kind of bug
+        // that survives a demo.
         let mut app = drive(&[
             KeyPress::Enter,
             KeyPress::Enter, // → Asking
@@ -1313,9 +1310,10 @@ mod tests {
             KeyPress::Enter, // 1st question, no hidden answer → Denied
         ]);
 
-        // ⚠ Not optional. G8 locks the input while SueD speaks, so without
-        // winding the clock the second question never reaches the engine and
-        // this test quietly asserts against a ONE-exchange transcript — where
+        // ⚠ Not optional. The conversation lock holds the input while SueD
+        // speaks, so without winding the clock the second question never
+        // reaches the engine and this test quietly asserts against a
+        // ONE-exchange transcript — where
         // "newest" and "previous" are the same string and nothing is pinned.
         // (F5 is not an option here either: it rebuilds the screen and takes
         // `history` with it, which destroys the very thing under test.)
@@ -1389,11 +1387,11 @@ mod tests {
     }
 
     // ── Config screen: [←→] alter values, immediate-apply ─────────────────────
-    // Slice A of M5: the config lives in `App.config` (no draft). `[↑↓]` move the
-    // row cursor; `[←→]` alter the selected row's value and apply it live. Discrete
-    // rows (tema/animações/idioma) step through their options with WRAP; the one
-    // continuous row (volume) steps ±10 and CLAMPS at 0/100. Nothing is written to
-    // disk yet — persistence is Slice B.
+    // The config lives in `App.config` (no draft). `[↑↓]` move the row cursor;
+    // `[←→]` alter the selected row's value and apply it live. Discrete rows
+    // (tema/animações/idioma) step through their options with WRAP; the one
+    // continuous row (volume) steps ±10 and CLAMPS at 0/100. Persistence is
+    // covered by its own tests below.
     use crate::{language::Language, ui::theme::Theme};
 
     /// Drive a fresh app onto the Config screen (cursor on the first row, `tema`),
@@ -1650,7 +1648,7 @@ mod tests {
         assert_eq!(app.take_pending_save(), None);
     }
 
-    // ── G10: Ctrl+C is a door, not a kill ────────────────────────────────────
+    // ── Ctrl+C is a door, not a kill ─────────────────────────────────────────
     // Ctrl+C used to be intercepted in `main::translate_key` and never reached
     // `handle_key`, so quitting from the config screen skipped the exit-write and
     // the visit's edits silently died. Now Ctrl+C is an ordinary `KeyPress`:
@@ -1700,7 +1698,7 @@ mod tests {
 
     #[test]
     fn ctrl_c_from_config_queues_the_changed_config_for_saving() {
-        // The hole G10 exists to close: change a value, then quit with Ctrl+C
+        // The hole the queued save exists to close: change a value, then quit with Ctrl+C
         // instead of Esc. The edit must ride out with the quit.
         let mut app = on_config(&[KeyPress::Right]);
 
@@ -1749,8 +1747,8 @@ mod tests {
 
     #[test]
     fn ctrl_c_still_quits_while_sued_is_speaking() {
-        // The G8 lock swallows keys while the crawl runs — but the panic button
-        // must never be locked. (F5 and Esc pass; Ctrl+C joins them.)
+        // The conversation lock swallows keys while the crawl runs — but the
+        // panic button must never be locked. (F5 and Esc pass; Ctrl+C joins them.)
         let mut app = drive(&ASK_AND_REVEAL); // reply clock ticking, crawl unfinished
 
         let flow = app.handle_key(KeyPress::CtrlC);
@@ -1841,8 +1839,8 @@ mod tests {
 
     #[test]
     fn starting_the_next_question_keeps_the_answer_on_screen() {
-        // The heart of G8. Typing again must NOT blank SUED FALA: the answer
-        // moves aside into `previous_reply`, which is what the render keeps
+        // The heart of the conversation. Typing again must NOT blank SUED FALA:
+        // the answer moves aside into `previous_reply`, which is what the render keeps
         // showing until a new reply lands.
         let mut app = drive(&ASK_AND_REVEAL);
         finish_the_reveal(&mut app);
@@ -2045,7 +2043,8 @@ mod tests {
         finish_the_reveal(&mut app);
         feed(&mut app, &[KeyPress::Char('x')]); // "42" is now the kept reply
 
-        // ⚠ AMENDED BY G19 — see `leaving_the_oracle_burns_the_transcript_too`.
+        // ⚠ Esc raises the confirm dialog — see
+        // `leaving_the_oracle_burns_the_transcript_too`.
         feed(
             &mut app,
             &[
@@ -2068,7 +2067,7 @@ mod tests {
         }
     }
 
-    // ── G12 step 2: the séance keeps a record ────────────────────────────────
+    // ── the séance keeps a record ────────────────────────────────────────────
     // `previous_reply` above is a rolling *view* — one reply, the one still on
     // screen. This is the record: every bubble the audience saw, in the order it
     // happened, starting with SueD's opening greeting. It lives in the
@@ -2101,9 +2100,9 @@ mod tests {
 
     #[test]
     fn a_fresh_oracle_opens_with_sueds_greeting_alone() {
-        // The mockup's counter reads `6/6` with the greeting counted, so the
-        // transcript starts holding the line the audience has been reading since
-        // the first frame — not empty.
+        // The transcript counter counts the greeting, so the transcript starts
+        // holding the line the audience has been reading since the first frame
+        // — not empty.
         let app = drive(&[KeyPress::Enter, KeyPress::Enter]);
 
         match transcript(&app) {
@@ -2114,7 +2113,7 @@ mod tests {
 
     #[test]
     fn the_greeting_is_seeded_in_the_active_language() {
-        // Same discipline as the G2 pins below: flip idioma first, so a
+        // Same discipline as the language pins below: flip idioma first, so a
         // hardcoded Portuguese string cannot pass. The seed must read the active
         // translation, not whichever one happened to be the default.
         let app = ask_in_portuguese(&[]);
@@ -2177,7 +2176,7 @@ mod tests {
         }
     }
 
-    // ── G17 · the short-question rebuke ──────────────────────────────────────
+    // ── the short-question rebuke ────────────────────────────────────────────
     //
     // A refusal now comes in two flavours, chosen by the LENGTH of what was
     // typed: `<= SHORT_QUESTION_CHARS` earns the rebuke — SueD echoing the
@@ -2214,7 +2213,7 @@ mod tests {
             translation.rebuke.replace("{question}", REBUKED_QUESTION),
             "a throwaway question must come back quoted, with the rule pointed at \
              — that is the whole feature: it teaches the ritual IN character, \
-             which is the one channel G16's out-of-app manual cannot use"
+             which is the one channel the out-of-app manual cannot use"
         );
     }
 
@@ -2505,7 +2504,7 @@ mod tests {
         let mut app = drive(&ASK_AND_REVEAL);
         finish_the_reveal(&mut app);
 
-        // ⚠ AMENDED BY G19 — Esc raises the confirm, so leaving is now
+        // ⚠ Esc raises the confirm, so leaving is
         // Esc → Left (off the safe default) → Enter. The trailing Enter is the
         // menu's, walking back into the oracle.
         feed(
@@ -2524,17 +2523,17 @@ mod tests {
         }
     }
 
-    // ── G12 step 3: the popover, and who gets the keys ───────────────────────
+    // ── the popover, and who gets the keys ───────────────────────────────────
     // `history_view: Option<HistoryView>` is the popover: `None` closed, `Some`
     // open. `HistoryView { selected }` is the CURSOR in the scrollback — the
-    // mockup's `▶` caret, the `6/6` counter and the scrollbar thumb are all read
-    // off it, the last two derived rather than stored. It opens on the NEWEST
+    // `▶` caret, the `n/n` counter and the scrollbar thumb are all read off it,
+    // the last two derived rather than stored. It opens on the NEWEST
     // message, because a scrollback opens where the action is.
     //
     // ⚠⚠ THE ROUTING RULE, AND IT IS TRICK-CRITICAL. While the popover is open
     // the keys belong to it and MUST NOT reach the engine — otherwise the
     // operator paints decoy characters into a question nobody can see, behind an
-    // overlay. So the popover guard runs BEFORE the G8 conversation guard.
+    // overlay. So the popover guard runs BEFORE the conversation guard.
     // `Esc` disambiguates off that same `Option`: close if open, else leave.
     //
     // ⚠ `Up`/`Down` CLAMP here rather than wrapping like the menu does — wrapping
@@ -2613,7 +2612,7 @@ mod tests {
         // meanings, disambiguated entirely by the `Option`.
         let mut app = after_one_exchange();
 
-        // ⚠ AMENDED BY G19 — the door now asks first. The third Esc raises the
+        // ⚠ The door asks first. The third Esc raises the
         // confirm rather than leaving, so walking out costs `Left` (off the safe
         // default) then `Enter`. The claim under test is unchanged: two Escs
         // still mean "close the popover, then head for the door".
@@ -2775,9 +2774,10 @@ mod tests {
 
     // ⚠ The two tests above and below this line look like they overlap, and they
     // do not. `after_one_exchange` leaves SueD finished speaking, so the opening
-    // `F1` trips the G8 rotation on its way in and the engine is freshly reset —
-    // which means the test above meets `Enter` with an EMPTY buffer, where the
-    // engine's own no-op-on-empty rule swallows it regardless of the guard.
+    // `F1` trips the conversation rotation on its way in and the engine is
+    // freshly reset — which means the test above meets `Enter` with an EMPTY
+    // buffer, where the engine's own no-op-on-empty rule swallows it regardless
+    // of the guard.
     //
     // These two open the popover MID-TYPING instead. That is the only state in
     // which a leak has anything to destroy, and it is the state the operator is
@@ -2872,7 +2872,7 @@ mod tests {
 
     #[test]
     fn ctrl_c_still_quits_with_the_transcript_open() {
-        // The panic button is never locked — same rule as the G8 mid-reveal lock.
+        // The panic button is never locked — same rule as the mid-reveal lock.
         let mut app = after_one_exchange();
         feed(&mut app, &[KeyPress::F1]);
 
@@ -2898,7 +2898,7 @@ mod tests {
 
     #[test]
     fn f1_is_locked_out_while_sued_is_still_speaking() {
-        // Note the missing `finish_the_reveal`: SueD is mid-crawl, so the G8 lock
+        // Note the missing `finish_the_reveal`: SueD is mid-crawl, so the lock
         // swallows F1 exactly as it swallows typing. This is what makes recording
         // the reply at Enter safe — the message is in `history` from that moment,
         // but nobody can open the popover to read it until it has actually been
@@ -2914,11 +2914,11 @@ mod tests {
         );
     }
 
-    // ── G19 · Esc confirms before it burns the séance ────────────────────────
+    // ── Esc confirms before it burns the séance ──────────────────────────────
     //
-    // `history` dies with the screen by design (G12's call — it is a séance, not
-    // a log), and `Esc → Menu` destroys it with no warning and no undo. G12 made
-    // that loss VISIBLE, which is what created the obligation to guard it.
+    // `history` dies with the screen by design — it is a séance, not a log — and
+    // `Esc → Menu` destroys it with no warning and no undo. Making that loss
+    // VISIBLE is what created the obligation to guard it.
     //
     // ⚠ THE LAYERING IS THE WHOLE SPEC. `Esc` now means three different things
     // depending on what is up, and the failure mode is that it quietly does two
@@ -2980,8 +2980,7 @@ mod tests {
 
     #[test]
     fn esc_with_nothing_asked_walks_out_without_a_prompt() {
-        // Layer 3. Nothing to mourn, so no ceremony: the door behaves exactly as
-        // it did before G19 existed.
+        // Layer 3. Nothing to mourn, so no ceremony: the door just opens.
         //
         // ⚠ The predicate is "has the mark ever spoken", NOT "are there messages"
         // — `history` is always seeded with the greeting, so a length check is
@@ -3022,10 +3021,9 @@ mod tests {
         // cursor when the dialog opens must be the HARMLESS one. Destructive
         // actions do not get to be the default.
         //
-        // ⚠ This contradicts `design-refs/03-c-confirm-leave.png`, which
-        // highlights QUE ASSIM SEJA. If you keep the mockup's default, this is
-        // the test to delete — but delete it deliberately, not by flipping a bool
-        // until the bar goes green.
+        // ⚠ If the highlighted option is ever moved onto QUE ASSIM SEJA, this is
+        // the test to delete — but delete it deliberately, not by flipping a
+        // bool until the bar goes green.
         let mut app = after_one_exchange();
 
         feed(&mut app, &[KeyPress::Esc, KeyPress::Enter]);
@@ -3045,8 +3043,8 @@ mod tests {
     fn choosing_the_other_option_and_confirming_burns_the_seance() {
         // The door still works — it just costs a deliberate move first.
         //
-        // ⚠ `Left` because the mockup puts the leave option on the LEFT and the
-        // safe one on the right. If that order changes, this key changes with it.
+        // ⚠ `Left` because the leave option sits on the LEFT and the safe one on
+        // the right. If that order changes, this key changes with it.
         let mut app = after_one_exchange();
 
         feed(&mut app, &[KeyPress::Esc, KeyPress::Left, KeyPress::Enter]);
@@ -3194,7 +3192,7 @@ mod tests {
         }
     }
 
-    // ── G2 wiring: SUED's words come from the language pools ─────────────────
+    // ── SUED's words come from the language pools ────────────────────────────
     // Decoys and denials are drawn from `Language::translation()` with a random
     // roll at the app edge — so these specs assert pool *membership*, never
     // which entry won the draw. Every pin flips idioma to PT-BR first: the
@@ -3315,7 +3313,7 @@ mod tests {
         }
     }
 
-    // ── G13 · the ponder, and what replaced the cue tests ────────────────────
+    // ── the ponder, and what replaced the cue tests ──────────────────────────
     //
     // Four tests died with the `pending_cue` seam (`a_reveal_queues_the_jump_scare_cue`,
     // `a_denial_queues_the_jump_scare_cue`, `take_cue_drains_so_the_sound_fires_once`,
@@ -3336,13 +3334,13 @@ mod tests {
         assert!(
             app.is_pondering(),
             "the reveal must open with a ponder — without it the sting fires at \
-             Enter and SueD answers instantly, which is what G13 exists to stop"
+             Enter and SueD answers instantly, which is what the ponder exists to stop"
         );
     }
 
     #[test]
     fn a_denial_makes_sued_ponder_before_it_speaks() {
-        // The ponder is NOT reveal-only (Danilo's call 2026-07-27): SueD weighing
+        // The ponder is NOT reveal-only: SueD weighing
         // a mortal before rejecting them sells the seance better than an instant
         // refusal, and it keeps one clock rule instead of two.
         let app = drive(&ask_and_be_denied());
@@ -3448,14 +3446,14 @@ mod tests {
         );
     }
 
-    // ── G14 · thunder at decoy exhaustion ────────────────────────────────────
+    // ── thunder at decoy exhaustion ──────────────────────────────────────────
     //
-    // ⚠ THE SEAM IS `pending_cue` REVIVED, AND THAT IS CORRECT HERE FOR THE
-    // EXACT REASON IT FAILED FOR G13. G13's ponder→speak transition happens on a
-    // TIMER with no keypress, so a queue drained inside `main`'s keypress block
-    // could never see it — which is why that seam was deleted. G14's threshold
-    // crossing is the opposite: it happens *inside* `handle_key`, caused by a
-    // keystroke. A keypress-driven event wants a keypress-drained queue.
+    // ⚠ THE SEAM IS A `pending_cue` QUEUE, AND THAT IS CORRECT HERE FOR THE
+    // EXACT REASON IT IS WRONG FOR THE PONDER. The ponder→speak transition
+    // happens on a TIMER with no keypress, so a queue drained inside `main`'s
+    // keypress block could never see it. The thunder's threshold crossing is
+    // the opposite: it happens *inside* `handle_key`, caused by a keystroke.
+    // A keypress-driven event wants a keypress-drained queue.
     //
     // Shape these pin: `Engine::decoy_chars_remaining()` (pure fact) +
     // `THUNDER_AT_CHARS_REMAINING` (policy) + `thunder_spent` on `Screen::Asking`
@@ -3526,7 +3524,7 @@ mod tests {
         // ⚠ EDGE-triggered, not level-triggered. `remaining <= threshold` stays
         // true for every keystroke after the crossing, so a plain level test
         // would fire the sting on all twenty of the remaining keys — a stuck
-        // alarm rather than a warning. Same trap as `is_pondering` in G13.
+        // alarm rather than a warning. Same trap as `is_pondering`.
         let mut app = drive(&ASK_IN_HIDDEN);
         type_hidden_until_remaining(&mut app, THUNDER_AT_CHARS_REMAINING);
         assert!(
@@ -3537,16 +3535,12 @@ mod tests {
         app.handle_key(KeyPress::Char('x'));
         app.handle_key(KeyPress::Char('x'));
 
-        assert_eq!(
-            app.take_pending_cue(),
-            None,
-            "one thunder per decoy — his call, 2026-07-28"
-        );
+        assert_eq!(app.take_pending_cue(), None, "one thunder per decoy");
     }
 
     #[test]
     fn backspacing_back_over_the_line_does_not_re_arm_the_thunder() {
-        // Danilo's call 2026-07-28: STAY SPENT. Re-arming would let a nervous
+        // STAY SPENT. Re-arming would let a nervous
         // operator retrigger the warning repeatedly mid-performance, which is
         // exactly when the room is listening.
         let mut app = drive(&ASK_IN_HIDDEN);
@@ -3583,7 +3577,7 @@ mod tests {
 
     #[test]
     fn a_new_exchange_re_arms_the_thunder() {
-        // The conversation path (G8): SueD finishes, and the next key rotates
+        // The conversation path: SueD finishes, and the next key rotates
         // the reply aside and resets the engine. That is a SECOND `engine.reset`
         // call site, so a fix that only re-arms on F5 leaves every follow-up
         // question in the conversation unwarned.
@@ -3635,32 +3629,23 @@ mod tests {
         );
     }
 
-    // ── G11 · `Option<Reply>` — one Option over the correlated group ─────────
+    // ── `Option<Reply>` — one Option over the correlated group ───────────────
     //
-    // ⚠ THIS IS A REFACTOR, SO READ THE RHYTHM DIFFERENTLY FROM G13/G14.
-    // Behaviour is FROZEN. These tests pin the NEW SHAPE; the ~48 tests that go
-    // through the public surface (`handle_key`, `is_pondering`, `visible_buffer`)
-    // must stay BYTE-IDENTICAL through the change — they are the only thing
-    // proving the refactor preserved behaviour. If a test has to be edited to
-    // compile, its CLAIM must survive verbatim; only the reading mechanism moves.
-    //
-    // Target shape:
+    // The shape these pin:
     //   struct Reply { words: String, asked_at: Instant, thinking_for: Duration }
     //   Screen::Asking { engine, reply: Option<Reply>, previous_reply, spell }
     //
     // `words` is a plain `String`, NOT an `Answer(String) | Denial(&'static str)`
-    // enum — evidence, not taste: `ask.rs:141` renders a denial through the exact
+    // enum — evidence, not taste: `ask.rs` renders a denial through the exact
     // same `typewriter_reveal` as an answer, with no styling difference, and
-    // G12's `Message::Sued(String)` flattens the two anyway. Nothing downstream
-    // can tell them apart, so the type should not pretend it matters.
+    // `Message::Sued(String)` flattens the two anyway. Nothing downstream can
+    // tell them apart, so the type should not pretend it matters.
     //
-    // ⚠ NOTE WHAT IS DELIBERATELY *NOT* TESTED HERE. The old
-    // `.expect("a reply clock with no reply words is a bug")` enforced "a reply
-    // always has words" at RUNTIME. Once `Reply` owns `words`, that is a
-    // COMPILE-TIME guarantee — a `Reply` without words cannot be constructed.
-    // Writing a test for it would be writing a test that can never fail, which
-    // is the vacuous-assertion trap this codebase has now been bitten by twice.
-    // The rung moved from "loud" to "impossible"; impossible needs no test.
+    // ⚠ NOTE WHAT IS DELIBERATELY *NOT* TESTED HERE. "A reply always has words"
+    // is a COMPILE-TIME guarantee once `Reply` owns `words` — a `Reply` without
+    // words cannot be constructed. Writing a test for it would be writing a test
+    // that can never fail, which is the vacuous-assertion trap this codebase has
+    // been bitten by before. Impossible needs no test.
 
     /// A `Reply` whose clock was started `asked_secs` ago — same rewind trick as
     /// `finish_the_reveal`, so the ponder can be observed from either side.
@@ -3710,7 +3695,7 @@ mod tests {
 
     #[test]
     fn speaking_elapsed_counts_from_the_moment_the_ponder_ended() {
-        // The whole point of the shifted clock (G13): the typewriter measures
+        // The whole point of the shifted clock: the typewriter measures
         // time spent SPEAKING, not time since the question was asked.
         let reply = reply_asked_ago(10, 3);
 
@@ -3756,10 +3741,11 @@ mod tests {
 
     #[test]
     fn a_denial_stamps_a_reply_too_so_one_field_carries_both_kinds() {
-        // ⚠ THE HEADLINE TEST OF G11. Today the words live in two places and a
+        // ⚠ THE HEADLINE TEST FOR ONE FIELD CARRYING BOTH KINDS. Split across
+        // two fields, every read site needs a
         // `match denied_message { Some(..) => .., None => engine.revealed()... }`
-        // picks between them at every read site. One field carrying BOTH kinds is
-        // what dissolves that match — and the `.expect` inside it.
+        // to pick between them. One field dissolves that match — and the
+        // `.expect` inside it.
         let app = drive(&ask_and_be_denied());
         let denials = app.config().language().translation().denials;
 
@@ -3778,7 +3764,7 @@ mod tests {
         }
     }
 
-    // ── G16: the story popover — the one screen that speaks out of character ──
+    // ── the story popover — the one screen that speaks out of character ───────
     //
     // `?` on About raises "POR TRÁS DO VÉU": who wrote this, that it was built to
     // learn Rust, the GitHub URL, and the memory it came from. It exists because
@@ -3788,12 +3774,12 @@ mod tests {
     // flag, deliberately outside the app so it cannot be read over a shoulder.)
     //
     // ⚠⚠ THE SHAPE THESE SPECS PIN, AND WHY IT IS NOT A THIRD `Overlay` VARIANT.
-    // PLAN.md promised G16 would be `Overlay::Story` alongside `Transcript` and
-    // `ConfirmLeave`. It cannot be: `Overlay` is reachable only through
+    // The story cannot be `Overlay::Story` alongside `Transcript` and
+    // `ConfirmLeave`: `Overlay` is reachable only through
     // `AskingState.overlay`, and About is a different screen. Hoisting `Overlay`
     // onto `App` to share it would make `Overlay::Transcript` while standing on
-    // About REPRESENTABLE — re-creating the exact illegal state G19's refactor
-    // bought away. So the state lives on the screen that owns it,
+    // About REPRESENTABLE — exactly the illegal state this shape rules out.
+    // So the state lives on the screen that owns it,
     // `Screen::About(AboutState)`, and "the transcript is open on About" stops
     // being something to guard against and becomes something you cannot spell.
     //
@@ -3884,7 +3870,7 @@ mod tests {
     #[test]
     fn ctrl_c_reaches_through_the_open_story() {
         // An overlay is not a trap. Ctrl+C is the one key that must never be
-        // swallowed by anything — the same rule G19's confirm dialog obeys.
+        // swallowed by anything — the same rule the confirm dialog obeys.
         let mut keys = open_the_story();
         keys.push(KeyPress::CtrlC);
 
@@ -4013,7 +3999,7 @@ mod tests {
         }
     }
 
-    // ── G21 · leaving the program asks first ─────────────────────────────────
+    // ── leaving the program asks first ───────────────────────────────────────
     //
     // Two sites raise it and **only** two: `Esc` on the Intro splash and `Sair`
     // on the menu. Every other `Esc` in the app walks BACKWARD one screen and is
@@ -4079,7 +4065,7 @@ mod tests {
 
     #[test]
     fn a_reflexive_enter_cannot_quit_the_app() {
-        // The `#[default]` rule G19 set, one level up: the highlighted option is
+        // The `#[default]` rule, one level up: the highlighted option is
         // the harmless one, so the muscle-memory Enter that OPENED the dialog
         // cannot also commit to leaving.
         for (site, route) in both_quit_confirm_sites() {
@@ -4101,13 +4087,13 @@ mod tests {
         // ⚠⚠ THE HAZARD THIS TEST EXISTS FOR. `ConfirmChoice` is `Copy`, so the
         // gated match hands the handler a COPY of the choice. Calling
         // `choice.toggle()` on that copy mutates a temporary that is dropped at
-        // the end of the arm — the dialog would simply never change. Same shape
-        // as G19's `Option::take()` bug: the fix is to write the new value back
-        // (or bind `&mut`), and this is what says so out loud.
+        // the end of the arm — the dialog would simply never change. The fix is
+        // to write the new value back (or bind `&mut`), and this is what says so
+        // out loud.
         //
-        // ⚠ Both directions, deliberately. G19's toggle shipped with a
-        // `Stay => Stay` arm that made it a one-way trapdoor, and a test that
-        // only pressed one key passed straight through the bug.
+        // ⚠ Both directions, deliberately. A toggle with a `Stay => Stay` arm is
+        // a one-way trapdoor, and a test that only presses one key passes
+        // straight through that bug.
         let mut app = drive(&raise_quit_from_intro());
 
         app.handle_key(KeyPress::Right);
@@ -4136,14 +4122,12 @@ mod tests {
         // Both raisers must actually be able to leave — a dialog you cannot say
         // yes to is worse than no dialog.
         //
-        // ⬅ THIS TEST ABSORBED TWO OLDER ONES, and inherits their names so the
-        // intent is not lost with them: `intro_esc_quits` ("Esc on the intro is
-        // the way out") and `menu_enter_on_sair_quits` ("Sair leaves the
-        // program"). Both said their site QUITS, which is still true — G21 only
-        // made it cost `→` + `Enter`. Restating them one by one produced two
-        // tests driving the exact keystrokes the loop below already drives, so
-        // they were deleted rather than kept as duplicates. If this test ever
-        // narrows to one site, they have to come back.
+        // ⬅ THIS TEST CARRIES TWO CLAIMS THAT WOULD OTHERWISE EACH WANT THEIR
+        // OWN: "Esc on the intro is the way out" and "Sair leaves the program".
+        // Both are still true — leaving just costs `→` + `Enter` first. Stating
+        // them separately would drive the exact keystrokes the loop below
+        // already drives. If this test ever narrows to one site, they have to
+        // come back.
         for (site, route) in both_quit_confirm_sites() {
             let mut app = drive(&route);
 
@@ -4189,7 +4173,7 @@ mod tests {
         // than as state. `Esc` is the key people press without looking, and the
         // staircase used to run `Menu → Intro → dead` — two taps.
         //
-        // ⚠ The Menu→Intro rewind is KEPT (his call): backing out to the splash
+        // ⚠ The Menu→Intro rewind is KEPT deliberately: backing out to the splash
         // is a legitimate move. What must not survive is reaching `Quit` by
         // repetition alone.
         let mut app = drive(&[KeyPress::Enter]); // Intro → Menu
@@ -4206,9 +4190,9 @@ mod tests {
 
     #[test]
     fn ctrl_c_still_quits_from_behind_the_quit_confirm() {
-        // ⛔ The out-of-scope decision, pinned. An escape hatch that asks a
-        // question is not an escape hatch — same rule the transcript, the G19
-        // confirm and the story popover all obey.
+        // ⛔ A deliberate exemption, pinned. An escape hatch that asks a
+        // question is not an escape hatch — same rule the transcript, the
+        // confirm dialog and the story popover all obey.
         //
         // ⚠ The precondition is half the test: without it this passes for the
         // wrong reason, since Ctrl+C quits from a bare Intro or Menu too and the

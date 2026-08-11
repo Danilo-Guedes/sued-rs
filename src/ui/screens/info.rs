@@ -1,11 +1,10 @@
 //! 04 · O RITUAL.
 //!
-//! ⚠ **This screen is addressed to the MARK, and G20 is what made that true.**
-//! It used to carry a second panel listing keyboard shortcuts — including
-//! `[F5]`, the operator's panic button, which burns the staged answer. Printing
-//! that on the page you hand the victim is self-sabotage, so the panel is gone
-//! and the operator's key table lives in `--how-it-works`, outside the app,
-//! where only the operator can read it.
+//! ⚠ **This screen is addressed to the MARK.** It deliberately carries no
+//! keyboard-shortcut panel — that would mean printing `[F5]`, the operator's
+//! panic button, on the page you hand the victim, which is self-sabotage. The
+//! operator's key table lives in `--how-it-works`, outside the app, where only
+//! the operator can read it.
 //!
 //! Everything drawn here is in character: light a candle, flatter SueD, ask one
 //! question, wait. If you find yourself adding a key to this file, it almost
@@ -30,13 +29,13 @@ use crate::ui::theme::Palette;
 
 /// How wide the ritual column is allowed to get.
 ///
-/// ⚠ A bounded, centred column rather than the literal full width G20 sketched.
-/// Same argument Danilo already accepted twice (the confirm dialog, the story
-/// popover): content that does not grow must not breathe with the terminal.
-/// Stretched to 132 columns the four steps would sit as four lonely lines with
-/// 80 columns of dead air after them, and the divider would become a red rule
-/// across the whole screen. This is also the shape G3 wants — a column that is
-/// already size-independent is a column G3 barely has to touch.
+/// ⚠ A bounded, centred column rather than the literal full width. Same
+/// argument as the confirm dialog and the story popover: content that does not
+/// grow must not breathe with the terminal. Stretched to 132 columns the four
+/// steps would sit as four lonely lines with 80 columns of dead air after them,
+/// and the divider would become a red rule across the whole screen. It is also
+/// the shape the min-size guard wants — a column that is already
+/// size-independent is one the guard barely has to touch.
 const RITUAL_WIDTH: u16 = 76;
 
 pub(super) fn render(frame: &mut Frame, config: Configuration) {
@@ -64,7 +63,7 @@ pub(super) fn render(frame: &mut Frame, config: Configuration) {
         translation,
     );
 
-    // ⬅ ONE column now, where G20 found two. `.min` rather than a bare `Length`
+    // ⬅ ONE column, not two. `.min` rather than a bare `Length`
     // so a terminal narrower than the column still gets everything it has,
     // instead of a rect wider than the screen it is drawn on.
     let [ritual_area] =
@@ -164,11 +163,9 @@ fn render_ritual_panel(frame: &mut Frame, area: Rect, palette: Palette, translat
         example_area,
     );
 
-    // ⬅ REHOMED BY G20. This used to be the shortcuts panel's footer, so cutting
-    // the panel would have taken it with it. It survives the cut on purpose and
-    // on the screen's own terms: "your terminal should be this big" is advice for
-    // whoever is *running* the séance, not a key the operator must keep secret —
-    // the one line in that panel that was never aimed at the wrong reader.
+    // ⬅ This line belongs on the mark's screen, unlike the shortcuts it once sat
+    // beside: "your terminal should be this big" is advice for whoever is
+    // *running* the séance, not a key the operator must keep secret.
     frame.render_widget(
         Paragraph::new(
             Line::from(format!(

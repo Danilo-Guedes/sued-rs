@@ -59,7 +59,7 @@ pub(super) fn render(frame: &mut Frame, app: &App, asking_state: &AskingState) {
         Constraint::Fill(3),   // sued_art
         Constraint::Fill(2),   // sued_says
         Constraint::Fill(3),   // sued_logs
-        // ⬅ G3: TWO content rows, not one — border + 2 + border.
+        // ⬅ TWO content rows, not one — border + 2 + border.
         //
         // ⚠⚠ THIS IS WHAT SET THE APP'S WIDTH FLOOR, and the reason is a trap
         // worth knowing. The paragraph below already carries `.wrap()`, so it
@@ -67,13 +67,13 @@ pub(super) fn render(frame: &mut Frame, app: &App, asking_state: &AskingState) {
         // line has nowhere to go, and **ratatui drops it silently**. The longest
         // decoy is 113 characters, so at anything under ~121 columns the end of
         // the decoy simply vanished: the trick failing, in front of the mark,
-        // with no error anywhere. §J.7-bis measured it.
+        // with no error anywhere. Measured, not guessed.
         //
         // A second row costs ONE row of height floor (fixed rows 9 → 10, so
         // `(H−10)×3/8 ≥ 11` ⇒ H ≥ 40) and buys ~27 columns, because the decoy
         // stops being the binding constraint and the nav strip takes over.
         //
-        // 📌 **Always two, never grown on demand** (Danilo's call). Growing at
+        // 📌 **Always two, never grown on demand.** Growing at
         // the wrap point would shift the demon and everything above it up a row
         // *mid-typing* — a screen twitch during a live performance, at the exact
         // moment the operator is staging the answer.
@@ -143,8 +143,8 @@ pub(super) fn render(frame: &mut Frame, app: &App, asking_state: &AskingState) {
         // what makes the reply land; a white spell would read as the answer
         // itself, arriving without ceremony.
         //
-        // ⚠ AMENDED 2026-08-04 (G18) — THE SPELL NO LONGER TYPES, IT BREATHES.
-        // The crawl was deleted from this arm on purpose: `typewriter_reveal` now
+        // ⚠ THE SPELL DOES NOT TYPE, IT BREATHES.
+        // The crawl is deliberately absent from this arm: `typewriter_reveal`
         // has only answer call sites, so letters arriving one at a time means
         // exactly one thing — SueD is ANSWERING. The spell became atmosphere
         // rather than a second, slower answer.
@@ -317,17 +317,17 @@ pub(super) fn render(frame: &mut Frame, app: &App, asking_state: &AskingState) {
     }
 
     // The confirm dialog shares the transcript's band, but note it does NOT
-    // share its footprint: the mockup keeps the demon visible above the box,
-    // because the thing you are being asked to abandon should still be looking
-    // at you while you decide.
+    // share its footprint: the demon stays visible above the box, because the
+    // thing you are being asked to abandon should still be looking at you
+    // while you decide.
     if let Some(Overlay::ConfirmLeave(choice)) = asking_state.overlay() {
         confirm::render(
             frame,
             sued_art_top_layout.union(sued_logs_layout),
             *choice,
             palette,
-            // ⚠ `.confirm`, NOT `.quit` — this is the séance dialog. G21 gave
-            // the two the same shape, so swapping them compiles and draws.
+            // ⚠ `.confirm`, NOT `.quit` — this is the séance dialog. The two
+            // share a shape, so swapping them compiles and draws.
             translation.confirm,
             // The log lines that share these rows stay visible on purpose — the
             // séance keeps running while you decide whether to end it.

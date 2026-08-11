@@ -1,5 +1,5 @@
-//! CLI args / flags via `clap` derive. Carries the M3 `--no-sound` switch and
-//! the M5 `--config` override.
+//! CLI args / flags via `clap` derive. Carries the `--no-sound` switch and the
+//! `--config` override.
 
 use std::path::PathBuf;
 
@@ -74,7 +74,7 @@ mod tests {
     fn nothing_unsubstituted_ever_reaches_the_operator() {
         // ⚠ Written as "no `{` survives" rather than as one assertion per
         // marker, and that generality is the point: `{SHORT_QUESTION_CHARS}`
-        // shipped raw to Danilo's terminal precisely because it was a NEW marker
+        // shipped raw to the terminal precisely because it was a NEW marker
         // and the test only knew about `{repo}`. A per-marker test can only ever
         // catch the markers someone remembered to add to it.
         //

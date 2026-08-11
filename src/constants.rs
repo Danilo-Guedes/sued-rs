@@ -33,17 +33,16 @@ pub const HOW_IT_WORKS_COMMAND: &str = "sued-rs --how-it-works";
 /// about the app, not a piece of language — three copies of a number are three
 /// chances to drift, and the string it replaced had drifted from reality
 /// entirely (it recommended `80×24`, inherited from the VT100 default and never
-/// measured; §J.7 found the app actually breaks below ~92×40).
+/// measured; the app in fact breaks below the floor defined two constants down).
 ///
 /// This is the *comfortable* size — measured as the one where everything
-/// renders correctly, and the size the mockups were drawn at. The hard floor is
-/// lower (`MIN_TERMINAL_WIDTH`×`MIN_TERMINAL_HEIGHT` below); G3 may yet compact
-/// the design or band the layout, and when it does, this is the one line that
-/// changes.
+/// renders correctly. The hard floor is lower
+/// (`MIN_TERMINAL_WIDTH`×`MIN_TERMINAL_HEIGHT` below); if the design is ever
+/// compacted or the layout banded, this is the one line that changes.
 pub const RECOMMENDED_TERMINAL_SIZE: &str = "132×41";
 
 /// Below this, `ui::screens::render` draws the "resize me" notice instead of the
-/// app (G3's min-size guard).
+/// app (the min-size guard).
 ///
 /// ⚠ **This is a FLOOR, not a preference.** It means "below here the app is
 /// broken", not "below here it is cramped" — so it is the *measured* minimum and
@@ -77,7 +76,7 @@ pub const LONGEST_DECOY_CHARS: u16 = 113;
 
 /// Text rows the input box gives the decoy.
 ///
-/// ⚠ **Two, and never grown on demand** (Danilo's call) — see the layout comment
+/// ⚠ **Two, and never grown on demand** — see the layout comment
 /// in `ask.rs`. Growing at the wrap point would shift the demon and everything
 /// above it up a row *mid-typing*, i.e. the screen twitches at the exact moment
 /// the operator is staging the answer in front of the mark.

@@ -391,11 +391,9 @@ mod tests {
             engine.revealed, None,
             "denial reveals nothing — there was no hidden answer"
         );
-        // AMENDED for the conversational flow (G8): this used to pin the
-        // opposite ("the denial must not erase what the mortal typed") — right
-        // for the old ask-once-freeze-until-F5 world, wrong now. A reply of
-        // either kind consumes the offering; the input must read empty while
-        // SueD taunts, ready to blink for the next question.
+        // The conversational flow demands this: a reply of either kind consumes
+        // the offering, so the input must read empty while SueD taunts, ready
+        // to blink for the next question.
         assert_eq!(
             engine.visible_buffer, "",
             "the denial consumes the question — the input reads empty while SueD taunts"
@@ -636,7 +634,7 @@ mod tests {
         simulate_typing(&mut engine, "oi"); // Normal: visible "oi"
         engine.handle_key(KeyPress::Char(';')); // → Hidden
         simulate_typing(&mut engine, "42"); // secret answer + decoy advances
-        engine.handle_key(KeyPress::Enter); // reveal — consumes the question (G8)
+        engine.handle_key(KeyPress::Enter); // reveal — consumes the question
         simulate_typing(&mut engine, "x"); // re-dirty: stages an answer, paints a decoy char
 
         assert_eq!(engine.mode, Mode::Hidden, "precondition: mode is dirty");
@@ -704,7 +702,7 @@ mod tests {
         assert_eq!(
             change,
             StateChange::None,
-            "Ctrl+C reports no transition — quitting is app policy (G10)"
+            "Ctrl+C reports no transition — quitting is app policy"
         );
         assert_eq!(engine.mode, Mode::Hidden, "Ctrl+C must not flip the mode");
         assert_eq!(
@@ -744,7 +742,7 @@ mod tests {
         assert_eq!(engine.decoy_cursor, 0);
     }
 
-    // ── G14 · decoy exhaustion ───────────────────────────────────────────────
+    // ── decoy exhaustion ─────────────────────────────────────────────────────
     //
     // The engine reports only the FACT — how much decoy is left. Deciding that
     // "20 left" means "warn the operator" is *policy*, and policy lives in `App`
@@ -810,7 +808,7 @@ mod tests {
 
     #[test]
     fn remaining_bottoms_out_at_zero_and_never_wraps() {
-        // ⚠ THIS IS THE BUG G14 EXISTS TO SIGNPOST. Past the end,
+        // ⚠ THIS IS THE BUG THE THUNDER WARNING EXISTS TO SIGNPOST. Past the end,
         // `consume_decoy_buffer`'s `.get()` returns `None`, nothing is written,
         // and the fake question silently stops growing while the operator keeps
         // typing. If this ever underflowed instead of resting at 0, a `usize`

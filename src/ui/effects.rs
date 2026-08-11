@@ -1,4 +1,4 @@
-//! Terror effects (M4): flicker, screen-shake, color-flash, char-by-char reveal.
+//! Terror effects: flicker, screen-shake, color-flash, char-by-char reveal.
 //! Driven by `Engine` state changes; kept out of the pure core.
 //!
 //! First effect: the char-by-char "SUED FALA" reveal. The key idea is that the
@@ -217,7 +217,7 @@ pub fn thinking_dots(elapsed: Duration) -> usize {
 /// `Palette::glow` — a triangle wave breathing between `PULSE_INTENSITY_MIN`
 /// and `PULSE_INTENSITY_MAX` once every `PULSE_INTENSITY_WAVE_TIME`.
 ///
-/// This replaced the spell's typewriter crawl (G18). The crawl now belongs to
+/// This is what the spell does instead of a typewriter crawl. The crawl belongs to
 /// the *answer* alone, so letters-arriving-one-by-one means one thing only:
 /// SueD is answering. The spell became atmosphere instead of a second, slower
 /// answer.
@@ -743,7 +743,7 @@ mod tests {
         }
     }
 
-    // ── reveal_is_complete: the crawl's own finish line (G8) ───────────────────
+    // ── reveal_is_complete: the crawl's own finish line ────────────────────────
     // The conversation flow needs to know *when SueD stopped talking*, because
     // that is the moment the input unlocks and the next question can begin. It's
     // the same clock the typewriter already runs on, asked a yes/no question, so
@@ -807,7 +807,7 @@ mod tests {
 
     #[test]
     fn animations_on_is_exactly_todays_behaviour() {
-        // The gate must be additive: `true` changes nothing that shipped in M4.
+        // The gate must be additive: `true` changes nothing about the effects.
         // (Every other test in this module passes `true` and still pins the old
         // values — this one just states the contract out loud.)
         assert_eq!(flicker_intensity(0.0, true), MIN_FLICKER_VALUE);
@@ -818,13 +818,13 @@ mod tests {
         );
     }
 
-    // ── G13 · the thinking pause ─────────────────────────────────────────────
+    // ── the thinking pause ───────────────────────────────────────────────────
     //
     // Between Enter and the first revealed character the oracle PONDERS. An
     // instantaneous answer reads robotic and breaks the seance, so a randomized
     // 3-6s beat is inserted in front of the crawl.
     //
-    // ⚠ THE SAME-CLOCK RULE (the G8 lesson, and the whole reason `reveal_elapsed`
+    // ⚠ THE SAME-CLOCK RULE (and the whole reason `reveal_elapsed`
     // exists as a named function instead of an inline `saturating_sub`): FIVE
     // call sites read this clock — `typewriter_reveal`, `flash_intensity`,
     // `shake_offset`, and `reveal_is_complete` in BOTH `ask.rs` and `app.rs`.
@@ -918,7 +918,7 @@ mod tests {
     #[test]
     fn the_input_stays_locked_for_the_whole_ponder() {
         // THE CONTRACT PIN — this is the same-clock rule as an executable claim,
-        // and it is the one that would have caught the G8 bug. A short secret
+        // and it is the one that catches a site reading the raw clock. A short secret
         // finishes its crawl in ~165ms, far less than the 3s floor, so WITHOUT
         // the shift this passes trivially at t=0 and fails everywhere after.
         let secret = "42";
@@ -948,7 +948,7 @@ mod tests {
         ));
     }
 
-    // ── G13 · the waiting dots ───────────────────────────────────────────────
+    // ── the waiting dots ─────────────────────────────────────────────────────
     //
     // Once the incantation has finished typing there is still 0.5-3.5s of ponder
     // left (the spell length is fixed, the pause is rolled), so the line would
@@ -1011,11 +1011,11 @@ mod tests {
         }
     }
 
-    // ── G18 · the spell pulses instead of typing ─────────────────────────────
+    // ── the spell pulses instead of typing ───────────────────────────────────
     //
     // ⚠⚠ THESE ARE WRITTEN TO SURVIVE TUNING, AND THAT IS DELIBERATE. Both of
-    // G18's numbers — the cadence and the trough floor — are explicitly "tune it
-    // by eye" values. Pin a brightness at a millisecond and every visual
+    // the pulse's numbers — the cadence and the trough floor — are explicitly
+    // "tune it by eye" values. Pin a brightness at a millisecond and every visual
     // adjustment turns the suite red, which is the exact trap `ui/screens.rs`
     // already warns about for layout: *"pinning them would make every visual
     // tweak a failure"*.
@@ -1028,7 +1028,7 @@ mod tests {
     /// A trough dark enough to read as "the spell disappeared" rather than "the
     /// spell dimmed". ⚠ This is a floor on the FLOOR, not the floor itself — the
     /// real const is expected to sit far above it (`MIN_FLICKER_VALUE` is 160,
-    /// and G18 is the same family of hazard). It exists only so the test can
+    /// the same family of hazard). It exists only so the test can
     /// fail loudly on a naive `0..=255` ramp without dictating the tuning.
     const LEGIBLE_TROUGH: u8 = 32;
 
@@ -1063,7 +1063,7 @@ mod tests {
 
     #[test]
     fn the_pulse_never_falls_to_black() {
-        // ⚠⚠ THE HARD RULE OF G18. `glow(0)` is black on every theme —
+        // ⚠⚠ THE HARD RULE OF THE PULSE. `glow(0)` is black on every theme —
         // `theme.rs::glow_at_zero_intensity_is_black_for_every_theme` pins it —
         // so a naive `0..=255` ramp makes the spell VANISH at the trough. On a
         // `palette.bg` of (7,4,6) that is an empty box mid-ponder, which reads
@@ -1125,9 +1125,8 @@ mod tests {
 
     #[test]
     fn the_pulse_comes_back_down_and_rises_again() {
-        // ⚠⚠ ADDED 2026-08-04, AND IT IS A HOLE IN THIS SECTION RATHER THAN NEW
-        // SCOPE. The first implementation exposed it: a ONE-SHOT RAMP — climb to
-        // full and stay there forever — satisfies every other test here.
+        // ⚠⚠ THIS CLOSES A HOLE THE OTHER TESTS LEAVE OPEN. A ONE-SHOT RAMP —
+        // climb to full and stay there forever — satisfies every other test here.
         // `ramps_instead_of_blinking` sees plenty of distinct brightnesses on
         // the way up, and a monotone function has no direction changes at all,
         // so the cadence test reads it as "slower than the whole sweep" and

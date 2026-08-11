@@ -1,7 +1,7 @@
 //! The confirmation dialog — drawn *over* whichever screen raised it, never a
-//! `Screen` of its own. Target is `design-refs/03-c-confirm-leave.png`.
+//! `Screen` of its own.
 //!
-//! **Two callers, one render (G21).** `ask::render` draws it for
+//! **Two callers, one render.** `ask::render` draws it for
 //! `Overlay::ConfirmLeave` (leaving the séance); `intro::render` and
 //! `menu::render` draw it for `App::confirm_quit` (leaving the program). They
 //! differ only in the `ConfirmTexts` handed in — which is exactly why this takes
@@ -38,7 +38,7 @@ const CHOICE_GAP: &str = "   ";
 /// peek out past this one's `Clear` as two stray brackets. Shrink this and they
 /// come back — *on Ask*.
 ///
-/// ⚠⚠ **On Intro and Menu (G21) that argument does not apply, and 62 is a
+/// ⚠⚠ **On Intro and Menu that argument does not apply, and 62 is a
 /// coincidence.** Neither screen has a bordered centre panel this must hide:
 /// the intro's banner is 33 wide and the menu's aviso column is `Borders::LEFT`
 /// only — a single vertical rule the box simply interrupts. They share the
@@ -48,7 +48,7 @@ const DIALOG_WIDTH: u16 = 62;
 
 /// Inset from the dialog's edge to the text column. This is the knob that keeps
 /// the box wide enough to hide the speak panel while the prose still breaks into
-/// the mockup's four lines: 62 - 8*2 = 46 columns of text.
+/// four lines: 62 - 8*2 = 46 columns of text.
 ///
 /// ⚠ `Rect::inner` knows nothing about the block's border, so this margin
 /// *contains* it — never subtract the border again on top of it.
@@ -143,8 +143,8 @@ pub(super) fn render(
     // ⚠ The repaint covers `blanked`, NOT `dialog`. Under `TheWholeRow` those
     // differ, and letting the bordered block do the repainting on its own rect
     // would leave the strip either side of it reset to the terminal's colour —
-    // a terminal-coloured hole punched straight through the G4-enforced
-    // background, which is the one thing `Color::Reset` is banned for.
+    // a terminal-coloured hole punched straight through the theme background,
+    // which is the one thing `Color::Reset` is banned for.
     frame.render_widget(Clear, blanked);
     frame.render_widget(Block::new().style(Style::default().bg(palette.bg)), blanked);
     frame.render_widget(

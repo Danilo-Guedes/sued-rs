@@ -146,8 +146,8 @@ pub(super) fn render(frame: &mut Frame, config: Configuration, about_state: &Abo
     // with the popover up `Esc` closes it rather than going back, so a strip
     // that kept saying "voltar ao menu" would be actively lying.
     //
-    // ⬅ AND THE SCROLL HINT OBEYS THE SAME RULE, which is subtler and is what
-    // sent Danilo hunting for a scroll bug that did not exist. On a tall
+    // ⬅ AND THE SCROLL HINT OBEYS THE SAME RULE, which is subtler — getting it
+    // wrong sends you hunting for a scroll bug that is not there. On a tall
     // terminal the whole story FITS, so `[↑↓ PgUp PgDn]` genuinely does nothing
     // — and a strip advertising it reads as broken scrolling rather than as
     // nothing left to scroll. So the hint appears only when the prose actually
@@ -156,10 +156,10 @@ pub(super) fn render(frame: &mut Frame, config: Configuration, about_state: &Abo
     // been measured. Hence `story::render` handing the answer back.
     //
     // 📌 Deliberately the screen's own strip and NOT a second one drawn inside
-    // the popover, which is where the mockup put it. Two strips would be a
-    // hand-maintained duplicate of each other — the exact complaint G20 exists
-    // to fix on the Ritual screen — and the rows it saves are worth having at
-    // the 80×24 floor, where the prose viewport is single digits.
+    // the popover. Two strips would be a hand-maintained duplicate of each
+    // other — the exact complaint that got the shortcuts panel deleted from
+    // the Ritual screen — and the rows it saves are worth having at the floor,
+    // where the prose viewport is single digits.
     let story = translation.about.story;
     let (current_hints, current_page) = match story_scrolls {
         Some(true) => (vec![story.scroll_hint, story.close_hint], NavTab::Story),

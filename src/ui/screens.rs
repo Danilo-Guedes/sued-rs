@@ -18,7 +18,7 @@ use crate::app::{App, Screen};
 use crate::constants::{MIN_TERMINAL_HEIGHT, MIN_TERMINAL_WIDTH};
 
 pub fn render(frame: &mut Frame, app: &App) {
-    // ⬅ G3's floor guard, and the one gate every screen sits behind.
+    // ⬅ The floor guard, and the one gate every screen sits behind.
     //
     // Below this the app does not degrade, it BREAKS — the decoy clips, which is
     // the trick itself failing silently in front of the mark. A notice is the
@@ -49,8 +49,8 @@ pub fn render(frame: &mut Frame, app: &App) {
 /// story does NOT fit. See `the_story_actually_scrolls_when_it_does_not_fit`.
 fn draw_screen(frame: &mut Frame, app: &App) {
     match app.screen() {
-        // ⚠ These two take the whole `App` (G21) where they used to take only
-        // the slices they drew from. `confirm_quit` lives on `App`, so a screen
+        // ⚠ These two take the whole `App`, not just the slices they draw
+        // from. `confirm_quit` lives on `App`, so a screen
         // that must draw it has to be able to see it — the same split `ask` and
         // `config` already sit on, rather than a third convention.
         Screen::Intro => intro::render(frame, app),
@@ -65,11 +65,11 @@ fn draw_screen(frame: &mut Frame, app: &App) {
 /// Render smoke tests — the coverage gap that let a panic AND an inverted
 /// branch both ship green.
 ///
-/// ⚠ **Before this module, NOT ONE of the project's 247 tests ever called
-/// `render`.** They all drive `handle_key` and read state back. So the entire
-/// draw path — every `unwrap`, every layout arithmetic, every `Option` branch —
-/// had zero coverage, which is exactly how G11's refactor produced an app that
-/// crashed on the first frame of the ask screen while the suite stayed green.
+/// ⚠ **Before this module, not one test ever called `render`.** They all drive
+/// `handle_key` and read state back. So the entire draw path — every `unwrap`,
+/// every layout arithmetic, every `Option` branch — had zero coverage, which is
+/// exactly how a refactor once produced an app that crashed on the first frame
+/// of the ask screen while the suite stayed green.
 ///
 /// These do not check what the screen *looks* like — that is still verified by
 /// running it, and pinning pixels would make every visual tweak a test failure.
@@ -98,15 +98,15 @@ mod tests {
 
     /// The sizes a screen is ever actually drawn at.
     ///
-    /// ⚠ **AMENDED BY G3.** This used to be `[(132,41), (92,40), (80,24)]`, and
-    /// two of those are now below `MIN_TERMINAL_WIDTH`×`MIN_TERMINAL_HEIGHT` —
-    /// the guard draws the resize notice there, so testing a screen at 80×24 was
-    /// testing a frame no user can reach. The tight case is now **the floor
-    /// itself**, which is where layout arithmetic is genuinely most likely to
-    /// underflow among reachable sizes.
+    /// ⚠ **Every size here must be one a user can actually reach.** Anything
+    /// below `MIN_TERMINAL_WIDTH`×`MIN_TERMINAL_HEIGHT` gets the resize notice
+    /// instead of the screen, so testing there tests a frame nobody sees. The
+    /// tight case is **the floor itself**, which is where layout arithmetic is
+    /// most likely to underflow among reachable sizes.
     ///
-    /// 🆕 **200×60 is new, and it is the lesson from G21.** The old trio only
-    /// probed downward. Fixed-width content breaks when the terminal *shrinks*;
+    /// 🆕 **200×60 probes UPWARD, and that is the point.** Testing only small
+    /// sizes misses half the failures: fixed-width content breaks when the
+    /// terminal *shrinks*;
     /// **percentage-width content breaks when it grows** — which is exactly how
     /// the intro's rule and warning text surfaced beside the quit dialog past
     /// ~124 columns while every test stayed green.
@@ -201,12 +201,12 @@ mod tests {
         // The other half of the reply `Option`: a denial fills the same field
         // an answer does, so it must draw through the same branches.
         //
-        // ⚠ **AMENDED BY G17 (2026-08-06) — THIS TEST HAD SILENTLY STOPPED
-        // DRAWING A DENIAL.** It used to type `"oi"`, and G17 split refusals on
-        // length: 2 characters now earns the *rebuke*. The test kept passing —
-        // `draw()` only asks that nothing panics — while the denial render path
-        // it exists for went to zero coverage with nothing to say so. Going
-        // through the shared fixture is what stops that recurring.
+        // ⚠ **THIS TEST ONCE SILENTLY STOPPED DRAWING A DENIAL.** It typed
+        // `"oi"`, and refusals split on length: 2 characters earns the
+        // *rebuke*. The test kept passing — `draw()` only asks that nothing
+        // panics — while the denial render path it exists for went to zero
+        // coverage with nothing to say so. Going through the shared fixture is
+        // what stops that recurring.
         let app = app_after(&ask_and_be_denied());
 
         draw(&app);
@@ -225,7 +225,7 @@ mod tests {
 
     #[test]
     fn every_screen_draws_in_every_language() {
-        // The i18n sweep was only ever run-verified by hand (Phase 0). Strings
+        // The i18n sweep is otherwise only run-verified by hand. Strings
         // differ in length per language, and length is what breaks layouts — so
         // draw the widest screens under each translation at the tightest size.
         for language_steps in 0..3 {
@@ -280,11 +280,11 @@ mod tests {
     /// The same, at a size you choose.
     ///
     /// ⚠ Worth its own helper because **ratatui clips rather than panicking**: a
-    /// box that fits at 132×41 can lose its bottom rows at the 80×24 floor with
-    /// no error at all, so `draw()` above stays perfectly green through exactly
+    /// box that fits at 132×41 can lose its bottom rows at the floor with no
+    /// error at all, so `draw()` above stays perfectly green through exactly
     /// that failure. Reading the buffer back at the small size is the only way
     /// to see it.
-    /// Draw a screen WITHOUT G3's min-size guard, and read the buffer back.
+    /// Draw a screen WITHOUT the min-size guard, and read the buffer back.
     ///
     /// ⚠ Only for cases that must exercise a code path the guard makes
     /// unreachable — today that is `story.rs`'s scrolling, which only runs when
@@ -359,8 +359,8 @@ mod tests {
 
     /// ⚠ THE REGRESSION GUARD FOR MOVING DECORATION OUT OF THE TABLES.
     ///
-    /// The glyphs (`▚ ▞`, `⚠`, `▓`, `†`, `⌨`, `⌁`, `▸`) used to live inside the
-    /// translated strings and now live in the render. Every other test reaches
+    /// The glyphs (`▚ ▞`, `⚠`, `▓`, `†`, `⌁`, `▸`) live in the render rather
+    /// than inside the translated strings. Every other test reaches
     /// them as `translation.x`, so they all move together — meaning **every
     /// glyph could disappear and the whole suite would stay green.** These
     /// assertions are deliberately written against the *composed* result, so
@@ -378,11 +378,11 @@ mod tests {
             (
                 "info",
                 &[KeyPress::Enter, KeyPress::Down, KeyPress::Enter],
-                // ⚠ AMENDED BY G20: the second entry was `⌨   {shortcut_title}`,
-                // and the whole panel it decorated is gone — the key table was
-                // aimed at the operator on a screen written for the mark. The
-                // `⌁` hint is the one line of that panel that survived the cut,
-                // so it inherits the glyph guard.
+                // ⚠ There is deliberately no `⌨ {shortcut_title}` entry here —
+                // that key table was aimed at the operator on a screen written
+                // for the mark, so it does not exist. The `⌁` terminal hint is
+                // the one line of that kind which belongs, so it carries the
+                // glyph guard.
                 |t| {
                     vec![
                         format!("▚ {} ▞", t.info.title),
@@ -478,7 +478,7 @@ mod tests {
         }
 
         // ⚠ Not optional, and the assertion below is what proved it: F1 is
-        // swallowed while SueD is still speaking (the G8 lock), so without
+        // swallowed while SueD is still speaking (the conversation lock), so without
         // winding the clock past the crawl this case draws a CLOSED popover and
         // passes for the wrong reason.
         app.rewind_reply(Duration::from_secs(60));
@@ -550,8 +550,8 @@ mod tests {
             let app = app_after(&keys);
             let confirm = app.config().language().translation().confirm;
 
-            // The precondition, asserted rather than assumed — the lesson from
-            // the two G19 tests that passed for the wrong reason.
+            // The precondition, asserted rather than assumed — without it a
+            // test can pass while searching the wrong screen entirely.
             match app.screen() {
                 Screen::Asking(state) => assert!(
                     matches!(state.overlay(), Some(Overlay::ConfirmLeave(_))),
@@ -588,7 +588,7 @@ mod tests {
         }
     }
 
-    // ── G3 · the min-size guard ──────────────────────────────────────────────
+    // ── the min-size guard ───────────────────────────────────────────────────
 
     #[test]
     fn below_the_floor_the_app_is_replaced_by_the_notice() {
@@ -735,10 +735,10 @@ mod tests {
         );
     }
 
-    // ── G21 · the quit-confirm, on Intro and on Menu ─────────────────────────
+    // ── the quit-confirm, on Intro and on Menu ───────────────────────────────
 
     /// Set the language, then land back on the Menu with the cursor resting on
-    /// `Configurações`. The two G21 sites diverge from here.
+    /// `Configurações`. The two quit-confirm sites diverge from here.
     fn menu_in_language(language_steps: usize) -> Vec<KeyPress> {
         let mut keys = vec![
             KeyPress::Enter, // Intro → Menu
@@ -813,7 +813,7 @@ mod tests {
                     // asserts the strip actually swapped rather than that some
                     // strip is present. Without it the dialog can be up while the
                     // strip still advertises the keys of the screen underneath —
-                    // the same lie G16's conditional scroll hint was fixing.
+                    // the same lie the conditional scroll hint exists to avoid.
                     assert!(
                         screen.contains("[← →]"),
                         "the {site} status strip must swap to the dialog's hints \
@@ -827,8 +827,8 @@ mod tests {
     #[test]
     fn the_quit_dialog_says_something_different_from_the_seance_one() {
         // Both dialogs are reachable inside ONE journey (Ask → Esc → confirm →
-        // leave → Menu → Sair → quit), and G21 gave them the same struct so the
-        // render could be shared. That makes "someone passed `translation.confirm`
+        // leave → Menu → Sair → quit), and they share a struct so the render can
+        // be shared. That makes "someone passed `translation.confirm`
         // to the quit caller" a mistake that compiles, draws, and looks right
         // until you read it — the exact reason `confirm::render` takes
         // `ConfirmTexts` instead of the whole `Translation`.
@@ -851,7 +851,7 @@ mod tests {
         }
     }
 
-    // ── G16 · the story popover ──────────────────────────────────────────────
+    // ── the story popover ────────────────────────────────────────────────────
 
     /// Reach About in the `language_steps`-th language and raise the story.
     fn about_with_the_story_open(language_steps: usize) -> App {
@@ -875,8 +875,7 @@ mod tests {
 
         let app = app_after(&keys);
 
-        // The precondition, asserted rather than assumed — the lesson from the
-        // two G19 tests that passed for the wrong reason. Without this, a `?`
+        // The precondition, asserted rather than assumed. Without this, a `?`
         // that stopped working would leave every assertion below searching the
         // ordinary About screen.
         match app.screen() {
@@ -949,14 +948,13 @@ mod tests {
         // is exercised at all.
         let app_before = about_with_the_story_open(0);
         let story = app_before.config().language().translation().about.story;
-        // ⚠ UNGUARDED, AND AMENDED BY G3 — read the note on `unguarded_text_at`.
-        // 80×24 is below the min-size floor, so `render` would draw the resize
-        // notice here and this test would silently stop exercising `story.rs`
-        // entirely. Measured 2026-08-10: with today's copy the story does **not
-        // overflow at ANY legal size**, so the guard makes this arithmetic
-        // unreachable in the shipped app. It is kept because the prose is
-        // Danilo's and can grow, and because a scroll that silently rotted would
-        // be worse than one that is merely idle.
+        // ⚠ UNGUARDED — read the note on `unguarded_text_at`. 80×24 is below the
+        // min-size floor, so `render` would draw the resize notice here and this
+        // test would silently stop exercising `story.rs` entirely. Measured:
+        // with today's copy the story does **not overflow at ANY legal size**,
+        // so the guard makes this arithmetic unreachable in the shipped app. It
+        // is kept because the prose can grow, and because a scroll that silently
+        // rotted would be worse than one that is merely idle.
         let before = unguarded_text_at(&app_before, 80, 24);
 
         // ⚠⚠ THE PRECONDITION THAT NAMES ITS OWN CAUSE, and it is owed because
@@ -1075,7 +1073,7 @@ mod tests {
         let story = app.config().language().translation().about.story;
         let (_, scroll) = story.scroll_hint;
 
-        // ⚠ UNGUARDED (G3): 30 rows is below the floor. This half tests the
+        // ⚠ UNGUARDED: 30 rows is below the floor. This half tests the
         // MECHANISM — that the hint appears when the prose really does overflow.
         let cramped = unguarded_text_at(&app, 132, 30);
         assert!(
@@ -1089,8 +1087,8 @@ mod tests {
         // or the always-scrollable case stops being covered.
         // Guarded, deliberately — 132×48 is a size users can actually be at, so
         // this half tests REALITY: with today's copy the hint is never offered
-        // above the floor, which is the correct behaviour and the bug Danilo
-        // originally reported.
+        // above the floor, which is the correct behaviour — and offering it
+        // anyway was the original bug.
         let roomy = screen_text_at(&app, 132, 48);
         assert!(
             !roomy.contains(scroll),
@@ -1103,7 +1101,7 @@ mod tests {
     fn the_spell_never_reaches_the_screen_on_a_rebuke() {
         // ⚠ THE SYMPTOM, pinned where it was actually seen — the app-side rule
         // lives in `a_rebuke_lands_instantly_because_nothing_was_consulted`, but
-        // what Danilo noticed while playing was the SPELL: SueD announcing he was
+        // what shows up while playing is the SPELL: SueD announcing he was
         // "leafing through the forbidden books of darkness" before telling you he
         // had not read your question. The incantation says he went looking. On a
         // rebuke he never did.
@@ -1152,16 +1150,11 @@ mod tests {
         // ⚠ THE REGRESSION TEST FOR THE BUG THAT PROMPTED THIS MODULE.
         // The ponder is 3–6s, so rewinding 1s lands safely mid-ponder.
         //
-        // ⚠ AMENDED 2026-08-04 (G18) — THE OLD REASON FOR THE PREFIX IS GONE, AND
-        // THE TEST STAYED GREEN THROUGH ITS DISAPPEARANCE. This used to read "a
-        // prefix rather than the whole spell precisely because it is still
-        // typing": the spell crawled at ~55ms/char, so only ~18 characters
-        // existed 1s in. G18 deleted that crawl — the spell is drawn whole on
-        // frame one and pulses instead — which means this could now assert the
-        // entire string, and the sentence justifying the weaker assertion had
-        // quietly become false.
+        // ⚠ THE PREFIX IS NOT BECAUSE THE SPELL IS STILL TYPING. It is not —
+        // the spell is drawn whole on frame one and pulses instead of crawling,
+        // so this could assert the entire string.
         //
-        // The prefix STAYS, but on a different footing, written down here rather
+        // The prefix stays on different grounds, written down here rather
         // than left as inertia: `speak_layout` is a fixed `Constraint::Length(60)`
         // at every terminal size, and the longest spell in any pool is ~41 chars
         // plus dots. A full-string search would go flaky the day a pool entry
@@ -1211,8 +1204,8 @@ mod tests {
 
     #[test]
     fn the_taunt_is_visible_once_sued_refuses() {
-        // ⚠ **AMENDED BY G17 (2026-08-06)** — same silent drift as
-        // `the_ask_screen_draws_a_denial`. This typed `"oi"` and so asserted on a
+        // ⚠ **THE SAME SILENT DRIFT** as `the_ask_screen_draws_a_denial`:
+        // this once typed `"oi"` and so asserted on a
         // *rebuke* while claiming to cover the denial pool, and it passed the
         // whole time because it reads `live_reply_words()` and only checks that
         // whatever SueD said reached the screen. Self-consistent, and wrong.
@@ -1229,17 +1222,16 @@ mod tests {
         );
     }
 
-    // ── G15 · the question lingers until SueD stops speaking ─────────────────
+    // ── the question lingers until SueD stops speaking ───────────────────────
     //
-    // ⚠ WHY THESE ARE DRAW TESTS AND NOT STATE TESTS. G15 changes NOTHING the
-    // engine holds — `visible_buffer` still clears at `Enter`, exactly as
-    // before, which is what keeps the change trick-safe. The whole behaviour
-    // lives in which of two strings `ask.rs` hands to a `Span`. There is no
-    // state assertion that can see it; only the buffer can.
+    // ⚠ WHY THESE ARE DRAW TESTS AND NOT STATE TESTS. The lingering question
+    // changes NOTHING the engine holds — `visible_buffer` still clears at
+    // `Enter`, which is what keeps it trick-safe. The whole behaviour lives in
+    // which of two strings `ask.rs` hands to a `Span`. There is no state
+    // assertion that can see it; only the buffer can.
     //
-    // 📌 That is also the answer to the plan's five-day-old claim that
-    // `keystrokes_are_ignored_after_a_denial` would have to invert. It never
-    // did: that test asks what the ENGINE holds, and this pair asks what the
+    // 📌 That is also why `keystrokes_are_ignored_after_a_denial` did NOT have
+    // to invert: that test asks what the ENGINE holds, and this pair asks what the
     // SCREEN draws. One sentence, two facts.
 
     /// A question the pools cannot accidentally contain. Every assertion below
@@ -1261,7 +1253,7 @@ mod tests {
         // `Enter` landed, so the oracle was visibly answering nothing. The clock
         // is deliberately NOT wound here — `app_after` advances no time, so the
         // reply is still pondering and the input is still locked, which is
-        // precisely the window G15 exists to fill.
+        // precisely the window the lingering question exists to fill.
         let mut app = app_after(&[KeyPress::Enter, KeyPress::Enter]);
         type_out(&mut app, QUESTION);
         app.handle_key(KeyPress::Enter); // no hidden answer → Denied
@@ -1292,9 +1284,9 @@ mod tests {
         //
         // `input_is_unlocked` answers "may keystrokes reach the engine", and it
         // is false for TWO unrelated reasons: SueD is speaking, OR the popover
-        // is open. G15 only wants the first. Hanging the text branch off the
-        // union means opening the transcript mid-question silently swaps the
-        // input line to the PREVIOUS question — and the input line sits below
+        // is open. The lingering question only wants the first. Hanging the text
+        // branch off the union means opening the transcript mid-question
+        // silently swaps the input line to the PREVIOUS question — and it sits below
         // the popover, so the mark can see it happen.
         //
         // The fix is not a rename: it is that the second condition never got a

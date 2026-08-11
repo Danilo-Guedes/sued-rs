@@ -52,7 +52,7 @@ pub(super) fn create_centered_rect(area: Rect, width: Constraint, height: Constr
 }
 
 /// The shared accent-red panel frame, so every screen's border colour lives in
-/// one place (M5/M6 can swap the theme palette here).
+/// one place (the theme palette can be swapped here).
 pub(super) fn colorfull_bordered_block(
     border_type: Option<Borders>,
     palette: Palette,
@@ -88,7 +88,7 @@ pub(super) fn aside(text: &str) -> String {
 /// Accent "chip" for a step number: black glyphs on the accent colour.
 pub(super) fn step_badge(n: usize, palette: Palette) -> Span<'static> {
     Span::from(format!(" {n} "))
-        .black()
+        .fg(palette.on_accent)
         .bg(palette.accent)
         .bold()
 }
@@ -129,11 +129,10 @@ pub(super) fn hint_line(hints: &[(&'static str, &'static str)], palette: Palette
 /// screen to its label; it does not decide which screen you're on. The set is the
 /// four "destinations" (note: not the same as `MenuItem`, which also has `Exit`).
 ///
-/// ## ✅ "One destination-name table or two?" — SETTLED AT G20: **two**
+/// ## ✅ "One destination-name table or two?" — **two**
 ///
-/// Open since the 2026-07-27 i18n rescope, and G20's rename forced it by
-/// touching both. They look like duplicates and are not: they speak in
-/// **different registers**, and that is content, not accident.
+/// They look like duplicates and are not: they speak in **different
+/// registers**, and that is content, not accident.
 ///
 /// | | `MenuOption::label` | `NavTab::label` |
 /// |---|---|---|
@@ -147,8 +146,8 @@ pub(super) fn hint_line(hints: &[(&'static str, &'static str)], palette: Palette
 /// `Pergunta` and stops inviting, or the strip carries `PERGUNTAR AO ORÁCULO`
 /// and stops fitting.
 ///
-/// ⚠ The real cost is that a rename must be made **twice** — G20 did exactly
-/// that. Accepted knowingly: two tables of four strings, changed once a year,
+/// ⚠ The real cost is that a rename must be made **twice**.
+/// Accepted knowingly: two tables of four strings, changed once a year,
 /// is cheaper than a shared table plus the per-site adapter that would be
 /// needed to give each site back its register.
 #[derive(Clone, Copy, PartialEq)]
@@ -185,11 +184,11 @@ impl NavTab {
                 Language::EnUs => "Question",
                 Language::EsEs => "Pregunta",
             },
-            // ⬅ G20: the tab used to say "Informações" while the screen it opens
-            // says "O RITUAL". That mismatch WAS the vagueness Danilo felt.
-            // "Instructions" / "How to play" were the other candidates and both
-            // lose: they are software words, in an app pretending not to be
-            // software.
+            // ⬅ The tab and the screen it opens must say the SAME thing — a tab
+            // reading "Informações" over a screen titled "O RITUAL" is exactly
+            // the vagueness this name exists to fix. "Instructions" / "How to
+            // play" were the other candidates and both lose: they are software
+            // words, in an app pretending not to be software.
             NavTab::Info => match language {
                 Language::PtBr => "O Ritual",
                 Language::EnUs => "The Ritual",

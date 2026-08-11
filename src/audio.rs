@@ -64,8 +64,8 @@ impl AudioCue {
     /// - **`Laugh` appears twice, and that is the point.** `incantation_1`/`_2`
     ///   are one recording split into two takes, so listing every cue once would
     ///   spend 2 of 5 stings on the incantation and let it become the voice of
-    ///   the room (the imbalance `plan/media/PROVENANCE.md` flags). A second
-    ///   `Laugh` answers it two-for-two — SueD himself, not the thing outside.
+    ///   the room. A second `Laugh` answers it two-for-two — SueD himself, not
+    ///   the thing outside.
     ///   ⚠ Deleting the duplicate as a typo re-opens exactly that imbalance;
     ///   `a_lap_plays_the_laugh_as_often_as_the_incantation` is what stops it.
     /// - **The two incantation takes sit apart**, so a lap never plays them back
@@ -401,10 +401,10 @@ mod rotation_tests {
         //
         // `incantation_1`/`_2` are ONE recording split in two, so a lap that
         // listed each cue once would spend 2 of 5 stings on the incantation and
-        // make it the voice of the room — the imbalance PROVENANCE.md flags. The
-        // fix taken here is the second `Laugh` slot rather than a category-then-
-        // variant pick: SueD's own laugh answers the incantation two-for-two,
-        // and `Scream`/`Bell` stay the rarer punctuation on purpose.
+        // make it the voice of the room. The fix taken here is the second
+        // `Laugh` slot rather than a category-then-variant pick: SueD's own
+        // laugh answers the incantation two-for-two, and `Scream`/`Bell` stay
+        // the rarer punctuation on purpose.
         //
         // Counting by CATEGORY is the whole point — summing the two incantation
         // variants is what makes "they are the same sound" visible to the test.

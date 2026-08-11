@@ -1,4 +1,4 @@
-//! 00 · THE MIN-SIZE NOTICE — G3's floor guard.
+//! 00 · THE MIN-SIZE NOTICE — the terminal floor guard.
 //!
 //! Drawn by `screens::render` *instead of* the app whenever the terminal is
 //! below `MIN_TERMINAL_WIDTH`×`MIN_TERMINAL_HEIGHT`. Every other screen in this
@@ -52,7 +52,7 @@ pub(super) fn render(frame: &mut Frame, config: Configuration) {
     // Paint the theme background across the whole frame first. Without this the
     // notice draws on whatever colour the user's terminal happens to be — and
     // the one screen guaranteed to be seen by someone who has never run the app
-    // before is a poor place to break the G4 rule.
+    // before is a poor place to let the terminal's own colour show through.
     frame.render_widget(Block::new().style(Style::default().bg(palette.bg)), area);
 
     let size = |w: u16, h: u16| format!("{w}×{h}");

@@ -1,8 +1,9 @@
-//! The story popover (G16) — "por trás do véu", drawn *over* the About screen,
+//! The story popover — "por trás do véu", drawn *over* the About screen,
 //! never a `Screen` of its own. Called from `about::render` while
 //! `AboutState::story()` is `Some`.
 //!
-//! **Every dimension here is derived, never guessed** — the G19 rule, and it
+//! **Every dimension here is derived, never guessed** — the same rule the
+//! confirm dialog follows, and it
 //! earns its keep twice over on this box because the content SCROLLS. Two things
 //! follow from that and neither is obvious:
 //!
@@ -40,7 +41,7 @@ use crate::ui::theme::Palette;
 /// stays readable. The match is a coincidence; changing one has no bearing on
 /// the other.
 ///
-/// 📌 Grown twice on Danilo's eye (62 → 72 → 82), and the two knobs move for
+/// 📌 Grown twice by eye (62 → 72 → 82), and the two knobs move for
 /// different reasons: **this** one sets how much of the screen the popover
 /// occupies, `H_MARGIN` sets how much of that is air. Widening this alone makes
 /// the prose column longer and *harder* to read; widening it together with the
@@ -80,8 +81,8 @@ const RULE_ROWS: u16 = 1;
 /// row count against the viewport height, and *this function is the only place
 /// either number exists*. `about.rs` needs it to decide whether to advertise the
 /// scroll keys, and the only other way to give it that is to measure the prose
-/// twice and hope the two measurements agree — which is precisely the drift that
-/// cost G19 four rounds.
+/// twice and hope the two measurements agree — which is precisely the drift
+/// that costs rounds of debugging.
 pub(super) fn render(
     frame: &mut Frame,
     band: Rect,
@@ -186,8 +187,9 @@ pub(super) fn render(
         vertical: V_MARGIN,
     });
 
-    // ⬅ `Fill(1)` IS correct here, and it is worth saying why given G19 banned
-    // it. There the ban was about deriving the BOX's height from its content —
+    // ⬅ `Fill(1)` IS correct here, and it is worth saying why given the confirm
+    // dialog bans it. There the ban is about deriving the BOX's height from its
+    // content —
     // `Fill` would have absorbed an arithmetic mistake instead of revealing it.
     // Here the box's height is already derived above; the viewport genuinely is
     // "whatever is left once the pinned rows have taken theirs", which is the
@@ -199,7 +201,7 @@ pub(super) fn render(
     // clipped — the prose is all still reachable, just one row further down the
     // scroll. That is the failure mode `Fill` trades for, and it is acceptable
     // ONLY because this box scrolls. On a box sized to fit its content the same
-    // mistake eats a line for good, which is exactly what happened in G19.
+    // mistake eats a line for good.
     let [viewport_row, rule_area, signature_area] = Layout::vertical([
         Constraint::Fill(1),
         Constraint::Length(RULE_ROWS),
@@ -238,8 +240,8 @@ pub(super) fn render(
     // ⚠ The junctions are written out rather than left to `MergeStrategy::Exact`.
     // Merging a `Borders::TOP` block into the frame gives `╬` — a four-way cross,
     // which claims the rule continues out past the box on both sides. `╟ ╢` is the
-    // glyph pair that means "a light rule stopping at a heavy wall", and it is the
-    // one the mockup uses.
+    // glyph pair that means "a light rule stopping at a heavy wall", which is
+    // what this is.
     let rule = format!("╟{}╢", "─".repeat(popover.width.saturating_sub(2) as usize));
     frame.render_widget(
         Paragraph::new(Line::from(rule).fg(palette.accent)),

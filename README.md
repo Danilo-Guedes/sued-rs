@@ -68,6 +68,7 @@ Install the headers above and run it again, or skip sound entirely with
 sued-rs                       # summon it
 sued-rs --no-sound            # summon it quietly
 sued-rs --config <PATH>       # use a specific config file
+sued-rs --version             # print the version
 sued-rs --help                # the flags, including one worth finding
 ```
 
@@ -122,6 +123,17 @@ diskettes and MSN. The trick underneath it is much older than the software, and
 much older than computers — a piece of parlour magic that predates electricity,
 briefly wearing a floppy disk as a disguise.
 
-`sued-rs` is an homage, not a port: no original code or assets were used, and
-nothing here was reverse-engineered. It is the same joke, told again, in a
+`sued-rs` is an homage, not a port: no code or assets from the original were
+used, and nothing here was reverse-engineered. It is the same joke, told again, in a
 language that did not exist when the joke was new.
+
+**This project is unofficial.** It is not affiliated with, endorsed by, or
+connected to the original SueD or the people who made it. It is a recreation
+and a tribute, and it does not claim to be the original. If anyone with a
+legitimate claim to the name would rather it were called something else, that
+is a conversation worth having.
+
+**And it is not occultism.** The demon, the incantations and the séance are
+stage dressing, borrowed from a prank program of the 2000s that already looked
+like this. `sued-rs` takes no position on anyone's beliefs and is not meant to
+mock them.

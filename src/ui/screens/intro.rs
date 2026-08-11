@@ -170,7 +170,7 @@ pub(super) fn render(frame: &mut Frame, app: &App) {
     // only fix that holds at every size — a wider box does not, because the
     // content scales with the terminal.
     //
-    // 📌 Found by dumping the buffer at 132×41, the size Danilo actually runs.
+    // 📌 Found by dumping the buffer at 132×41, the recommended size.
     // At 92 and 80 the content is narrower than the box and nothing shows, so
     // this defect is invisible at two of the three sizes `SIZES` tests — which is
     // exactly why the dump happened and why the tests alone were not enough.
