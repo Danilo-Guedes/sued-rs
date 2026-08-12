@@ -51,6 +51,38 @@ Rust **1.88** or newer (2024 edition — the crate uses let-chains).
 
 ## Install
 
+### Without Rust — a prebuilt binary
+
+macOS, Linux and Windows builds are attached to every
+[release](https://github.com/Danilo-Guedes/sued-rs/releases). Nothing to compile:
+
+```sh
+# macOS and Linux
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/Danilo-Guedes/sued-rs/releases/latest/download/sued-rs-installer.sh | sh
+```
+
+```powershell
+# Windows
+powershell -ExecutionPolicy Bypass -c "irm https://github.com/Danilo-Guedes/sued-rs/releases/latest/download/sued-rs-installer.ps1 | iex"
+```
+
+Or download a `.tar.xz` / `.zip` from the releases page and put the binary on your
+`PATH`. If you have [`cargo-binstall`](https://github.com/cargo-bins/cargo-binstall),
+`cargo binstall sued-rs` works too.
+
+**Linux: the prebuilt binary needs ALSA's runtime library.** It is on essentially
+every desktop, but a minimal server or container may not have it — there the
+binary will not start at all:
+
+```
+error while loading shared libraries: libasound.so.2: cannot open shared object file
+```
+
+That is this, and nothing in that message says so. `sudo apt install libasound2`
+(the plain package, **not** `-dev` — that one is only for building) fixes it.
+
+### With Rust — from crates.io
+
 **Linux: install ALSA's development headers first.** Sound is on by default, and
 the build fails without them:
 

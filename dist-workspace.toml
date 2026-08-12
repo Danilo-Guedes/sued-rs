@@ -1,0 +1,28 @@
+[workspace]
+members = ["cargo:."]
+
+# Config for 'dist'
+[dist]
+# The preferred dist version to use in CI (Cargo.toml SemVer syntax)
+cargo-dist-version = "0.32.0"
+# CI backends to support
+ci = "github"
+# The installers to generate for each app.
+#
+# The whole point of this release pipeline is "you do not need Rust to run it",
+# and a bare `.tar.xz` on a Releases page does not clear that bar — it asks the
+# reader to download, extract and place a binary themselves. These give a
+# one-liner per platform instead. `cargo binstall` works regardless: it reads
+# the `dist-manifest.json` published alongside the artifacts.
+installers = ["shell", "powershell"]
+# Target platforms to build apps for (Rust target-triple syntax)
+targets = ["aarch64-apple-darwin", "aarch64-unknown-linux-gnu", "x86_64-apple-darwin", "x86_64-unknown-linux-gnu", "x86_64-pc-windows-msvc"]
+# Where to host releases
+hosting = "github"
+
+# ⚠ Without this, EVERY Linux build in the release workflow fails to link.
+# `kira → cpal → alsa-sys` needs the ALSA development headers at build time,
+# and the GitHub runners do not ship them — the same wall a Linux user hits
+# running `cargo install`. dist fills `matrix.packages_install` from here.
+[dist.dependencies.apt]
+libasound2-dev = "*"
