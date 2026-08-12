@@ -1,5 +1,10 @@
 # sued-rs
 
+[![crates.io](https://img.shields.io/crates/v/sued-rs.svg)](https://crates.io/crates/sued-rs)
+[![CI](https://github.com/Danilo-Guedes/sued-rs/actions/workflows/ci.yml/badge.svg)](https://github.com/Danilo-Guedes/sued-rs/actions/workflows/ci.yml)
+[![license](https://img.shields.io/crates/l/sued-rs.svg)](#license)
+[![MSRV](https://img.shields.io/crates/msrv/sued-rs.svg)](https://www.rust-lang.org/tools/install)
+
 A horror-themed terminal recreation of **SueD** — the 2000s Brazilian prank
 oracle (_Sua Última Esperança Divina_, and "Deus" spelled backwards) — rebuilt
 in Rust with [ratatui](https://ratatui.rs).
