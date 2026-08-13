@@ -1,6 +1,6 @@
 [package]
 name = "sued-rs"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2024"
 # Two independent things land on 1.88, which is why this is the number:
 #   - `app.rs`'s quit-confirm guard uses a LET-CHAIN, stable in edition 2024 at 1.88
