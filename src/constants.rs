@@ -67,8 +67,8 @@ pub const MIN_TERMINAL_WIDTH: u16 = 94;
 /// recomputes it from all three decoy pools and fails by name if a decoy is
 /// edited past it. ⚠ **Do NOT re-derive this from `MIN_DECOY_CHARS`: that is a
 /// test assertion, a LOWER bound on decoy length, not a description of the
-/// pool** — reading it as the pool's width is how §J.7 understated the floor by
-/// 29 columns for months.
+/// pool** — reading it as the pool's width is how the floor stayed 29 columns
+/// too narrow for months.
 #[cfg(test)]
 pub const LONGEST_DECOY_CHARS: u16 = 113;
 
@@ -83,9 +83,9 @@ pub const INPUT_TEXT_ROWS: u16 = 2;
 /// Columns the input box spends on frame rather than on the decoy: the screen's
 /// two outer border columns, the input block's own two, and the `" ▶ "` prompt.
 ///
-/// ⚠ Measured, not counted off the source — §J.7-bis rendered decoys of known
+/// ⚠ Measured, not counted off the source — the sweep rendered decoys of known
 /// length and read back the width at which the last character survived. Counting
-/// padding literals is what produced the estimates §J.7 had to replace.
+/// padding literals is what produced the estimates it had to replace.
 #[cfg(test)]
 pub const INPUT_CHROME_COLS: u16 = 8;
 
@@ -97,7 +97,7 @@ pub const INPUT_CHROME_COLS: u16 = 8;
 /// one row of height, bought with 27 columns of width. Cheap, because width was
 /// the binding problem and height was not.
 ///
-/// 📌 That arithmetic was written in §J.7 *before* anything was measured, and
-/// the sweep landed on exactly the row it predicted — both times, before and
-/// after the layout changed. The model can be trusted for the demon.
+/// 📌 That arithmetic was written *before* anything was measured, and the sweep
+/// landed on exactly the row it predicted — both times, before and after the
+/// layout changed. The model can be trusted for the demon.
 pub const MIN_TERMINAL_HEIGHT: u16 = 40;

@@ -719,7 +719,7 @@ mod tests {
     #[test]
     fn the_minimum_width_still_fits_the_longest_decoy() {
         // ⚠⚠ THE GUARD ON THE GUARD, and it exists because this exact number was
-        // got wrong once already. §J.7 derived the width floor from
+        // got wrong once already. An earlier pass derived the width floor from
         // `MIN_DECOY_CHARS = 85` — but that is a TEST ASSERTION, a *lower* bound
         // on how long a decoy must be, not a description of the pool. The real
         // decoys run to 113 characters, so the published floor was 29 columns
@@ -1107,12 +1107,12 @@ mod tests {
 
     #[test]
     fn the_scroll_hint_appears_only_when_there_is_something_to_scroll() {
-        // ⚠ THE BUG DANILO ACTUALLY REPORTED, and it was never a scroll bug.
-        // On his terminal the whole story FITS, so PgDn correctly does nothing —
-        // but the strip advertised `[↑↓ PgUp PgDn] rolar` anyway, which reads as
-        // broken scrolling rather than as nothing left to scroll. Same rule as
-        // the `Esc` hint above: the strip must describe the keys as they behave
-        // right now.
+        // ⚠ THE BUG THAT WAS ACTUALLY REPORTED, and it was never a scroll bug.
+        // On a tall enough terminal the whole story FITS, so PgDn correctly does
+        // nothing — but the strip advertised `[↑↓ PgUp PgDn] rolar` anyway, which
+        // reads as broken scrolling rather than as nothing left to scroll. Same
+        // rule as the `Esc` hint above: the strip must describe the keys as they
+        // behave right now.
         //
         // Both directions are asserted, because a strip that NEVER offers the
         // keys is just as wrong as one that always does — and only the pair
