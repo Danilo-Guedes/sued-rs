@@ -45,7 +45,7 @@ pub(super) fn render(frame: &mut Frame, app: &App, asking_state: &AskingState) {
 
     let engine = &asking_state.engine;
 
-    let layout = create_screen_block(frame, palette);
+    let layout = create_screen_block(frame, palette, translation);
 
     let [
         nav_layout,

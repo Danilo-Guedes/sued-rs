@@ -30,11 +30,11 @@ pub(super) fn render(frame: &mut Frame, app_state: &App) {
 
     let palette = config.theme().palette();
 
-    let layout = create_screen_block(frame, palette);
-
     let language = config.language();
 
     let translation = language.translation();
+
+    let layout = create_screen_block(frame, palette, translation);
 
     let max_label_width = translation.config.max_label_width();
 

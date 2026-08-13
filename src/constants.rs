@@ -1,5 +1,3 @@
-pub const APP_TITLE: &str = " ☠  SueD — O Oráculo  ☠ ";
-
 /// The repository, read from the one place it is already declared.
 ///
 /// ⚠ Not in the three translation tables, and not typed out again here: a URL

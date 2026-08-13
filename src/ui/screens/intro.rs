@@ -24,7 +24,7 @@ pub(super) fn render(frame: &mut Frame, app: &App) {
 
     let translation = language.translation();
 
-    let layout = create_screen_block(frame, palette);
+    let layout = create_screen_block(frame, palette, translation);
 
     let [
         nav_layout,

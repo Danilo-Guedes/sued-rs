@@ -221,6 +221,15 @@ pub struct MenuTexts {
 
 #[derive(Debug, Copy, Clone)]
 pub struct CommonTexts {
+    /// The window title in the outer border — the one string on screen in every
+    /// single frame, on every screen, which is exactly why it was the last one
+    /// still hard-coded in Portuguese.
+    ///
+    /// ⚠ The skulls and the padding spaces are part of the string, not added at
+    /// the render site: `Block::title` wants something borrowable, and building
+    /// the decoration in Rust would mean a fresh `String` every frame for a
+    /// value that never changes. Keep the ` ☠  … ☠ ` shape when translating.
+    pub app_title: &'static str,
     pub session: &'static str,
     pub online: &'static str,
 }
@@ -534,6 +543,7 @@ fonte: {repo}",
                     ],
                 },
                 common: CommonTexts {
+                    app_title: " ☠  SueD — O Oráculo  ☠ ",
                     session: "sessão #999",
                     online: "online",
                 },
@@ -830,6 +840,7 @@ source: {repo}",
                     ],
                 },
                 common: CommonTexts {
+                    app_title: " ☠  SueD — The Oracle  ☠ ",
                     session: "session #999",
                     online: "online",
                 },
@@ -1123,6 +1134,7 @@ fuente: {repo}",
                     ],
                 },
                 common: CommonTexts {
+                    app_title: " ☠  SueD — El Oráculo  ☠ ",
                     session: "sesión #999",
                     online: "en línea",
                 },
@@ -1306,6 +1318,42 @@ mod tests {
                     "{a:?} and {b:?} share a welcome line — copy-paste drift"
                 );
             }
+        }
+    }
+
+    #[test]
+    fn the_app_title_differs_per_language() {
+        // Shipped untranslated through 0.1.0 and 0.1.1: the title bar is the one
+        // string drawn on EVERY screen in EVERY frame, and because it sits in the
+        // border rather than in the page, an English screen never looked wrong
+        // enough to notice. Nothing was checking it.
+        for (i, a) in Language::ALL.iter().enumerate() {
+            for b in &Language::ALL[i + 1..] {
+                assert_ne!(
+                    a.translation().common.app_title,
+                    b.translation().common.app_title,
+                    "{a:?} and {b:?} share an app title — one of them is untranslated"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn every_app_title_keeps_its_skulls_and_padding() {
+        // The decoration lives INSIDE the translated string (see `CommonTexts`),
+        // so translating is also the moment a skull can go missing — and the
+        // border would lose a bookend with nothing else to catch it.
+        for lang in Language::ALL {
+            let title = lang.translation().common.app_title;
+            assert_eq!(
+                title.matches('☠').count(),
+                2,
+                "{lang:?}'s app title lost a skull: {title:?}"
+            );
+            assert!(
+                title.starts_with(' ') && title.ends_with(' '),
+                "{lang:?}'s app title lost the padding that keeps it off the border: {title:?}"
+            );
         }
     }
 

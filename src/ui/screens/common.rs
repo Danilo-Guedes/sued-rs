@@ -7,7 +7,6 @@ use ratatui::symbols::merge::MergeStrategy;
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Padding, Paragraph};
 
-use crate::constants::APP_TITLE;
 use crate::language::{Language, Translation};
 use crate::ui::theme::Palette;
 
@@ -278,9 +277,13 @@ pub(super) fn render_nav_strip(
     frame.render_widget(Paragraph::new(session).right_aligned(), session_area);
 }
 
-pub(super) fn create_screen_block(frame: &mut Frame, palette: Palette) -> Rect {
+pub(super) fn create_screen_block(
+    frame: &mut Frame,
+    palette: Palette,
+    translation: Translation,
+) -> Rect {
     let outer_layout = colorfull_bordered_block(None, palette)
-        .title(APP_TITLE)
+        .title(translation.common.app_title)
         .style(Style::default().bg(palette.bg));
     let inner_layout = outer_layout.inner(frame.area());
 

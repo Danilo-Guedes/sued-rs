@@ -253,6 +253,54 @@ mod tests {
         }
     }
 
+    #[test]
+    fn the_title_bar_follows_the_configured_language() {
+        // The bug this exists for: the window title was a hard-coded Portuguese
+        // constant, so an English session read "SueD — O Oráculo" in the border
+        // above an entirely English screen. It shipped in 0.1.0 and 0.1.1.
+        //
+        // ⚠ The language-table tests in `language.rs` are NOT enough on their
+        // own — they prove three different strings exist, not that the border
+        // reads the one belonging to the current config. Only a rendered buffer
+        // closes that gap, which is why this lives here and not there.
+        for language_steps in 0..3 {
+            let mut keys = vec![
+                KeyPress::Enter, // Intro → Menu
+                KeyPress::Down,
+                KeyPress::Down,
+                KeyPress::Down,
+                KeyPress::Enter, // → Config
+                KeyPress::Down,
+                KeyPress::Down,
+                KeyPress::Down, // → idioma
+            ];
+            keys.extend(std::iter::repeat_n(KeyPress::Right, language_steps));
+            keys.push(KeyPress::Esc); // → Menu
+
+            let app = app_after(&keys);
+            let language = app.config().language();
+            let expected = language.translation().common.app_title.trim();
+
+            let backend = TestBackend::new(200, 60);
+            let mut terminal =
+                Terminal::new(backend).expect("TestBackend must build a terminal in-memory");
+            terminal
+                .draw(|frame| render(frame, &app))
+                .expect("the menu must draw at 200x60");
+
+            // The title sits in the TOP BORDER, so it is row 0 — not row 1,
+            // where the first line of the screen's own content begins.
+            let top_row: String = (0..200)
+                .map(|x| terminal.backend().buffer()[(x, 0)].symbol())
+                .collect();
+
+            assert!(
+                top_row.contains(expected),
+                "{language:?} draws the wrong title bar\n  expected: {expected:?}\n  row 0:    {top_row:?}"
+            );
+        }
+    }
+
     // ── Content assertions — one rung above "it didn't panic" ────────────────
     //
     // ⚠ WHY THESE EXIST. The smoke tests above catch a branch that CRASHES.

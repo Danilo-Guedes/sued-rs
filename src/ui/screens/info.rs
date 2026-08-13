@@ -45,7 +45,7 @@ pub(super) fn render(frame: &mut Frame, config: Configuration) {
 
     let translation = language.translation();
 
-    let layout = create_screen_block(frame, palette);
+    let layout = create_screen_block(frame, palette, translation);
 
     let [nav_layout, center_layout, status_layout] = Layout::vertical([
         Constraint::Length(4), // nav strip

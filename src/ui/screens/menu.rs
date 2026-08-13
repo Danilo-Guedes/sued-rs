@@ -25,7 +25,7 @@ pub(super) fn render(frame: &mut Frame, app: &App) {
 
     let translation = language.translation();
 
-    let layout = create_screen_block(frame, palette);
+    let layout = create_screen_block(frame, palette, translation);
 
     let [center_layout, status_layout] = Layout::vertical([
         Constraint::Fill(1),   // center: menu | aviso
